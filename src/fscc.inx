@@ -1,0 +1,115 @@
+;
+; FSCC.inf
+;
+
+[Version]
+Signature="$WINDOWS NT$"
+Class=MultiportSerial
+;Class=FSCC
+ClassGuid={50906cb8-ba12-11d1-bf5d-0000f805f530}
+;ClassGuid={0b99e9a4-1460-4856-9c13-72fca9fa92a4}
+Provider=%ManufacturerName%
+CatalogFile=fscc.cat
+DriverVer=
+
+[DestinationDirs]
+DefaultDestDir = 12
+
+; ================= Class section =====================
+
+[SourceDisksNames]
+1 = %DiskName%,,,""
+
+[SourceDisksFiles]
+FSCC.sys  = 1,,
+
+[ClassInstall32]
+Addreg=FSCC
+
+[FSCC]
+HKR,,,,%ClassName%
+HKR,,Icon,,"-10"
+
+;*****************************************
+; Install Section
+;*****************************************
+
+[Manufacturer]
+%ManufacturerName%=Standard,NT$ARCH$
+
+[Standard.NT$ARCH$]
+%FSCC.DeviceDesc%=FSCC_Device, PCI\VEN_18F7&DEV_000F
+%SuperFSCC.DeviceDesc%=FSCC_Device, PCI\VEN_18F7&DEV_0014
+%FSCC232.DeviceDesc%=FSCC_Device, PCI\VEN_18F7&DEV_0016
+%SuperFSCC.DeviceDesc%=FSCC_Device, PCI\VEN_18F7&DEV_0017
+%SuperFSCC4.DeviceDesc%=FSCC_Device, PCI\VEN_18F7&DEV_0018
+%SuperFSCC.DeviceDesc%=FSCC_Device, PCI\VEN_18F7&DEV_0019
+%SuperFSCCLVDS.DeviceDesc%=FSCC_Device, PCI\VEN_18F7&DEV_001A
+%FSCC4.DeviceDesc%=FSCC_Device, PCI\VEN_18F7&DEV_001B
+%SuperFSCC4LVDS.DeviceDesc%=FSCC_Device, PCI\VEN_18F7&DEV_001C
+%FSCC.DeviceDesc%=FSCC_Device, PCI\VEN_18F7&DEV_001D
+%SuperFSCC4PCIe.DeviceDesc%=FSCC_Device, PCI\VEN_18F7&DEV_001E
+
+[FSCC_Device.NT]
+CopyFiles=Drivers_Dir
+
+[Drivers_Dir]
+fscc.sys
+
+;-------------- Service installation
+[FSCC_Device.NT.Services]
+AddService = FSCC,%SPSVCINST_ASSOCSERVICE%, FSCC_Service_Inst
+
+; -------------- FSCC driver install sections
+[FSCC_Service_Inst]
+DisplayName    = %FSCC.SVCDESC%
+ServiceType    = 1               ; SERVICE_KERNEL_DRIVER
+StarTtype      = 3               ; SERVICE_DEMAND_START
+ErrorControl   = 1               ; SERVICE_ERROR_NORMAL
+ServiceBinary  = %12%\fscc.sys
+LoadOrderGroup = Multiple Port
+
+[FSCC_Device.NT.HW]
+; Add the device upper filter
+AddReg = FSCC_Device.HW.AddReg
+
+;
+;--- FSCC_Device Coinstaller installation ------
+;
+
+[DestinationDirs]
+FSCC_Device_CoInstaller_CopyFiles = 11
+
+[FSCC_Device.NT.CoInstallers]
+AddReg=FSCC_Device_CoInstaller_AddReg
+CopyFiles=FSCC_Device_CoInstaller_CopyFiles
+
+[FSCC_Device_CoInstaller_AddReg]
+HKR,,CoInstallers32,0x00010000, "WdfCoInstaller$KMDFCOINSTALLERVERSION$.dll,WdfCoInstaller"
+
+[FSCC_Device_CoInstaller_CopyFiles]
+WdfCoInstaller$KMDFCOINSTALLERVERSION$.dll
+
+[SourceDisksFiles]
+WdfCoInstaller$KMDFCOINSTALLERVERSION$.dll=1 ; make sure the number matches with SourceDisksNames
+
+[FSCC_Device.NT.Wdf]
+KmdfService =  FSCC, FSCC_wdfsect
+[FSCC_wdfsect]
+KmdfLibraryVersion = $KMDFVERSION$
+
+[Strings]
+SPSVCINST_ASSOCSERVICE= 0x00000002
+ManufacturerName="Commtech, Inc."
+DiskName = "FSCC Installation Disk"
+FSCC.SVCDESC = "FSCC Service"
+ClassName = "Ports (FSCC)"
+
+FSCC.DeviceDesc = "Commtech FSCC Controller"
+FSCC4.DeviceDesc = "Commtech FSCC/4 Controller"
+FSCC232.DeviceDesc = "Commtech FSCC-232 Controller"
+SuperFSCC.DeviceDesc = "Commtech SuperFSCC Controller"
+SuperFSCCLVDS.DeviceDesc = "Commtech SuperFSCC-LVDS Controller"
+SuperFSCC4.DeviceDesc = "Commtech SuperFSCC/4 Controller"
+SuperFSCC4LVDS.DeviceDesc = "Commtech SuperFSCC/4-LVDS Controller"
+SuperFSCC4PCIe.DeviceDesc = "Commtech SuperFSCC/4-PCIe Controller"

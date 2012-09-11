@@ -1,0 +1,50 @@
+TARGETNAME=fscc
+TARGETTYPE=DRIVER
+
+
+KMDF_VERSION_MAJOR=1
+
+INF_NAME=fscc
+NTTARGETFILE1=$(OBJ_PATH)\$(O)\$(INF_NAME).inf
+PASS1_BINPLACE=$(NTTARGETFILE1)
+         
+               
+
+TARGETLIBS= $(DDK_LIB_PATH)\ntstrsafe.lib $(DDK_LIB_PATH)\wdmsec.lib
+
+SOURCES=card.c \
+        driver.c \
+        frame.c \
+        isr.c \
+        port.c \
+        stream.c \
+        utils.c
+
+#
+# Comment the below line to disable tracing. All the debug traces
+# will be sent to the kernel-debugger.
+ENABLE_EVENT_TRACING=1
+
+!IFDEF ENABLE_EVENT_TRACING
+
+C_DEFINES = $(C_DEFINES) -DEVENT_TRACING
+
+#
+# Generate WPP tracing code
+# $(SOURCES)   -- run software preprocessor on files listed in SOURCES
+# -km          -- use kernel mode
+# -func        -- define function we'll use for tracing
+#                 This would map all TraceEvents calls to 
+#                 DoTraceMessage.
+#
+RUN_WPP= $(SOURCES)                             \
+         -km                                    \
+         -func:TraceEvents(LEVEL,FLAGS,MSG,...) \
+         -gen:{km-WdfDefault.tpl}*.tmh       
+!ENDIF
+
+
+
+
+TARGET_DESTINATION=wdf
+
