@@ -5,3 +5,7 @@ src\objfre*
 src\buildfre*
 bin\
 lib\c\docs
+*.exp
+*.obj
+*.lib
+*.dll
