@@ -32,18 +32,26 @@ echo Copying DLL Files...
 copy lib\c\cfscc.dll %TOP%\lib\c\ > nul
 copy lib\c\src\*.c %TOP%\lib\c\ > nul
 copy lib\c\src\*.h %TOP%\lib\c\ > nul
+copy lib\c\makefile %TOP%\lib\c\ > nul
 copy "lib\c++\cppfscc.dll" "%TOP%\lib\c++\" > nul
 copy lib\c\cfscc.dll "%TOP%\lib\c++\" > nul
 copy "lib\c++\src\*.cpp" "%TOP%\lib\c++\" > nul
 copy "lib\c++\src\*.hpp" "%TOP%\lib\c++\" > nul
+copy "lib\c++\makefile" "%TOP%\lib\c++\" > nul
 copy lib\net\netfscc.dll %TOP%\lib\net\ > nul
 copy lib\c\cfscc.dll %TOP%\lib\net\ > nul
 copy lib\net\src\*.cs %TOP%\lib\net\ > nul
+copy lib\net\makefile %TOP%\lib\net\ > nul
 
 :copy_sys_files
 echo Copying Driver Files...
 copy tmp\production\i386\* %TOP%\32\ > nul
 copy tmp\production\amd64\* %TOP%\64\ > nul
+
+:copy_setup_files
+echo Copying Setup Files...
+copy redist\production\i386\dpinst.exe %TOP%\32\setup.exe > nul
+copy redist\production\amd64\dpinst.exe %TOP%\64\setup.exe > nul
 
 :copy_docs
 echo Copying Docs...

@@ -1,10 +1,9 @@
 set TOP=tmp\%4\%3
 set NAME=fscc
-set CODE=%~dp0
 
 echo off
 call C:\WinDDK\7600.16385.1\bin\setenv.bat C:\WinDDK\7600.16385.1\ %~1
-cd %CODE%
+cd %~dp0
 
 :building_driver
 echo Building Driver...
@@ -25,9 +24,9 @@ copy src\%2\%3\fscc.sys %TOP%\ > nul
 echo Copying Installation Files...
 copy src\%2\%3\fscc.inf %TOP%\ > nul
 
-:copy_wdf_files
-echo Copying Redistribution Files...
-copy redist\%4\%3\* %TOP%\ > nul
+:copy_coinstaller_files
+echo Copying Coinstaller Files...
+copy redist\%4\%3\WdfCoInstaller* %TOP%\ > nul
 
 :create_catalogs
 echo Creating Driver Catalogs...
