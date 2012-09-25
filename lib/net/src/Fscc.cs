@@ -88,7 +88,7 @@ namespace Fscc
 
     public class Port
     {
-        const string DLL_PATH = @"C:\Users\Laboratory\Documents\Visual Studio 2012\Projects\FSCC\Debug\cfscc.dll";
+        const string DLL_PATH = "cfscc.dll";
 
         IntPtr Handle;
         uint port_num;
