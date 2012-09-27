@@ -928,7 +928,7 @@ VOID fscc_port_read(IN WDFQUEUE Queue, IN WDFREQUEST Request, IN size_t Length)
 	if (!fscc_port_has_incoming_data(port)) {
 		TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE, 
 					"test - no incoming data");
-		//WdfRequestMarkCancelable(Request, EvtRequestCancel);
+		WdfRequestMarkCancelable(Request, EvtRequestCancel);
 		//status = WdfRequestRequeue(Request);
 		//if (!NT_SUCCESS(status)) {
 		//	TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE, 
