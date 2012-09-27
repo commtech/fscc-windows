@@ -619,6 +619,61 @@ int fscc_read(HANDLE h, char *buf, unsigned size, unsigned *bytes_read, OVERLAPP
 	return (result == TRUE) ? ERROR_SUCCESS : GetLastError();
 }
 
+int fscc_read_with_timeout(HANDLE h, char *buf, unsigned size, 
+                             unsigned *bytes_read, unsigned timeout)
+{
+        OVERLAPPED o;
+        //DWORD temp;
+        BOOL result;
+
+        memset(&o, 0, sizeof(o));
+
+        o.hEvent = CreateEvent(NULL, TRUE, FALSE, NULL);
+
+        if (o.hEvent == NULL)
+			return GetLastError();
+        
+        result = ReadFile(h, buf, size, (DWORD*)bytes_read, &o);
+        
+        if (result == FALSE) {
+            DWORD status;
+            int e;
+
+            /* There was an actual error instead of a pending read */
+            if ((e = GetLastError()) != ERROR_IO_PENDING) {
+                CloseHandle(o.hEvent);
+                return e;
+            }
+
+            do {
+                status = WaitForSingleObject(o.hEvent, timeout);
+
+                switch (status) {
+                case WAIT_TIMEOUT:
+                        *bytes_read = 0;
+                        CloseHandle(o.hEvent);
+                        return ERROR_SUCCESS;
+
+                case WAIT_ABANDONED:
+                        CloseHandle(o.hEvent);
+                        return 1; //TODO: READFILE_ABANDONED;
+
+                case WAIT_FAILED:
+                        e = GetLastError();
+                        CloseHandle(o.hEvent);
+                        return e;
+                }
+            } 
+            while (status != WAIT_OBJECT_0);
+
+            GetOverlappedResult(h, &o, (DWORD *)bytes_read, TRUE);
+        }
+
+        CloseHandle(o.hEvent);
+
+        return ERROR_SUCCESS;
+}
+
 /******************************************************************************/
 /*!
 
