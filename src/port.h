@@ -170,7 +170,7 @@ void fscc_port_set_memory_cap(struct fscc_port *port,
                               struct fscc_memory_cap *memory_cap);
 
 void fscc_port_set_clock_bits(struct fscc_port *port,
-                              const unsigned char *clock_data);
+                              unsigned char *clock_data);
 
 NTSTATUS fscc_port_execute_RRES(struct fscc_port *port);
 NTSTATUS fscc_port_execute_TRES(struct fscc_port *port);

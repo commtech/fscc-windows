@@ -484,7 +484,7 @@ struct fscc_port *fscc_port_new(struct fscc_card *card, unsigned channel)
 NTSTATUS fscc_port_prepare_hardware(IN WDFDEVICE Device, IN WDFCMRESLIST ResourcesRaw, IN WDFCMRESLIST ResourcesTranslated)
 {
 	struct fscc_port *port = 0;
-    const unsigned char clock_bits[20] = DEFAULT_CLOCK_BITS;
+    unsigned char clock_bits[20] = DEFAULT_CLOCK_BITS;
 
 	WDF_TIMER_CONFIG  timerConfig;
 	WDF_OBJECT_ATTRIBUTES  timerAttributes;
@@ -763,7 +763,7 @@ VOID fscc_port_ioctl(IN WDFQUEUE Queue, IN WDFREQUEST Request,
 				break;
 			}
 
-			fscc_port_set_clock_bits(port, (const unsigned char *)clock_bits);
+			fscc_port_set_clock_bits(port, clock_bits);
 		}
 
         break;
@@ -1319,6 +1319,19 @@ UCHAR fscc_port_get_PREV(struct fscc_port *port)
 	return (UCHAR)((vstr_value & 0x0000FF00) >> 8);
 }
 
+UINT16 fscc_port_get_PDEV(struct fscc_port *port)
+{
+    UINT32 vstr_value = 0;
+
+    TraceEvents(TRACE_LEVEL_VERBOSE, TRACE_DEVICE, 
+                "%!FUNC! port 0x%p", 
+                port);
+
+    vstr_value = fscc_port_get_register(port, 0, VSTR_OFFSET);
+
+    return (UINT16)((vstr_value & 0xFFFF0000) >> 16);
+}
+
 /* Locks oframe_spinlock. */
 NTSTATUS fscc_port_execute_TRES(struct fscc_port *port)
 {
@@ -1602,7 +1615,7 @@ void fscc_port_set_memory_cap(struct fscc_port *port,
 #define CLK_BASE 0x00000002
 
 void fscc_port_set_clock_bits(struct fscc_port *port,
-                              const unsigned char *clock_data)
+                              unsigned char *clock_data)
 {
     UINT32 orig_fcr_value = 0;
     UINT32 new_fcr_value = 0;
@@ -1619,6 +1632,20 @@ void fscc_port_set_clock_bits(struct fscc_port *port,
                 port, clock_data);
 
     return_if_untrue(port);
+
+
+#ifdef DISABLE_XTAL
+    clock_data[15] &= 0xfb;
+#else
+    /* This enables XTAL on all cards except green FSCC cards with a revision
+       greater than 6. Some old protoype SuperFSCC cards will need to manually
+       disable XTAL as they are not supported in this driver by default. */
+    if (fscc_port_get_PDEV(port) == 0x0f && fscc_port_get_PREV(port) <= 6)
+        clock_data[15] &= 0xfb;
+    else
+        clock_data[15] |= 0x04;
+#endif
+
 
 	data = (UINT32 *)ExAllocatePoolWithTag(NonPagedPool, sizeof(UINT32) * 323, 'stiB');
 
