@@ -18,7 +18,8 @@ SOURCES=card.c \
         isr.c \
         port.c \
         stream.c \
-        utils.c
+        utils.c \
+        fscc.rc
 
 #
 # Comment the below line to disable tracing. All the debug traces
