@@ -6,7 +6,7 @@
 class SystemException : public std::runtime_error
 {
 public:
-        SystemException(unsigned error_code); //TODO throw(?)
+        SystemException(unsigned error_code, const std::string& error_msg = ""); //TODO throw(?)
 
         unsigned error_code(void) const throw();
 
