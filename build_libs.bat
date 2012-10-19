@@ -6,7 +6,7 @@ cd %~dp0
 
 :building_driver
 echo Building DLLs...
-pushd %TOP%\c\ & nmake & nmake DEBUG popd > nul
+pushd %TOP%\c\ & nmake & nmake DEBUG & popd > nul
 pushd "%TOP%\c++\" & nmake & nmake DEBUG & popd > nul
 pushd %TOP%\net\ & nmake & nmake DEBUG & popd > nul
 
