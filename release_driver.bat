@@ -29,17 +29,19 @@ for %%A in (c, c++, net) do mkdir %TOP%\lib\%%A\
 
 :copy_dll_files
 echo Copying DLL Files...
-copy lib\c\cfscc.dll %TOP%\lib\c\ > nul
+copy lib\c\cfscc*.dll %TOP%\lib\c\ > nul
+copy lib\c\cfscc*.lib %TOP%\lib\c\ > nul
 copy lib\c\src\*.c %TOP%\lib\c\ > nul
 copy lib\c\src\*.h %TOP%\lib\c\ > nul
 copy lib\c\makefile %TOP%\lib\c\ > nul
-copy "lib\c++\cppfscc.dll" "%TOP%\lib\c++\" > nul
-copy lib\c\cfscc.dll "%TOP%\lib\c++\" > nul
+copy "lib\c++\cppfscc*.dll" "%TOP%\lib\c++\" > nul
+copy "lib\c++\cppfscc*.lib" "%TOP%\lib\c++\" > nul
+copy lib\c\cfscc*.dll "%TOP%\lib\c++\" > nul
 copy "lib\c++\src\*.cpp" "%TOP%\lib\c++\" > nul
 copy "lib\c++\src\*.hpp" "%TOP%\lib\c++\" > nul
 copy "lib\c++\makefile" "%TOP%\lib\c++\" > nul
-copy lib\net\netfscc.dll %TOP%\lib\net\ > nul
-copy lib\c\cfscc.dll %TOP%\lib\net\ > nul
+copy lib\net\netfscc*.dll %TOP%\lib\net\ > nul
+copy lib\c\cfscc*.dll %TOP%\lib\net\ > nul
 copy lib\net\src\*.cs %TOP%\lib\net\ > nul
 copy lib\net\makefile %TOP%\lib\net\ > nul
 
