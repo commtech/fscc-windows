@@ -13,7 +13,7 @@ $(TARGET).dll:$(SOURCES) $(HEADERS) $(LIBS)
   cl $(SOURCES) /I$(CFC_DIR)\src\ $(LIBS) /EHsc /Fe$@ /LD
 
 $(TARGET)d.dll:$(SOURCES) $(HEADERS) $(LIBSD)
-  cl $(SOURCES) /I$(CFC_DIR)\src\ $(LIBSD) /EHsc /Fe$@ /LDd
+  cl $(SOURCES) /I$(CFC_DIR)\src\ $(LIBSD) /EHsc /Fe$@ /LDd /Zi
   
 $(LIBS):
   pushd $(CFC_DIR) & nmake & popd
