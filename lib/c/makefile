@@ -10,7 +10,7 @@ $(TARGET).dll:$(SOURCES) $(HEADERS)
   cl $(SOURCES) /Fe$@ /LD
 
 $(TARGET)d.dll:$(SOURCES) $(HEADERS)
-  cl $(SOURCES) /Fe$@ /LDd
+  cl $(SOURCES) /Fe$@ /LDd /Zi
   
 clean:
   del cfscc* *.obj
