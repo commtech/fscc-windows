@@ -40,6 +40,9 @@ void Port::init(unsigned port_num, bool overlapped)
 	case ERROR_FILE_NOT_FOUND:
 		throw PortNotFoundException(port_num);
 
+	case ERROR_ACCESS_DENIED:
+		throw InsufficientPermissionsException();
+
 	default:
 		throw SystemException(e);
 	}

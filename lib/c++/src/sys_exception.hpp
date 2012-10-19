@@ -25,4 +25,10 @@ private:
         unsigned _port_num;
 };
 
+class InsufficientPermissionsException : public SystemException
+{
+public:
+        InsufficientPermissionsException(void); //TODO throw(?)
+};
+
 #endif

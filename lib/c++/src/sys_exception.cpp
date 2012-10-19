@@ -38,3 +38,7 @@ unsigned PortNotFoundException::port_num(void) const throw()
 {
 	return _port_num;
 }
+
+InsufficientPermissionsException::InsufficientPermissionsException(void) : SystemException(ERROR_ACCESS_DENIED, "Insufficient permissions")
+{
+}
