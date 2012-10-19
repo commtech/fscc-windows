@@ -29,3 +29,12 @@ unsigned SystemException::error_code(void) const throw()
 {
 	return _error_code;
 }
+
+PortNotFoundException::PortNotFoundException(unsigned port_num) : _port_num(port_num), SystemException(ERROR_FILE_NOT_FOUND, "Port not found")
+{
+}
+
+unsigned PortNotFoundException::port_num(void) const throw()
+{
+	return _port_num;
+}

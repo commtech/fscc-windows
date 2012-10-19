@@ -14,4 +14,15 @@ private:
         unsigned _error_code;
 };
 
+class PortNotFoundException : public SystemException
+{
+public:
+        PortNotFoundException(unsigned port_num); //TODO throw(?)
+
+        unsigned port_num(void) const throw();
+
+private:
+        unsigned _port_num;
+};
+
 #endif
