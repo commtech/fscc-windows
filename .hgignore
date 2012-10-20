@@ -9,3 +9,6 @@ lib\c\docs
 *.obj
 *.lib
 *.dll
+*.bak
+*.ilk
+*.orig
