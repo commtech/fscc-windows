@@ -37,6 +37,9 @@ void Port::init(unsigned port_num, bool overlapped)
 	int e = fscc_connect(port_num, overlapped, &_h);
 
 	switch (e) {
+	case ERROR_SUCCESS:
+		break;
+
 	case ERROR_FILE_NOT_FOUND:
 		throw PortNotFoundException(port_num);
 
