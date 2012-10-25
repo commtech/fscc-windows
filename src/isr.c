@@ -105,6 +105,7 @@ void iframe_worker(WDFDPC Dpc)
     struct fscc_port *port = 0;
     int receive_length = 0; /* Needs to be signed */
     unsigned finished_frame = 0;
+	static int rejected_last_frame = 0;
 
     TraceEvents(TRACE_LEVEL_VERBOSE, TRACE_DEVICE, "%!FUNC! Entry");
 	
@@ -153,11 +154,16 @@ void iframe_worker(WDFDPC Dpc)
 
         /* Make sure we don't go over the user's memory constraint. */
         if (fscc_port_get_input_memory_usage(port, 0) + receive_length > fscc_port_get_input_memory_cap(port)) {
-			TraceEvents(TRACE_LEVEL_WARNING, TRACE_DEVICE, 
+			if (rejected_last_frame == 0)
+				TraceEvents(TRACE_LEVEL_WARNING, TRACE_DEVICE, "Rejecting frames (memory constraint)");
+			
+			TraceEvents(TRACE_LEVEL_INFORMATION, TRACE_DEVICE, 
 				"F#%i rejected (memory constraint)", port->pending_iframe->number);
 
             fscc_frame_delete(port->pending_iframe);
             port->pending_iframe = 0;
+			rejected_last_frame = 1; /* Track that we dropped a frame so we
+                                        don't have to warn the user again. */
 
 			WdfSpinLockRelease(port->iframe_spinlock);
             return;
@@ -209,6 +215,9 @@ void iframe_worker(WDFDPC Dpc)
 
 	if (port->pending_iframe)
 		InsertTailList(&port->iframes, &port->pending_iframe->list);
+	
+    rejected_last_frame = 0; /* Track that we received a frame to reset the
+                            memory constraint warning print message. */
 
 	WdfDpcEnqueue(port->user_read_dpc);
 
@@ -226,6 +235,7 @@ void istream_worker(WDFDPC Dpc)
     unsigned current_memory = 0;
     unsigned memory_cap = 0;
     char *buffer = 0;
+	static int rejected_last_stream = 0;
 
     TraceEvents(TRACE_LEVEL_VERBOSE, TRACE_DEVICE, "%!FUNC! Entry");
 	
@@ -240,8 +250,15 @@ void istream_worker(WDFDPC Dpc)
 
     /* Leave the interrupt handler if we are at our memory cap. */
     if (current_memory == memory_cap) {
-		TraceEvents(TRACE_LEVEL_WARNING, TRACE_DEVICE, 
-			"Stream rejected (memory constraint)");
+		TraceEvents(TRACE_LEVEL_WARNING, TRACE_DEVICE, "Stream rejected (memory constraint)");
+
+		if (rejected_last_stream == 0)
+			TraceEvents(TRACE_LEVEL_WARNING, TRACE_DEVICE, "Rejecting stream (memory constraint)");
+		else
+			TraceEvents(TRACE_LEVEL_WARNING, TRACE_DEVICE, "Stream rejected (memory constraint)");
+
+        rejected_last_stream = 1; /* Track that we dropped stream data so we
+                                don't have to warn the user again. */
 		
 		WdfSpinLockRelease(port->iframe_spinlock);
         return;
@@ -282,6 +299,10 @@ void istream_worker(WDFDPC Dpc)
 	TraceEvents(TRACE_LEVEL_INFORMATION, TRACE_DEVICE, 
 		"Stream <= %i byte%s", receive_length,
             (receive_length == 1) ? "" : "s");
+
+    rejected_last_stream = 0; /* Track that we received stream data to reset
+                                the memory constraint warning print message.
+                            */
 	
 	WdfDpcEnqueue(port->user_read_dpc);
 	
