@@ -183,7 +183,7 @@ struct fscc_port *fscc_port_new(struct fscc_card *card, unsigned channel)
 		return 0;
 	}
 	
-    status = WdfDeviceInitAssignSDDLString(DeviceInit, &SDDL_DEVOBJ_SYS_ALL_ADM_ALL);
+    status = WdfDeviceInitAssignSDDLString(DeviceInit, &SDDL_DEVOBJ_SYS_ALL_ADM_RWX_WORLD_RWX_RES_RWX);
 	if (!NT_SUCCESS(status)) {
 		WdfDeviceInitFree(DeviceInit);
         TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE, 
