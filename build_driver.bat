@@ -24,6 +24,10 @@ copy src\%2\%3\fscc.sys %TOP%\ > nul
 echo Copying Installation Files...
 copy src\%2\%3\fscc.inf %TOP%\ > nul
 
+:copy_pdb_files
+echo Copying Debugging Files...
+copy src\%2\%3\fscc.pdb %TOP%\ > nul
+
 :copy_coinstaller_files
 echo Copying Coinstaller Files...
 copy redist\%4\%3\WdfCoInstaller* %TOP%\ > nul
