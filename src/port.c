@@ -315,6 +315,17 @@ struct fscc_port *fscc_port_new(struct fscc_card *card, unsigned channel)
 			"WdfDeviceConfigureRequestDispatching failed %!STATUS!", status);
 		return 0;
 	}
+	
+
+	WDF_IO_QUEUE_CONFIG_INIT(&queue_config, WdfIoQueueDispatchManual);
+		
+	status = WdfIoQueueCreate(port->device, &queue_config, 
+		                      WDF_NO_OBJECT_ATTRIBUTES, &port->read_queue2);
+	if(!NT_SUCCESS(status)) {
+        TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE, 
+			"WdfIoQueueCreate failed %!STATUS!", status);
+		return 0;
+	}
 
 	//
     // Set some properties for the child device.
@@ -924,20 +935,16 @@ VOID fscc_port_read(IN WDFQUEUE Queue, IN WDFREQUEST Request, IN size_t Length)
 		WdfRequestComplete(Request, STATUS_NOT_SUPPORTED);
 		return;
     }
-
+	
 	if (!fscc_port_has_incoming_data(port)) {
 		TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE, 
 					"test - no incoming data");
-		WdfRequestMarkCancelable(Request, EvtRequestCancel);
-		//status = WdfRequestRequeue(Request);
-		//if (!NT_SUCCESS(status)) {
-		//	TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE, 
-		//				"WdfRequestRequeue failed %!STATUS!", status);
-		//}
-		//WdfRequestComplete(Request, STATUS_PENDING);
+
+		WdfRequestForwardToIoQueue(Request, port->read_queue2);
+
 		return;
 	}
-	
+
 	WdfSpinLockAcquire(port->iframe_spinlock);
 	
 	status = WdfRequestRetrieveOutputBuffer(Request, Length, (PVOID*)&data_buffer, NULL);
@@ -989,8 +996,8 @@ void user_read_worker(WDFDPC Dpc)
                 "%!FUNC! Dpc 0x%p", Dpc);
 	
 	port = WdfObjectGet_FSCC_PORT(WdfDpcGetParentObject(Dpc));
-
-	status = WdfIoQueueRetrieveNextRequest(port->read_queue, &next_request);
+	
+	status = WdfIoQueueRetrieveNextRequest(port->read_queue2, &next_request);
 	if (!NT_SUCCESS(status) && status != STATUS_NO_MORE_ENTRIES) {
 		TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE, 
 					"WdfIoQueueRetrieveNextRequest failed %!STATUS!", status);
@@ -1003,9 +1010,8 @@ void user_read_worker(WDFDPC Dpc)
 
 			WDF_REQUEST_PARAMETERS_INIT(&params);
 			WdfRequestGetParameters(next_request, &params);
-			params.Parameters.Read.Length;
 
-			fscc_port_read(port->read_queue, next_request, params.Parameters.Read.Length);
+			fscc_port_read(port->read_queue2, next_request, params.Parameters.Read.Length);
 		}
 	}
 

@@ -91,6 +91,8 @@ typedef struct fscc_port {
 	WDFQUEUE write_queue;
 	WDFQUEUE read_queue;
 	WDFQUEUE ioctl_queue;
+	
+	WDFQUEUE read_queue2; /* TODO: Change name to be more descriptive. */
 
 	unsigned channel;
 	struct fscc_registers register_storage; /* Only valid on suspend/resume */
