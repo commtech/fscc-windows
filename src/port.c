@@ -2203,10 +2203,6 @@ NTSTATUS fscc_port_registry_get_ulong_pre(struct fscc_card *card, unsigned chann
 		return status;
 	
 	status = registry_get_ulong(port_key, key_str, value);
-	if (!NT_SUCCESS(status)) {
-		TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE, 
-			"WdfRegistryQueryULong failed %!STATUS!", status);
-	}
 	
 	WdfRegistryClose(port_key);
 
@@ -2226,10 +2222,6 @@ NTSTATUS fscc_port_registry_set_ulong_pre(struct fscc_card *card, unsigned chann
 	}
 
 	status = registry_set_ulong(port_key, key_str, value);
-	if (!NT_SUCCESS(status)) {
-		TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE, 
-			"WdfRegistryQueryULong failed %!STATUS!", status);
-	}
 	
 	WdfRegistryClose(port_key);
 
