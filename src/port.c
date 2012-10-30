@@ -35,8 +35,6 @@
 #define NUM_CLOCK_BYTES 20
 #define TIMER_DELAY_MS 250
 
-EVT_WDF_DEVICE_PREPARE_HARDWARE fscc_port_prepare_hardware;
-EVT_WDF_DEVICE_RELEASE_HARDWARE fscc_port_release_hardware;
 EVT_WDF_IO_QUEUE_IO_DEVICE_CONTROL fscc_port_ioctl;
 EVT_WDF_IO_QUEUE_IO_WRITE port_write_handler;
 EVT_WDF_IO_QUEUE_IO_READ fscc_port_read;
@@ -236,11 +234,6 @@ struct fscc_port *fscc_port_new(struct fscc_card *card, unsigned channel)
 	}
 
     WdfPdoInitSetDefaultLocale(DeviceInit, 0x409);
-
-	WDF_PNPPOWER_EVENT_CALLBACKS_INIT(&pnpPowerCallbacks);
-	pnpPowerCallbacks.EvtDevicePrepareHardware = fscc_port_prepare_hardware;
-	pnpPowerCallbacks.EvtDeviceReleaseHardware = fscc_port_release_hardware;
-	WdfDeviceInitSetPnpPowerEventCallbacks(DeviceInit, &pnpPowerCallbacks);
 
 
 	WDF_OBJECT_ATTRIBUTES_INIT_CONTEXT_TYPE(&attributes, FSCC_PORT);
@@ -492,9 +485,8 @@ struct fscc_port *fscc_port_new(struct fscc_card *card, unsigned channel)
 	return port;
 }
 
-NTSTATUS fscc_port_prepare_hardware(IN WDFDEVICE Device, IN WDFCMRESLIST ResourcesRaw, IN WDFCMRESLIST ResourcesTranslated)
+NTSTATUS fscc_port_prepare_hardware(struct fscc_port *port)
 {
-	struct fscc_port *port = 0;
     unsigned char clock_bits[20] = DEFAULT_CLOCK_BITS;
 
 	WDF_TIMER_CONFIG  timerConfig;
@@ -502,10 +494,7 @@ NTSTATUS fscc_port_prepare_hardware(IN WDFDEVICE Device, IN WDFCMRESLIST Resourc
 	NTSTATUS  status;
 
     TraceEvents(TRACE_LEVEL_INFORMATION, TRACE_DEVICE, 
-                "%!FUNC! Device 0x%p, ResourcesRaw 0x%p, ResourcesTranslated 0x%p", 
-                Device, ResourcesRaw, ResourcesTranslated);
-	
-	port = WdfObjectGet_FSCC_PORT(Device);
+                "%!FUNC! port 0x%p", port);
 
     fscc_port_set_append_status(port, DEFAULT_APPEND_STATUS_VALUE);
     fscc_port_set_ignore_timeout(port, DEFAULT_IGNORE_TIMEOUT_VALUE);
@@ -577,15 +566,10 @@ NTSTATUS fscc_port_prepare_hardware(IN WDFDEVICE Device, IN WDFCMRESLIST Resourc
 	return STATUS_SUCCESS;
 }
 
-NTSTATUS fscc_port_release_hardware(IN WDFDEVICE Device, IN WDFCMRESLIST ResourcesTranslated)
+NTSTATUS fscc_port_release_hardware(struct fscc_port *port)
 {
-	struct fscc_port *port = 0;
-
     TraceEvents(TRACE_LEVEL_INFORMATION, TRACE_DEVICE, 
-                "%!FUNC! Device 0x%p, ResourcesTranslated 0x%p", 
-                Device, ResourcesTranslated);
-	
-	port = WdfObjectGet_FSCC_PORT(Device);
+                "%!FUNC! port 0x%p", port);
 
 	WdfTimerStop(port->timer, FALSE);
 

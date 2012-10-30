@@ -146,6 +146,9 @@ NTSTATUS fscc_card_prepare_hardware(IN WDFDEVICE Device, IN WDFCMRESLIST Resourc
 		}		
 	}
 
+	for (i = 0; i < 2; i++)
+		fscc_port_prepare_hardware(card->ports[i]);
+
     TraceEvents(TRACE_LEVEL_VERBOSE, TRACE_DEVICE, "%!FUNC! Exit");
 
 	return STATUS_SUCCESS;
@@ -164,6 +167,9 @@ NTSTATUS fscc_card_release_hardware(WDFDEVICE Device, WDFCMRESLIST ResourcesTran
                 Device, ResourcesTranslated);
 
 	//WdfInterruptDisable(card->interrupt);
+
+	for (i = 0; i < 2; i++)
+		fscc_port_release_hardware(card->ports[i]);
 
 	for (i = 0; i < WdfCmResourceListGetCount(ResourcesTranslated); i++) {		
 		PCM_PARTIAL_RESOURCE_DESCRIPTOR descriptor;

@@ -129,6 +129,8 @@ typedef struct fscc_port {
 WDF_DECLARE_CONTEXT_TYPE(FSCC_PORT);
 
 struct fscc_port *fscc_port_new(struct fscc_card *card, unsigned channel);
+NTSTATUS fscc_port_prepare_hardware(struct fscc_port *port);
+NTSTATUS fscc_port_release_hardware(struct fscc_port *port);
 
 UINT32 fscc_port_get_register(struct fscc_port *port, unsigned bar,
 							  unsigned register_offset);
