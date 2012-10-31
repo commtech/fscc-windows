@@ -548,7 +548,7 @@ int fscc_set_clock_frequency(HANDLE h, unsigned frequency, unsigned ppm)
 	calculate_clock_bits(frequency, ppm, clock_bits);
 
 	result = DeviceIoControl(h, (DWORD)FSCC_SET_CLOCK_BITS, 
-		                     clock_bits, sizeof(*clock_bits), 
+		                     &clock_bits, sizeof(clock_bits), 
 							 NULL, 0, 
 							 &temp, (LPOVERLAPPED)NULL);
 
