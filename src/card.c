@@ -51,7 +51,7 @@ struct fscc_card *fscc_card_new(WDFDRIVER Driver, IN PWDFDEVICE_INIT DeviceInit)
 	
 	WDF_OBJECT_ATTRIBUTES_INIT_CONTEXT_TYPE(&attributes, FSCC_CARD);
 	
-    WdfDeviceInitSetDeviceType(DeviceInit, FILE_DEVICE_BUS_EXTENDER);
+    WdfDeviceInitSetDeviceType(DeviceInit, FILE_DEVICE_SERIAL_PORT);
 	WdfDeviceInitSetPowerPolicyOwnership(DeviceInit, TRUE);
 	
 	WDF_PNPPOWER_EVENT_CALLBACKS_INIT(&pnpPowerCallbacks);
