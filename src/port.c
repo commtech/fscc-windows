@@ -493,7 +493,7 @@ NTSTATUS fscc_port_prepare_hardware(struct fscc_port *port)
 	WDF_OBJECT_ATTRIBUTES  timerAttributes;
 	NTSTATUS  status;
 
-    TraceEvents(TRACE_LEVEL_INFORMATION, TRACE_DEVICE, 
+    TraceEvents(TRACE_LEVEL_VERBOSE, TRACE_DEVICE, 
                 "%!FUNC! port 0x%p", port);
 
     fscc_port_set_append_status(port, DEFAULT_APPEND_STATUS_VALUE);
@@ -568,7 +568,7 @@ NTSTATUS fscc_port_prepare_hardware(struct fscc_port *port)
 
 NTSTATUS fscc_port_release_hardware(struct fscc_port *port)
 {
-    TraceEvents(TRACE_LEVEL_INFORMATION, TRACE_DEVICE, 
+    TraceEvents(TRACE_LEVEL_VERBOSE, TRACE_DEVICE, 
                 "%!FUNC! port 0x%p", port);
 
 	WdfTimerStop(port->timer, FALSE);
@@ -902,7 +902,7 @@ VOID fscc_port_read(IN WDFQUEUE Queue, IN WDFREQUEST Request, IN size_t Length)
 	struct fscc_port *port = 0;
 	size_t read_count = 0;
 
-    TraceEvents(TRACE_LEVEL_INFORMATION, TRACE_DEVICE, 
+    TraceEvents(TRACE_LEVEL_VERBOSE, TRACE_DEVICE, 
                 "%!FUNC! Queue 0x%p, Request 0x%p, Length %Iu", 
                 Queue, Request, Length);
 
@@ -921,11 +921,7 @@ VOID fscc_port_read(IN WDFQUEUE Queue, IN WDFREQUEST Request, IN size_t Length)
     }
 	
 	if (!fscc_port_has_incoming_data(port)) {
-		TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE, 
-					"test - no incoming data");
-
 		WdfRequestForwardToIoQueue(Request, port->read_queue2);
-
 		return;
 	}
 
@@ -953,8 +949,6 @@ VOID fscc_port_read(IN WDFQUEUE Queue, IN WDFREQUEST Request, IN size_t Length)
 		return;
 	}
 
-	TraceEvents(TRACE_LEVEL_INFORMATION, TRACE_DEVICE, "%i, %i", status, read_count);
-
 	WdfRequestCompleteWithInformation(Request, status, read_count);
 	WdfSpinLockRelease(port->iframe_spinlock);
 
@@ -976,7 +970,7 @@ void user_read_worker(WDFDPC Dpc)
 	WDFREQUEST next_request;
 	NTSTATUS status;
 
-    TraceEvents(TRACE_LEVEL_INFORMATION, TRACE_DEVICE, 
+    TraceEvents(TRACE_LEVEL_VERBOSE, TRACE_DEVICE, 
                 "%!FUNC! Dpc 0x%p", Dpc);
 	
 	port = WdfObjectGet_FSCC_PORT(WdfDpcGetParentObject(Dpc));
@@ -987,11 +981,7 @@ void user_read_worker(WDFDPC Dpc)
 					"WdfIoQueueRetrieveNextRequest failed %!STATUS!", status);
 	}
 	else {
-		TraceEvents(TRACE_LEVEL_INFORMATION, TRACE_DEVICE, "a");
-
 		if (status != STATUS_NO_MORE_ENTRIES) {
-			TraceEvents(TRACE_LEVEL_INFORMATION, TRACE_DEVICE, "b");
-
 			WDF_REQUEST_PARAMETERS_INIT(&params);
 			WdfRequestGetParameters(next_request, &params);
 
@@ -1058,7 +1048,7 @@ int fscc_port_write(struct fscc_port *port, const char *data, unsigned length)
     struct fscc_frame *frame = 0;
     char *temp_storage = 0;
 
-    TraceEvents(TRACE_LEVEL_INFORMATION, TRACE_DEVICE, 
+    TraceEvents(TRACE_LEVEL_VERBOSE, TRACE_DEVICE, 
                 "%!FUNC! port 0x%p, data 0x%p, length %d", 
                 port, data, length);
 

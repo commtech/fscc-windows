@@ -45,7 +45,7 @@ struct fscc_card *fscc_card_new(WDFDRIVER Driver, IN PWDFDEVICE_INIT DeviceInit)
 	WDF_INTERRUPT_CONFIG  interruptConfig;
 	WDF_OBJECT_ATTRIBUTES  interruptAttributes;
 
-    TraceEvents(TRACE_LEVEL_INFORMATION, TRACE_DEVICE, 
+    TraceEvents(TRACE_LEVEL_VERBOSE, TRACE_DEVICE, 
                 "%!FUNC! DeviceInit 0x%p", 
 				DeviceInit);
 	
@@ -117,7 +117,7 @@ NTSTATUS fscc_card_prepare_hardware(IN WDFDEVICE Device, IN WDFCMRESLIST Resourc
 	unsigned bar_counter = 0;
 	unsigned i = 0;
 
-    TraceEvents(TRACE_LEVEL_INFORMATION, TRACE_DEVICE, 
+    TraceEvents(TRACE_LEVEL_VERBOSE, TRACE_DEVICE, 
                 "%!FUNC! Device 0x%p, ResourcesRaw 0x%p, ResourcesTranslated 0x%p", 
                 Device, ResourcesRaw, ResourcesTranslated);
 	
@@ -162,7 +162,7 @@ NTSTATUS fscc_card_release_hardware(WDFDEVICE Device, WDFCMRESLIST ResourcesTran
 	
 	card = WdfObjectGet_FSCC_CARD(Device);
 
-    TraceEvents(TRACE_LEVEL_INFORMATION, TRACE_DEVICE, 
+    TraceEvents(TRACE_LEVEL_VERBOSE, TRACE_DEVICE, 
                 "%!FUNC! Device 0x%p, ResourcesTranslated 0x%p", 
                 Device, ResourcesTranslated);
 

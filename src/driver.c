@@ -118,7 +118,7 @@ Return Value:
 
     PAGED_CODE();
 	
-    TraceEvents(TRACE_LEVEL_INFORMATION, TRACE_DRIVER, 
+    TraceEvents(TRACE_LEVEL_VERBOSE, TRACE_DRIVER, 
                 "%!FUNC! Driver 0x%p, DeviceInit 0x%p", 
 				Driver, DeviceInit);
 	
@@ -153,7 +153,7 @@ Return Value:
 
     PAGED_CODE ();
 	
-    TraceEvents(TRACE_LEVEL_INFORMATION, TRACE_DRIVER, 
+    TraceEvents(TRACE_LEVEL_VERBOSE, TRACE_DRIVER, 
                 "%!FUNC! DriverObject 0x%p", 
 				DriverObject);
 	

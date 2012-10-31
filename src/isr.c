@@ -420,9 +420,9 @@ VOID timer_handler(WDFTIMER Timer)
     struct fscc_port *port = 0;
     unsigned streaming = 0;
 
-    TraceEvents(TRACE_LEVEL_VERBOSE, TRACE_DEVICE, 
-                "%!FUNC! Timer 0x%p", 
-                Timer);
+    //TraceEvents(TRACE_LEVEL_VERBOSE, TRACE_DEVICE, 
+    //            "%!FUNC! Timer 0x%p", 
+    //            Timer);
 
 	port = WdfObjectGet_FSCC_PORT(WdfTimerGetParentObject(Timer));
     
@@ -433,5 +433,5 @@ VOID timer_handler(WDFTIMER Timer)
     //else
 	//	WdfDpcEnqueue(port->iframe_dpc);
 	
-    TraceEvents(TRACE_LEVEL_VERBOSE, TRACE_DEVICE, "%!FUNC! Exit");
+    //TraceEvents(TRACE_LEVEL_VERBOSE, TRACE_DEVICE, "%!FUNC! Exit");
 }
