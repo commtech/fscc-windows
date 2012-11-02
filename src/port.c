@@ -37,7 +37,7 @@
 
 EVT_WDF_IO_QUEUE_IO_DEVICE_CONTROL fscc_port_ioctl;
 EVT_WDF_IO_QUEUE_IO_WRITE port_write_handler;
-EVT_WDF_IO_QUEUE_IO_READ fscc_port_read;
+EVT_WDF_IO_QUEUE_IO_READ read_event_handler;
 EVT_WDF_DPC user_read_worker;
 EVT_WDF_REQUEST_CANCEL EvtRequestCancel;
 
@@ -291,7 +291,7 @@ struct fscc_port *fscc_port_new(struct fscc_card *card, unsigned channel)
 	}
 	
 	WDF_IO_QUEUE_CONFIG_INIT(&queue_config, WdfIoQueueDispatchSequential);
-	queue_config.EvtIoRead = fscc_port_read;
+	queue_config.EvtIoRead = read_event_handler;
 		
 	status = WdfIoQueueCreate(port->device, &queue_config, 
 		                      WDF_NO_OBJECT_ATTRIBUTES, &port->read_queue);
@@ -895,8 +895,8 @@ int fscc_port_stream_read(struct fscc_port *port, char *buf, size_t buf_length, 
     return STATUS_SUCCESS;
 }
 
-VOID fscc_port_read(IN WDFQUEUE Queue, IN WDFREQUEST Request, IN size_t Length)
-{
+VOID read_event_handler(IN WDFQUEUE Queue, IN WDFREQUEST Request, IN size_t Length)
+{	
 	NTSTATUS status = STATUS_SUCCESS;
 	PCHAR data_buffer = NULL;
 	struct fscc_port *port = 0;
@@ -920,37 +920,66 @@ VOID fscc_port_read(IN WDFQUEUE Queue, IN WDFREQUEST Request, IN size_t Length)
 		return;
     }
 
-	if (!fscc_port_has_incoming_data(port)) {
-		WdfRequestForwardToIoQueue(Request, port->read_queue2);
-		WdfDpcEnqueue(port->user_read_dpc);
+	WdfRequestForwardToIoQueue(Request, port->read_queue2);
+	WdfDpcEnqueue(port->user_read_dpc);
+}
+
+void user_read_worker(WDFDPC Dpc)
+{
+	struct fscc_port *port = 0;
+	NTSTATUS status = STATUS_SUCCESS;
+	PCHAR data_buffer = NULL;
+	size_t read_count = 0;
+	WDFREQUEST request;
+	unsigned length = 0;
+	WDF_REQUEST_PARAMETERS params;
+
+    TraceEvents(TRACE_LEVEL_INFORMATION, TRACE_DEVICE, "%!FUNC! Dpc 0x%p", Dpc);
+	
+	port = WdfObjectGet_FSCC_PORT(WdfDpcGetParentObject(Dpc));
+
+	if (!fscc_port_has_incoming_data(port))
 		return;
-	}
 
 	WdfSpinLockAcquire(port->iframe_spinlock);
+
+	status = WdfIoQueueRetrieveNextRequest(port->read_queue2, &request);
+	if (!NT_SUCCESS(status) && status != STATUS_NO_MORE_ENTRIES) {
+		TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE, 
+					"WdfIoQueueRetrieveNextRequest failed %!STATUS!", status);
+	}
+	else if (status == STATUS_NO_MORE_ENTRIES) {
+		WdfSpinLockRelease(port->iframe_spinlock);
+		return;
+	}
 	
-	status = WdfRequestRetrieveOutputBuffer(Request, Length, (PVOID*)&data_buffer, NULL);
+	WDF_REQUEST_PARAMETERS_INIT(&params);
+	WdfRequestGetParameters(request, &params);
+	length = params.Parameters.Read.Length;
+	
+	status = WdfRequestRetrieveOutputBuffer(request, length, (PVOID*)&data_buffer, NULL);
 	if (!NT_SUCCESS(status)) {
 		TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE, 
 					"WdfRequestRetrieveOutputBuffer failed %!STATUS!", status);
-		WdfRequestComplete(Request, status);
+		WdfRequestComplete(request, status);
 		WdfSpinLockRelease(port->iframe_spinlock);
 		return;
 	}
 
     if (fscc_port_is_streaming(port))
-        status = fscc_port_stream_read(port, data_buffer, Length, &read_count);
+        status = fscc_port_stream_read(port, data_buffer, length, &read_count);
     else
-        status = fscc_port_frame_read(port, data_buffer, Length, &read_count);
+        status = fscc_port_frame_read(port, data_buffer, length, &read_count);
 
 	if (!NT_SUCCESS(status)) {
 		TraceEvents(TRACE_LEVEL_WARNING, TRACE_DEVICE, 
 					"fscc_port_{frame,stream}_read failed %!STATUS!", status);
-		WdfRequestComplete(Request, status);
+		WdfRequestComplete(request, status);
 		WdfSpinLockRelease(port->iframe_spinlock);
 		return;
 	}
 
-	WdfRequestCompleteWithInformation(Request, status, read_count);
+	WdfRequestCompleteWithInformation(request, status, read_count);
 	WdfSpinLockRelease(port->iframe_spinlock);
 
     TraceEvents(TRACE_LEVEL_VERBOSE, TRACE_DEVICE, "%!FUNC! Exit");
@@ -962,35 +991,6 @@ void EvtRequestCancel (IN WDFREQUEST Request)
                 "%!FUNC! Request 0x%p", Request);
 
 	WdfRequestComplete(Request, STATUS_CANCELLED);
-}
-
-void user_read_worker(WDFDPC Dpc)
-{
-	struct fscc_port *port = 0;
-	WDF_REQUEST_PARAMETERS params;
-	WDFREQUEST next_request;
-	NTSTATUS status;
-
-    TraceEvents(TRACE_LEVEL_VERBOSE, TRACE_DEVICE, 
-                "%!FUNC! Dpc 0x%p", Dpc);
-	
-	port = WdfObjectGet_FSCC_PORT(WdfDpcGetParentObject(Dpc));
-	
-	status = WdfIoQueueRetrieveNextRequest(port->read_queue2, &next_request);
-	if (!NT_SUCCESS(status) && status != STATUS_NO_MORE_ENTRIES) {
-		TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE, 
-					"WdfIoQueueRetrieveNextRequest failed %!STATUS!", status);
-	}
-	else {
-		if (status != STATUS_NO_MORE_ENTRIES) {
-			WDF_REQUEST_PARAMETERS_INIT(&params);
-			WdfRequestGetParameters(next_request, &params);
-
-			fscc_port_read(port->read_queue2, next_request, params.Parameters.Read.Length);
-		}
-	}
-
-    TraceEvents(TRACE_LEVEL_VERBOSE, TRACE_DEVICE, "%!FUNC! Exit");
 }
 
 VOID port_write_handler(IN WDFQUEUE Queue, IN WDFREQUEST Request, IN size_t Length)
@@ -1379,9 +1379,11 @@ NTSTATUS fscc_port_purge_rx(struct fscc_port *port)
 
     /* Locks iframe_spinlock. */
     fscc_port_clear_iframes(port, 1);
-
+	
+	WdfSpinLockAcquire(port->iframe_spinlock);
     fscc_stream_remove_data(port->istream,
                             fscc_stream_get_length(port->istream));
+	WdfSpinLockRelease(port->iframe_spinlock);
 
     TraceEvents(TRACE_LEVEL_VERBOSE, TRACE_DEVICE, "%!FUNC! Exit");
 
