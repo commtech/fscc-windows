@@ -919,9 +919,10 @@ VOID fscc_port_read(IN WDFQUEUE Queue, IN WDFREQUEST Request, IN size_t Length)
 		WdfRequestComplete(Request, STATUS_NOT_SUPPORTED);
 		return;
     }
-	
+
 	if (!fscc_port_has_incoming_data(port)) {
 		WdfRequestForwardToIoQueue(Request, port->read_queue2);
+		WdfDpcEnqueue(port->user_read_dpc);
 		return;
 	}
 
