@@ -18,10 +18,13 @@
 
 */
 
+
 #include "stream.h"
+#include "stream.tmh"
+
 #include "utils.h" /* return_{val_}if_true */
 
-void fscc_stream_update_buffer_size(struct fscc_stream *stream,
+int fscc_stream_update_buffer_size(struct fscc_stream *stream,
                                     unsigned length);
 
 struct fscc_stream *fscc_stream_new(void)
@@ -30,7 +33,10 @@ struct fscc_stream *fscc_stream_new(void)
 	
 	stream = (struct fscc_stream *)ExAllocatePoolWithTag(NonPagedPool, sizeof(*stream), 'ertS');
 
-    return_val_if_untrue(stream, 0);
+    if (stream == NULL) {
+		TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE, "Not enough memory to allocate stream");
+        return 0;
+    }
 
     stream->length = 0;
     stream->data = 0;
@@ -62,31 +68,35 @@ unsigned fscc_stream_is_empty(struct fscc_stream *stream)
     return !fscc_stream_get_length(stream);
 }
 
-void fscc_stream_add_data(struct fscc_stream *stream, const char *data,
+int fscc_stream_add_data(struct fscc_stream *stream, const char *data,
                           unsigned length)
 {
     unsigned old_length = 0;
+	int status = TRUE;
 
-    return_if_untrue(stream);
+    return_val_if_untrue(stream, FALSE);
 
     old_length = stream->length;
 
-    fscc_stream_update_buffer_size(stream, stream->length + length);
-    
+    if (fscc_stream_update_buffer_size(stream, stream->length + length) == FALSE)
+		return FALSE;
+
     memmove(stream->data + old_length, data, length);
+
+	return TRUE;
 }
 
-void fscc_stream_remove_data(struct fscc_stream *stream, unsigned length)
+int fscc_stream_remove_data(struct fscc_stream *stream, unsigned length)
 {
     unsigned new_length = 0;
 
-    return_if_untrue(stream);
+    return_val_if_untrue(stream, FALSE);
 
     new_length = stream->length - length;
 
     memmove(stream->data, stream->data + length, new_length);
 
-    fscc_stream_update_buffer_size(stream, new_length);
+    return fscc_stream_update_buffer_size(stream, new_length);
 }
 
 char *fscc_stream_get_data(struct fscc_stream *stream)
@@ -96,13 +106,13 @@ char *fscc_stream_get_data(struct fscc_stream *stream)
     return stream->data;
 }
 
-void fscc_stream_update_buffer_size(struct fscc_stream *stream,
+int fscc_stream_update_buffer_size(struct fscc_stream *stream,
                                     unsigned length)
 {
     char *new_data = 0;
     //int malloc_flags = 0;
 
-    return_if_untrue(stream);
+    return_val_if_untrue(stream, FALSE);
 
     if (length == 0) {
         if (stream->data) {
@@ -111,14 +121,17 @@ void fscc_stream_update_buffer_size(struct fscc_stream *stream,
         }
 
         stream->length = 0;
-        return;
+        return TRUE;
     }
 
     //malloc_flags |= GFP_ATOMIC;
 	
 	new_data = (char *)ExAllocatePoolWithTag(NonPagedPool, length, 'ataD');
 
-    return_if_untrue(new_data);
+    if (new_data == NULL) {
+		TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE, "Not enough memory to update stream buffer size");
+        return FALSE;
+    }
 
     memset(new_data, 0, length);
 
@@ -131,4 +144,6 @@ void fscc_stream_update_buffer_size(struct fscc_stream *stream,
 
     stream->data = new_data;
     stream->length = length;
+
+	return TRUE;
 }

@@ -236,6 +236,7 @@ void istream_worker(WDFDPC Dpc)
     unsigned memory_cap = 0;
     char *buffer = 0;
 	static int rejected_last_stream = 0;
+	int status;
 
     TraceEvents(TRACE_LEVEL_VERBOSE, TRACE_DEVICE, "%!FUNC! Entry");
 	
@@ -292,7 +293,15 @@ void istream_worker(WDFDPC Dpc)
     fscc_port_get_register_rep(port, 0, FIFO_OFFSET, buffer,
                                receive_length);
 
-    fscc_stream_add_data(port->istream, buffer, receive_length);
+    status = fscc_stream_add_data(port->istream, buffer, receive_length);
+
+	if (status == FALSE) {
+		TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE, 
+			"Error adding stream data");
+		ExFreePoolWithTag(buffer, 'ataD');
+		WdfSpinLockRelease(port->iframe_spinlock);
+		return;
+	}
 	
 	ExFreePoolWithTag(buffer, 'ataD');
 

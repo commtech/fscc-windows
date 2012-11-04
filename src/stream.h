@@ -21,6 +21,11 @@
 #ifndef FSCC_STREAM_H
 #define FSCC_STREAM_H
 
+#include <ntddk.h>
+#include <wdf.h>
+
+#include "trace.h"
+
 struct fscc_stream {
     char *data;
     unsigned length;
@@ -29,11 +34,11 @@ struct fscc_stream {
 struct fscc_stream *fscc_stream_new(void);
 void fscc_stream_delete(struct fscc_stream *stream);
 
-void fscc_stream_add_data(struct fscc_stream *stream, const char *data,
+int fscc_stream_add_data(struct fscc_stream *stream, const char *data,
                           unsigned length);
 char *fscc_stream_get_data(struct fscc_stream *stream);
 unsigned fscc_stream_get_length(struct fscc_stream *stream);
-void fscc_stream_remove_data(struct fscc_stream *stream, unsigned length);
+int fscc_stream_remove_data(struct fscc_stream *stream, unsigned length);
 unsigned fscc_stream_is_empty(struct fscc_stream *stream);
 
 #endif

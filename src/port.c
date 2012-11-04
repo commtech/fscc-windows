@@ -585,9 +585,9 @@ NTSTATUS fscc_port_release_hardware(struct fscc_port *port)
     }
 #endif
 	
-	//WdfSpinLockAcquire(port->iframe_spinlock);
-    //fscc_stream_delete(port->istream);
-	//WdfSpinLockRelease(port->iframe_spinlock);
+	WdfSpinLockAcquire(port->iframe_spinlock);
+    fscc_stream_delete(port->istream);
+	WdfSpinLockRelease(port->iframe_spinlock);
 
     fscc_port_clear_iframes(port, 1);
     fscc_port_clear_oframes(port, 1);
