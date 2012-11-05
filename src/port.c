@@ -2088,14 +2088,20 @@ void fscc_port_reset_timer(struct fscc_port *port)
 */
 unsigned fscc_port_has_incoming_data(struct fscc_port *port)
 {
+	unsigned status = 0;
+
     return_val_if_untrue(port, 0);
+	
+	WdfSpinLockAcquire(port->iframe_spinlock);
 
     if (fscc_port_is_streaming(port))
-        return (fscc_stream_is_empty(port->istream)) ? 0 : 1;
-    else if (fscc_port_has_iframes(port, 1))
-        return 1;
+        status = (fscc_stream_is_empty(port->istream)) ? 0 : 1;
+    else if (fscc_port_has_iframes(port, 0))
+        status = 1;
 
-    return 0;
+	WdfSpinLockRelease(port->iframe_spinlock);
+
+    return status;
 }
 
 //key may be null
