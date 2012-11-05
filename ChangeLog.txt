@@ -1,0 +1,15 @@
+version 2.0.1 (11/05/2012)
+--------------------------------------------------------------------------------
+        * Bug fix that prevented initiating a read before data had arrived
+        * Improve debug prints
+        * Changed each port's priority level to SERIAL_PORT
+        * Miscellaneous BSOD bug fixes
+        * Miscellaneous data loss bug fixes
+        * Change SDDL permissions to not require administrator privileges
+        * Add more explicit exceptions to the C++ library
+        * Fix a C++ library connection bug 
+        * Fix a generic library bug preventing setting the clock frequency
+        
+version 2.0.0 (10/08/2012)
+--------------------------------------------------------------------------------
+This is the initial release of the 2.0 driver series.
