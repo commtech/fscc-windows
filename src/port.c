@@ -90,7 +90,7 @@ struct fscc_port *fscc_port_new(struct fscc_card *card, unsigned channel)
 	unsigned port_number = 0;
 	
 	DECLARE_CONST_UNICODE_STRING(device_id, L"{0b99e9a4-1460-4856-9c13-72fca9fa92a4}\\FSCC\0"); // Shows up as 'Bus relations' in the device manager
-	DECLARE_CONST_UNICODE_STRING(location, L"FSCC Port\0");
+	DECLARE_CONST_UNICODE_STRING(location, L"on FSCC Controller\0");
 	DECLARE_CONST_UNICODE_STRING(compat_id, L"{0b99e9a4-1460-4856-9c13-72fca9fa92a4}\\FSCC\0");
 
     TraceEvents(TRACE_LEVEL_INFORMATION, TRACE_DEVICE, 
