@@ -434,44 +434,6 @@ struct fscc_port *fscc_port_new(struct fscc_card *card, unsigned channel)
 			"WdfDpcCreate failed %!STATUS!", status);
 		return 0;
 	}
-
-
-	
-	/*
-	{
-		WDF_WMI_PROVIDER_CONFIG  providerConfig;
-		WDF_WMI_INSTANCE_CONFIG  instanceConfig;
-		NTSTATUS  status;
-		DECLARE_CONST_UNICODE_STRING(mofRsrcName, L"FSCC");
-
-		status = WdfDeviceAssignMofResourceName(port->device, &mofRsrcName);
-		if (!NT_SUCCESS(status)) {
-			TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE, 
-				"WdfDeviceAssignMofResourceName failed %!STATUS!", status);
-			return 0;
-		}
-
-		WDF_WMI_PROVIDER_CONFIG_INIT(&providerConfig, &GUID_WMI_FSCC);
-		providerConfig.MinInstanceBufferSize = sizeof(GUID_WMI_FSCC);
-
-		WDF_WMI_INSTANCE_CONFIG_INIT_PROVIDER_CONFIG(
-													 &instanceConfig,
-													 &providerConfig
-													 );
-		instanceConfig.Register = TRUE;
-		//instanceConfig.EvtWmiInstanceQueryInstance = EvtWmiDeviceInfoQueryInstance;
-		//instanceConfig.EvtWmiInstanceSetInstance = EvtWmiDeviceInfoSetInstance;
-
-		status = WdfWmiInstanceCreate(port->device, &instanceConfig, WDF_NO_OBJECT_ATTRIBUTES, WDF_NO_HANDLE);
-		if (!NT_SUCCESS(status)) {
-			TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE, 
-				"WdfWmiInstanceCreate failed %!STATUS!", status);
-			return 0;
-		}
-	}
-	*/
-
-
 	
 	/* Update the driver's next available port number if this port was successfully created */
 	status = fscc_driver_registry_set_portnum(card->driver, port_number + 1);
