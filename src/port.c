@@ -328,8 +328,8 @@ struct fscc_port *fscc_port_new(struct fscc_card *card, unsigned channel)
     pnpCaps.Removable         = WdfFalse;
     pnpCaps.NoDisplayInUI     = WdfFalse;
 
-    pnpCaps.Address  = port_number;
-    pnpCaps.UINumber = port_number;
+    pnpCaps.Address  = channel;
+    pnpCaps.UINumber = channel;
 
     WdfDeviceSetPnpCapabilities(port->device, &pnpCaps);
 
