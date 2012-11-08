@@ -19,6 +19,7 @@ SOURCES=card.c \
         port.c \
         stream.c \
         utils.c \
+		com.c \
         fscc.rc
 
 #

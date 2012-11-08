@@ -25,6 +25,7 @@
 #include "utils.h"
 #include "isr.h"
 #include "driver.h"
+#include "com.h"
 
 #include <ntddser.h>
 #include <ntstrsafe.h>
@@ -79,6 +80,13 @@ struct fscc_card *fscc_card_new(WDFDRIVER Driver, IN PWDFDEVICE_INIT DeviceInit)
 	
 	for (i = 0; i < 2; i++) {
 		struct fscc_port *port = 0;
+		
+		status = com_port_init(card, i);
+		if (!NT_SUCCESS(status)) {
+			TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE, 
+				"com_port_init failed %!STATUS!", status);
+			return 0;
+		}
 		
 		port = fscc_port_new(card, i);
 		
