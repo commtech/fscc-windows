@@ -2,7 +2,9 @@ syntax: glob
 
 tmp\
 src\objfre*
+src\serial\objfre*
 src\buildfre*
+src\serial\buildfre*
 bin\
 lib\c\docs
 *.exp
