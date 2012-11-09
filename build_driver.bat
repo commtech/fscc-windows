@@ -11,6 +11,10 @@ pushd src\
 build -cfeg
 popd
 
+pushd src\serial\
+build -cfeg
+popd
+
 :reset_tmp_folder
 echo Removing Old Drivers...
 rmdir /S /Q %TOP%\ 2> nul
@@ -19,10 +23,12 @@ mkdir %TOP%\
 :copy_sys_files
 echo Copying Driver Files...
 copy src\%2\%3\fscc.sys %TOP%\ > nul
+copy src\serial\%2\%3\wdfserial.sys %TOP%\ > nul
 
 :copy_inf_files
 echo Copying Installation Files...
 copy src\%2\%3\fscc.inf %TOP%\ > nul
+copy src\serial\%2\%3\serial.inf %TOP%\ > nul
 
 :copy_pdb_files
 echo Copying Debugging Files...
