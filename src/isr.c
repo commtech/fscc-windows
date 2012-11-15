@@ -106,8 +106,6 @@ void iframe_worker(WDFDPC Dpc)
     int receive_length = 0; /* Needs to be signed */
     unsigned finished_frame = 0;
 	static int rejected_last_frame = 0;
-
-    TraceEvents(TRACE_LEVEL_VERBOSE, TRACE_DEVICE, "%!FUNC! Entry");
 	
 	port = WdfObjectGet_FSCC_PORT(WdfDpcGetParentObject(Dpc));
 
@@ -224,8 +222,6 @@ void iframe_worker(WDFDPC Dpc)
     port->pending_iframe = 0;
 
 	WdfSpinLockRelease(port->iframe_spinlock);
-
-    TraceEvents(TRACE_LEVEL_VERBOSE, TRACE_DEVICE, "%!FUNC! Exit");
 }
 
 void istream_worker(WDFDPC Dpc)
@@ -237,8 +233,6 @@ void istream_worker(WDFDPC Dpc)
     char *buffer = 0;
 	static int rejected_last_stream = 0;
 	int status;
-
-    TraceEvents(TRACE_LEVEL_VERBOSE, TRACE_DEVICE, "%!FUNC! Entry");
 	
 	port = WdfObjectGet_FSCC_PORT(WdfDpcGetParentObject(Dpc));
 
@@ -316,8 +310,6 @@ void istream_worker(WDFDPC Dpc)
 	WdfDpcEnqueue(port->user_read_dpc);
 	
 	WdfSpinLockRelease(port->iframe_spinlock);
-
-    TraceEvents(TRACE_LEVEL_VERBOSE, TRACE_DEVICE, "%!FUNC! Exit");
 }
 
 void oframe_worker(WDFDPC Dpc)
@@ -331,8 +323,6 @@ void oframe_worker(WDFDPC Dpc)
     unsigned size_in_fifo = 0;
 	
 	port = WdfObjectGet_FSCC_PORT(WdfDpcGetParentObject(Dpc));
-	
-    TraceEvents(TRACE_LEVEL_VERBOSE, TRACE_DEVICE, "%!FUNC! Entry");
 
     return_if_untrue(port);
 	
@@ -418,8 +408,6 @@ void oframe_worker(WDFDPC Dpc)
     }
 
     fscc_port_execute_transmit(port);
-	
-    TraceEvents(TRACE_LEVEL_VERBOSE, TRACE_DEVICE, "%!FUNC! Exit");
 
 	WdfSpinLockRelease(port->oframe_spinlock);
 }
@@ -429,10 +417,6 @@ VOID timer_handler(WDFTIMER Timer)
     struct fscc_port *port = 0;
     unsigned streaming = 0;
 
-    //TraceEvents(TRACE_LEVEL_VERBOSE, TRACE_DEVICE, 
-    //            "%!FUNC! Timer 0x%p", 
-    //            Timer);
-
 	port = WdfObjectGet_FSCC_PORT(WdfTimerGetParentObject(Timer));
     
     streaming = fscc_port_is_streaming(port);
@@ -441,6 +425,4 @@ VOID timer_handler(WDFTIMER Timer)
 		WdfDpcEnqueue(port->istream_dpc);
     //else
 	//	WdfDpcEnqueue(port->iframe_dpc);
-	
-    //TraceEvents(TRACE_LEVEL_VERBOSE, TRACE_DEVICE, "%!FUNC! Exit");
 }
