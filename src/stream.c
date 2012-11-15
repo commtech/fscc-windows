@@ -92,6 +92,14 @@ int fscc_stream_remove_data(struct fscc_stream *stream, unsigned length)
 
     return_val_if_untrue(stream, FALSE);
 
+	if (length == 0)
+		return TRUE;
+
+	if (stream->length == 0) {
+		TraceEvents(TRACE_LEVEL_WARNING, TRACE_DEVICE, "Attempting data removal from empty stream");
+		return TRUE;
+	}
+
     new_length = stream->length - length;
 
     memmove(stream->data, stream->data + length, new_length);
