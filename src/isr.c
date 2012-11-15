@@ -89,8 +89,8 @@ BOOLEAN fscc_isr(WDFINTERRUPT Interrupt, ULONG MessageID)
 		}
 
 #ifdef DEBUG
-		tasklet_schedule(&port->print_tasklet);
-		fscc_port_increment_interrupt_counts(port, isr_value);
+		WdfDpcEnqueue(port->print_dpc);
+		//fscc_port_increment_interrupt_counts(port, isr_value);
 #endif
 		//fscc_port_reset_timer(port);
 	}

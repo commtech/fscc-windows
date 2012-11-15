@@ -21,6 +21,8 @@
 #ifndef FSCC_CONFIG_H
 #define FSCC_CONFIG_H
 
+//#define DEBUG
+
 #define DEVICE_NAME "fscc"
 
 #define DEFAULT_INPUT_MEMORY_CAP_VALUE 1000000

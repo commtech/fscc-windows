@@ -434,6 +434,20 @@ struct fscc_port *fscc_port_new(struct fscc_card *card, unsigned channel)
         TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE, 
 			"WdfDpcCreate failed %!STATUS!", status);
 		return 0;
+	}	
+	
+	WDF_DPC_CONFIG_INIT(&dpcConfig, &print_worker);
+	dpcConfig.AutomaticSerialization = TRUE;
+
+	WDF_OBJECT_ATTRIBUTES_INIT(&dpcAttributes);
+	dpcAttributes.ParentObject = port->device;
+	
+	status = WdfDpcCreate(&dpcConfig, &dpcAttributes, &port->print_dpc);
+	if (!NT_SUCCESS(status)) {
+		WdfObjectDelete(port->device);
+        TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE, 
+			"WdfDpcCreate failed %!STATUS!", status);
+		return 0;
 	}
 	
 	/* Update the driver's next available port number if this port was successfully created */
@@ -546,7 +560,7 @@ NTSTATUS fscc_port_release_hardware(struct fscc_port *port)
     fscc_port_clear_oframes(port, 1);
 
 #ifdef DEBUG
-    debug_interrupt_tracker_delete(port->interrupt_tracker);
+    //debug_interrupt_tracker_delete(port->interrupt_tracker);
 #endif
 
 	return STATUS_SUCCESS;
