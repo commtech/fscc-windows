@@ -63,9 +63,6 @@ void print_worker(WDFDPC Dpc)
     if (isr_value & TDU)
 		TraceEvents(TRACE_LEVEL_WARNING, TRACE_DEVICE, "TDU (Transmit Data Underrun Interrupt)");
 
-    if (isr_value & TDU)
-		TraceEvents(TRACE_LEVEL_WARNING, TRACE_DEVICE, "TDU (Transmit Data Underrun Interrupt)");
-
     if (isr_value & ALLS)
 		TraceEvents(TRACE_LEVEL_INFORMATION, TRACE_DEVICE, "ALLS (All Sent Interrupt)");
 
