@@ -651,6 +651,7 @@ int fscc_read_with_timeout(HANDLE h, char *buf, unsigned size,
                 switch (status) {
                 case WAIT_TIMEOUT:
                         *bytes_read = 0;
+                        CancelIoEx(h, &o);
                         CloseHandle(o.hEvent);
                         return ERROR_SUCCESS;
 
