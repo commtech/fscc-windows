@@ -44,10 +44,6 @@ struct fscc_card *fscc_card_new(WDFDRIVER Driver, IN PWDFDEVICE_INIT DeviceInit)
 	
 	WDF_INTERRUPT_CONFIG  interruptConfig;
 	WDF_OBJECT_ATTRIBUTES  interruptAttributes;
-
-    TraceEvents(TRACE_LEVEL_VERBOSE, TRACE_DEVICE, 
-                "%!FUNC! DeviceInit 0x%p", 
-				DeviceInit);
 	
 	WDF_OBJECT_ATTRIBUTES_INIT_CONTEXT_TYPE(&attributes, FSCC_CARD);
 	
@@ -105,9 +101,7 @@ struct fscc_card *fscc_card_new(WDFDRIVER Driver, IN PWDFDEVICE_INIT DeviceInit)
 			"WdfInterruptCreate failed %!STATUS!", status);
 		return 0;
 	}
-	
-    TraceEvents(TRACE_LEVEL_VERBOSE, TRACE_DEVICE, "%!FUNC! Exit");
-	
+
 	return card;
 }
 
@@ -116,10 +110,6 @@ NTSTATUS fscc_card_prepare_hardware(IN WDFDEVICE Device, IN WDFCMRESLIST Resourc
 	struct fscc_card *card = 0;
 	unsigned bar_counter = 0;
 	unsigned i = 0;
-
-    TraceEvents(TRACE_LEVEL_VERBOSE, TRACE_DEVICE, 
-                "%!FUNC! Device 0x%p, ResourcesRaw 0x%p, ResourcesTranslated 0x%p", 
-                Device, ResourcesRaw, ResourcesTranslated);
 	
 	card = WdfObjectGet_FSCC_CARD(Device);
 
@@ -149,8 +139,6 @@ NTSTATUS fscc_card_prepare_hardware(IN WDFDEVICE Device, IN WDFCMRESLIST Resourc
 	for (i = 0; i < 2; i++)
 		fscc_port_prepare_hardware(card->ports[i]);
 
-    TraceEvents(TRACE_LEVEL_VERBOSE, TRACE_DEVICE, "%!FUNC! Exit");
-
 	return STATUS_SUCCESS;
 }
 
@@ -161,10 +149,6 @@ NTSTATUS fscc_card_release_hardware(WDFDEVICE Device, WDFCMRESLIST ResourcesTran
 	struct fscc_card *card = 0;
 	
 	card = WdfObjectGet_FSCC_CARD(Device);
-
-    TraceEvents(TRACE_LEVEL_VERBOSE, TRACE_DEVICE, 
-                "%!FUNC! Device 0x%p, ResourcesTranslated 0x%p", 
-                Device, ResourcesTranslated);
 
 	//WdfInterruptDisable(card->interrupt);
 
@@ -190,8 +174,6 @@ NTSTATUS fscc_card_release_hardware(WDFDEVICE Device, WDFCMRESLIST ResourcesTran
 			break;
 		}
 	}
-
-    TraceEvents(TRACE_LEVEL_VERBOSE, TRACE_DEVICE, "%!FUNC! Exit");
 
 	return STATUS_SUCCESS;
 }
