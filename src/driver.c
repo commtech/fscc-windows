@@ -87,8 +87,6 @@ Return Value:
         WPP_CLEANUP(DriverObject);
         return status;
     }
-	
-    TraceEvents(TRACE_LEVEL_VERBOSE, TRACE_DRIVER, "%!FUNC! Exit");
 
     return status;
 }
@@ -118,16 +116,10 @@ Return Value:
 
     PAGED_CODE();
 	
-    TraceEvents(TRACE_LEVEL_VERBOSE, TRACE_DRIVER, 
-                "%!FUNC! Driver 0x%p, DeviceInit 0x%p", 
-				Driver, DeviceInit);
-	
 	card = fscc_card_new(Driver, DeviceInit);
 
 	if (!card)
 		return STATUS_INTERNAL_ERROR;
-	
-    TraceEvents(TRACE_LEVEL_VERBOSE, TRACE_DRIVER, "%!FUNC! Exit");
 	
 	return STATUS_SUCCESS;
 }
@@ -152,12 +144,6 @@ Return Value:
     UNREFERENCED_PARAMETER(DriverObject);
 
     PAGED_CODE ();
-	
-    TraceEvents(TRACE_LEVEL_VERBOSE, TRACE_DRIVER, 
-                "%!FUNC! DriverObject 0x%p", 
-				DriverObject);
-	
-    TraceEvents(TRACE_LEVEL_VERBOSE, TRACE_DRIVER, "%!FUNC! Exit");
 
     //
     // Stop WPP Tracing
