@@ -28,6 +28,7 @@
 #include "isr.h"
 #include "public.h"
 #include "driver.h"
+#include "debug.h"
 
 #include <ntddser.h>
 #include <ntstrsafe.h>
@@ -441,8 +442,6 @@ struct fscc_port *fscc_port_new(struct fscc_card *card, unsigned channel)
 		TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE, 
 			"fscc_card_set_reg_portnum failed %!STATUS!", status);
 	}
-	
-    TraceEvents(TRACE_LEVEL_VERBOSE, TRACE_DEVICE, "%!FUNC! Exit");
 
 	return port;
 }
@@ -454,9 +453,6 @@ NTSTATUS fscc_port_prepare_hardware(struct fscc_port *port)
 	WDF_TIMER_CONFIG  timerConfig;
 	WDF_OBJECT_ATTRIBUTES  timerAttributes;
 	NTSTATUS  status;
-
-    TraceEvents(TRACE_LEVEL_VERBOSE, TRACE_DEVICE, 
-                "%!FUNC! port 0x%p", port);
 
     fscc_port_set_append_status(port, DEFAULT_APPEND_STATUS_VALUE);
     fscc_port_set_ignore_timeout(port, DEFAULT_IGNORE_TIMEOUT_VALUE);
@@ -523,16 +519,11 @@ NTSTATUS fscc_port_prepare_hardware(struct fscc_port *port)
     TraceEvents(TRACE_LEVEL_INFORMATION, TRACE_DEVICE, "%s (%x.%02x)",
 		        fscc_card_get_name(port->card), fscc_port_get_PREV(port), fscc_port_get_FREV(port));
 
-    TraceEvents(TRACE_LEVEL_VERBOSE, TRACE_DEVICE, "%!FUNC! Exit");
-
 	return STATUS_SUCCESS;
 }
 
 NTSTATUS fscc_port_release_hardware(struct fscc_port *port)
 {
-    TraceEvents(TRACE_LEVEL_VERBOSE, TRACE_DEVICE, 
-                "%!FUNC! port 0x%p", port);
-
 	WdfTimerStop(port->timer, FALSE);
 
 #if 0
@@ -557,8 +548,6 @@ NTSTATUS fscc_port_release_hardware(struct fscc_port *port)
 #ifdef DEBUG
     debug_interrupt_tracker_delete(port->interrupt_tracker);
 #endif
-
-    TraceEvents(TRACE_LEVEL_VERBOSE, TRACE_DEVICE, "%!FUNC! Exit");
 
 	return STATUS_SUCCESS;
 }
@@ -794,8 +783,6 @@ VOID fscc_port_ioctl(IN WDFQUEUE Queue, IN WDFREQUEST Request,
 	}
 
     WdfRequestCompleteWithInformation(Request, status, bytes_returned);
-
-    TraceEvents(TRACE_LEVEL_VERBOSE, TRACE_DEVICE, "%!FUNC! Exit");
 }
 
 /* 
@@ -805,10 +792,6 @@ VOID fscc_port_ioctl(IN WDFQUEUE Queue, IN WDFREQUEST Request,
 int fscc_port_frame_read(struct fscc_port *port, char *buf, size_t buf_length, size_t *out_length)
 {
     struct fscc_frame *frame = 0;
-	
-    TraceEvents(TRACE_LEVEL_VERBOSE, TRACE_DEVICE, 
-                "%!FUNC! port 0x%p, buf 0x%p, buf_length %Iu, out_length 0x%p", 
-                port, buf, buf_length, out_length);
 
     return_val_if_untrue(port, 0);
 
@@ -829,8 +812,6 @@ int fscc_port_frame_read(struct fscc_port *port, char *buf, size_t buf_length, s
 
     fscc_frame_delete(frame);
 
-    TraceEvents(TRACE_LEVEL_VERBOSE, TRACE_DEVICE, "%!FUNC! Exit");
-
     return STATUS_SUCCESS;
 }
 
@@ -840,10 +821,6 @@ int fscc_port_frame_read(struct fscc_port *port, char *buf, size_t buf_length, s
 */ 
 int fscc_port_stream_read(struct fscc_port *port, char *buf, size_t buf_length, size_t *out_length)
 {
-    TraceEvents(TRACE_LEVEL_VERBOSE, TRACE_DEVICE, 
-                "%!FUNC! port 0x%p, buf 0x%p, buf_length %Iu, out_length 0x%p", 
-                port, buf, buf_length, out_length);
-
     return_val_if_untrue(port, 0);
 
     *out_length = min(buf_length, (size_t)fscc_stream_get_length(port->istream));
@@ -851,8 +828,6 @@ int fscc_port_stream_read(struct fscc_port *port, char *buf, size_t buf_length, 
 	memcpy(buf, fscc_stream_get_data(port->istream), *out_length);
 
     fscc_stream_remove_data(port->istream, (unsigned)(*out_length));
-
-    TraceEvents(TRACE_LEVEL_VERBOSE, TRACE_DEVICE, "%!FUNC! Exit");
 
     return STATUS_SUCCESS;
 }
@@ -863,10 +838,6 @@ VOID read_event_handler(IN WDFQUEUE Queue, IN WDFREQUEST Request, IN size_t Leng
 	PCHAR data_buffer = NULL;
 	struct fscc_port *port = 0;
 	size_t read_count = 0;
-
-    TraceEvents(TRACE_LEVEL_VERBOSE, TRACE_DEVICE, 
-                "%!FUNC! Queue 0x%p, Request 0x%p, Length %Iu", 
-                Queue, Request, Length);
 
 	port = WdfObjectGet_FSCC_PORT(WdfIoQueueGetDevice(Queue));
 	
@@ -943,8 +914,6 @@ void user_read_worker(WDFDPC Dpc)
 
 	WdfRequestCompleteWithInformation(request, status, read_count);
 	WdfSpinLockRelease(port->iframe_spinlock);
-
-    TraceEvents(TRACE_LEVEL_VERBOSE, TRACE_DEVICE, "%!FUNC! Exit");
 }
 
 void EvtRequestCancel (IN WDFREQUEST Request)
@@ -960,10 +929,6 @@ VOID port_write_handler(IN WDFQUEUE Queue, IN WDFREQUEST Request, IN size_t Leng
 	NTSTATUS status;
 	char *data_buffer = NULL;
 	struct fscc_port *port = 0;
-
-    TraceEvents(TRACE_LEVEL_VERBOSE, TRACE_DEVICE, 
-                "%!FUNC! Queue 0x%p, Request 0x%p, Length %Iu", 
-                Queue, Request, Length);
 	
 	port = WdfObjectGet_FSCC_PORT(WdfIoQueueGetDevice(Queue));
 
@@ -1001,8 +966,6 @@ VOID port_write_handler(IN WDFQUEUE Queue, IN WDFREQUEST Request, IN size_t Leng
 	}
 	
 	WdfRequestCompleteWithInformation(Request, STATUS_SUCCESS, Length);
-
-    TraceEvents(TRACE_LEVEL_VERBOSE, TRACE_DEVICE, "%!FUNC! Exit");
 }
 
 /* Create the data structures the work horse functions use to send data. */
@@ -1010,10 +973,6 @@ int fscc_port_write(struct fscc_port *port, const char *data, unsigned length)
 {
     struct fscc_frame *frame = 0;
     char *temp_storage = 0;
-
-    TraceEvents(TRACE_LEVEL_VERBOSE, TRACE_DEVICE, 
-                "%!FUNC! port 0x%p, data 0x%p, length %d", 
-                port, data, length);
 
     return_val_if_untrue(port, 0);
 
@@ -1046,8 +1005,6 @@ int fscc_port_write(struct fscc_port *port, const char *data, unsigned length)
 
 	WdfDpcEnqueue(port->oframe_dpc);
 
-    TraceEvents(TRACE_LEVEL_VERBOSE, TRACE_DEVICE, "%!FUNC! Exit");
-
     return 0;
 }
 
@@ -1057,14 +1014,8 @@ UINT32 fscc_port_get_register(struct fscc_port *port, unsigned bar,
 	unsigned offset = 0;
 	UINT32 value = 0;
 
-    TraceEvents(TRACE_LEVEL_VERBOSE, TRACE_DEVICE, 
-                "%!FUNC! port 0x%p, bar %d, register_offset %d", 
-                port, bar, register_offset);
-
 	offset = port_offset(port, bar, register_offset);
 	value = fscc_card_get_register(port->card, bar, offset);
-
-    TraceEvents(TRACE_LEVEL_VERBOSE, TRACE_DEVICE, "%!FUNC! Exit");
 
 	return value;
 }
@@ -1075,10 +1026,6 @@ unsigned fscc_port_timed_out(struct fscc_port *port)
     UINT32 star_value = 0;
     unsigned i = 0;
 
-    TraceEvents(TRACE_LEVEL_VERBOSE, TRACE_DEVICE, 
-                "%!FUNC! port 0x%p", 
-                port);
-
     return_val_if_untrue(port, 0);
 
     for (i = 0; i < 5; i++) {
@@ -1088,8 +1035,6 @@ unsigned fscc_port_timed_out(struct fscc_port *port)
             return 0;
     }
 
-    TraceEvents(TRACE_LEVEL_VERBOSE, TRACE_DEVICE, "%!FUNC! Exit");
-
     return 1;
 }
 
@@ -1097,10 +1042,6 @@ NTSTATUS fscc_port_set_register(struct fscc_port *port, unsigned bar,
 						   unsigned register_offset, UINT32 value)
 {
 	unsigned offset = 0;
-
-    TraceEvents(TRACE_LEVEL_VERBOSE, TRACE_DEVICE, 
-                "%!FUNC! port 0x%p, bar %d, register_offset %d, value %d", 
-                port, bar, register_offset, value);
 
 	offset = port_offset(port, bar, register_offset);
 
@@ -1117,8 +1058,6 @@ NTSTATUS fscc_port_set_register(struct fscc_port *port, unsigned bar,
 	else if (register_offset == FCR_OFFSET)
 		port->register_storage.FCR = value;
 
-    TraceEvents(TRACE_LEVEL_VERBOSE, TRACE_DEVICE, "%!FUNC! Exit");
-
 	return STATUS_SUCCESS;
 }
 
@@ -1132,10 +1071,6 @@ void fscc_port_get_register_rep(struct fscc_port *port, unsigned bar,
 {
     unsigned offset = 0;
 
-    TraceEvents(TRACE_LEVEL_VERBOSE, TRACE_DEVICE, 
-                "%!FUNC! port 0x%p, bar %d, register_offset %d, buf 0x%p, byte_count %d", 
-                port, bar, register_offset, buf, byte_count);
-
     return_if_untrue(port);
     return_if_untrue(bar <= 2);
     return_if_untrue(buf);
@@ -1144,8 +1079,6 @@ void fscc_port_get_register_rep(struct fscc_port *port, unsigned bar,
     offset = port_offset(port, bar, register_offset);
 
     fscc_card_get_register_rep(port->card, bar, offset, buf, byte_count);
-
-    TraceEvents(TRACE_LEVEL_VERBOSE, TRACE_DEVICE, "%!FUNC! Exit");
 }
 
 /* 
@@ -1158,18 +1091,12 @@ void fscc_port_set_register_rep(struct fscc_port *port, unsigned bar,
 {
     unsigned offset = 0;
 
-    TraceEvents(TRACE_LEVEL_VERBOSE, TRACE_DEVICE, 
-                "%!FUNC! port 0x%p, bar %d, register_offset %d, data 0x%p, byte_count %d", 
-                port, bar, register_offset, data, byte_count);
-
     return_if_untrue(port);
     return_if_untrue(bar <= 2);
     return_if_untrue(data);
     return_if_untrue(byte_count > 0);
 
     offset = port_offset(port, bar, register_offset);
-
-    TraceEvents(TRACE_LEVEL_VERBOSE, TRACE_DEVICE, "%!FUNC! Exit");
 
     fscc_card_set_register_rep(port->card, bar, offset, data, byte_count);
 }
@@ -1179,10 +1106,6 @@ NTSTATUS fscc_port_set_registers(struct fscc_port *port,
 {
 	unsigned stalled = 0;
 	unsigned i = 0;
-
-    TraceEvents(TRACE_LEVEL_VERBOSE, TRACE_DEVICE, 
-                "%!FUNC! port 0x%p, regs 0x%p", 
-                port, regs);
 
 	for (i = 0; i < sizeof(*regs) / sizeof(fscc_register); i++) {
 		unsigned register_offset = i * 4;
@@ -1202,8 +1125,6 @@ NTSTATUS fscc_port_set_registers(struct fscc_port *port,
 		}
 	}
 
-    TraceEvents(TRACE_LEVEL_VERBOSE, TRACE_DEVICE, "%!FUNC! Exit");
-
 	return (stalled) ? STATUS_IO_TIMEOUT : STATUS_SUCCESS;
 }
 
@@ -1211,10 +1132,6 @@ void fscc_port_get_registers(struct fscc_port *port,
 							 struct fscc_registers *regs)
 {
 	unsigned i = 0;
-
-    TraceEvents(TRACE_LEVEL_VERBOSE, TRACE_DEVICE, 
-                "%!FUNC! port 0x%p, regs 0x%p", 
-                port, regs);
 	
 	for (i = 0; i < sizeof(*regs) / sizeof(fscc_register); i++) {		
 		if (((fscc_register *)regs)[i] != FSCC_UPDATE_VALUE)
@@ -1228,21 +1145,13 @@ void fscc_port_get_registers(struct fscc_port *port,
 																FCR_OFFSET);
 		}
 	}
-
-    TraceEvents(TRACE_LEVEL_VERBOSE, TRACE_DEVICE, "%!FUNC! Exit");
 }
 
 UCHAR fscc_port_get_FREV(struct fscc_port *port)
 {
 	UINT32 vstr_value = 0;
 
-    TraceEvents(TRACE_LEVEL_VERBOSE, TRACE_DEVICE, 
-                "%!FUNC! port 0x%p", 
-                port);
-
 	vstr_value = fscc_port_get_register(port, 0, VSTR_OFFSET);
-
-    TraceEvents(TRACE_LEVEL_VERBOSE, TRACE_DEVICE, "%!FUNC! Exit");
 
 	return (UCHAR)((vstr_value & 0x000000FF));
 }
@@ -1251,13 +1160,7 @@ UCHAR fscc_port_get_PREV(struct fscc_port *port)
 {
 	UINT32 vstr_value = 0;
 
-    TraceEvents(TRACE_LEVEL_VERBOSE, TRACE_DEVICE, 
-                "%!FUNC! port 0x%p", 
-                port);
-
 	vstr_value = fscc_port_get_register(port, 0, VSTR_OFFSET);
-
-    TraceEvents(TRACE_LEVEL_VERBOSE, TRACE_DEVICE, "%!FUNC! Exit");
 
 	return (UCHAR)((vstr_value & 0x0000FF00) >> 8);
 }
@@ -1265,10 +1168,6 @@ UCHAR fscc_port_get_PREV(struct fscc_port *port)
 UINT16 fscc_port_get_PDEV(struct fscc_port *port)
 {
     UINT32 vstr_value = 0;
-
-    TraceEvents(TRACE_LEVEL_VERBOSE, TRACE_DEVICE, 
-                "%!FUNC! port 0x%p", 
-                port);
 
     vstr_value = fscc_port_get_register(port, 0, VSTR_OFFSET);
 
@@ -1280,10 +1179,6 @@ NTSTATUS fscc_port_execute_TRES(struct fscc_port *port)
 {
     int status;
 
-    TraceEvents(TRACE_LEVEL_VERBOSE, TRACE_DEVICE, 
-                "%!FUNC! port 0x%p", 
-                port);
-
     return_val_if_untrue(port, 0);
 
 	WdfSpinLockAcquire(port->oframe_spinlock);
@@ -1291,8 +1186,6 @@ NTSTATUS fscc_port_execute_TRES(struct fscc_port *port)
     status = fscc_port_set_register(port, 0, CMDR_OFFSET, 0x08000000);
 	
 	WdfSpinLockRelease(port->oframe_spinlock);
-
-    TraceEvents(TRACE_LEVEL_VERBOSE, TRACE_DEVICE, "%!FUNC! Exit");
 
     return status;
 }
@@ -1302,10 +1195,6 @@ NTSTATUS fscc_port_execute_RRES(struct fscc_port *port)
 {
     NTSTATUS status;
 
-    TraceEvents(TRACE_LEVEL_VERBOSE, TRACE_DEVICE, 
-                "%!FUNC! port 0x%p", 
-                port);
-
     return_val_if_untrue(port, 0);
 
 	WdfSpinLockAcquire(port->iframe_spinlock);
@@ -1313,8 +1202,6 @@ NTSTATUS fscc_port_execute_RRES(struct fscc_port *port)
     status = fscc_port_set_register(port, 0, CMDR_OFFSET, 0x00020000);
 	
 	WdfSpinLockRelease(port->iframe_spinlock);
-
-    TraceEvents(TRACE_LEVEL_VERBOSE, TRACE_DEVICE, "%!FUNC! Exit");
 
     return status;
 }
@@ -1324,10 +1211,6 @@ NTSTATUS fscc_port_purge_rx(struct fscc_port *port)
 
 {
 	NTSTATUS status;
-
-    TraceEvents(TRACE_LEVEL_INFORMATION, TRACE_DEVICE, 
-                "%!FUNC! port 0x%p", 
-                port);
 
     return_val_if_untrue(port, 0);
 
@@ -1347,8 +1230,6 @@ NTSTATUS fscc_port_purge_rx(struct fscc_port *port)
                             fscc_stream_get_length(port->istream));
 	WdfSpinLockRelease(port->iframe_spinlock);
 
-    TraceEvents(TRACE_LEVEL_VERBOSE, TRACE_DEVICE, "%!FUNC! Exit");
-
     return STATUS_SUCCESS;
 }
 
@@ -1356,10 +1237,6 @@ NTSTATUS fscc_port_purge_rx(struct fscc_port *port)
 NTSTATUS fscc_port_purge_tx(struct fscc_port *port)
 {
     int error_code = 0;
-
-    TraceEvents(TRACE_LEVEL_INFORMATION, TRACE_DEVICE, 
-                "%!FUNC! port 0x%p", 
-                port);
 
     return_val_if_untrue(port, 0);
 
@@ -1373,33 +1250,19 @@ NTSTATUS fscc_port_purge_tx(struct fscc_port *port)
 	//TODO
     //wake_up_interruptible(&port->output_queue);
 
-    TraceEvents(TRACE_LEVEL_VERBOSE, TRACE_DEVICE, "%!FUNC! Exit");
-
     return STATUS_SUCCESS;
 }
 
 void fscc_port_set_append_status(struct fscc_port *port, unsigned value)
 {
-    TraceEvents(TRACE_LEVEL_VERBOSE, TRACE_DEVICE, 
-                "%!FUNC! port 0x%p, value %d", 
-                port, value);
-
     return_if_untrue(port);
-
-    TraceEvents(TRACE_LEVEL_VERBOSE, TRACE_DEVICE, "%!FUNC! Exit");
 
     port->append_status = (value) ? 1 : 0;
 }
 
 unsigned fscc_port_get_append_status(struct fscc_port *port)
 {
-    TraceEvents(TRACE_LEVEL_VERBOSE, TRACE_DEVICE, 
-                "%!FUNC! port 0x%p", 
-                port);
-
     return_val_if_untrue(port, 0);
-
-    TraceEvents(TRACE_LEVEL_VERBOSE, TRACE_DEVICE, "%!FUNC! Exit");
 
     return port->append_status;
 }
@@ -1407,26 +1270,14 @@ unsigned fscc_port_get_append_status(struct fscc_port *port)
 void fscc_port_set_ignore_timeout(struct fscc_port *port,
                                   unsigned ignore_timeout)
 {
-    TraceEvents(TRACE_LEVEL_VERBOSE, TRACE_DEVICE, 
-                "%!FUNC! port 0x%p, ignore_timeout %d", 
-                port, ignore_timeout);
-
     return_if_untrue(port);
-
-    TraceEvents(TRACE_LEVEL_VERBOSE, TRACE_DEVICE, "%!FUNC! Exit");
 
     port->ignore_timeout = (ignore_timeout) ? 1 : 0;
 }
 
 unsigned fscc_port_get_ignore_timeout(struct fscc_port *port)
 {
-    TraceEvents(TRACE_LEVEL_VERBOSE, TRACE_DEVICE, 
-                "%!FUNC! port 0x%p", 
-                port);
-
     return_val_if_untrue(port, 0);
-
-    TraceEvents(TRACE_LEVEL_VERBOSE, TRACE_DEVICE, "%!FUNC! Exit");
 
     return port->ignore_timeout;
 }
@@ -1434,10 +1285,6 @@ unsigned fscc_port_get_ignore_timeout(struct fscc_port *port)
 /* Returns -EINVAL if you set an incorrect transmit modifier */
 NTSTATUS fscc_port_set_tx_modifiers(struct fscc_port *port, int value)
 {
-    TraceEvents(TRACE_LEVEL_VERBOSE, TRACE_DEVICE, 
-                "%!FUNC! port 0x%p, value %d", 
-                port, value);
-
     return_val_if_untrue(port, 0);
 
     switch (value) {
@@ -1468,46 +1315,26 @@ NTSTATUS fscc_port_set_tx_modifiers(struct fscc_port *port, int value)
             return STATUS_INVALID_PARAMETER;
     }
 
-    TraceEvents(TRACE_LEVEL_VERBOSE, TRACE_DEVICE, "%!FUNC! Exit");
-
     return STATUS_SUCCESS;
 }
 
 unsigned fscc_port_get_tx_modifiers(struct fscc_port *port)
 {
-    TraceEvents(TRACE_LEVEL_VERBOSE, TRACE_DEVICE, 
-                "%!FUNC! port 0x%p", 
-                port);
-
     return_val_if_untrue(port, 0);
-
-    TraceEvents(TRACE_LEVEL_VERBOSE, TRACE_DEVICE, "%!FUNC! Exit");
 
     return port->tx_modifiers;
 }
 
 unsigned fscc_port_get_input_memory_cap(struct fscc_port *port)
 {
-    TraceEvents(TRACE_LEVEL_VERBOSE, TRACE_DEVICE, 
-                "%!FUNC! port 0x%p", 
-                port);
-
     return_val_if_untrue(port, 0);
-
-    TraceEvents(TRACE_LEVEL_VERBOSE, TRACE_DEVICE, "%!FUNC! Exit");
 
     return port->memory_cap.input;
 }
 
 unsigned fscc_port_get_output_memory_cap(struct fscc_port *port)
 {
-    TraceEvents(TRACE_LEVEL_VERBOSE, TRACE_DEVICE, 
-                "%!FUNC! port 0x%p", 
-                port);
-
     return_val_if_untrue(port, 0);
-
-    TraceEvents(TRACE_LEVEL_VERBOSE, TRACE_DEVICE, "%!FUNC! Exit");
 
     return port->memory_cap.output;
 }
@@ -1515,10 +1342,6 @@ unsigned fscc_port_get_output_memory_cap(struct fscc_port *port)
 void fscc_port_set_memory_cap(struct fscc_port *port,
                               struct fscc_memory_cap *value)
 {
-    TraceEvents(TRACE_LEVEL_VERBOSE, TRACE_DEVICE, 
-                "%!FUNC! port 0x%p, value 0x%p", 
-                port, value);
-
     return_if_untrue(port);
     return_if_untrue(value);
 
@@ -1551,8 +1374,6 @@ void fscc_port_set_memory_cap(struct fscc_port *port,
         
         port->memory_cap.output = value->output;
     }
-
-    TraceEvents(TRACE_LEVEL_VERBOSE, TRACE_DEVICE, "%!FUNC! Exit");
 }
 
 #define STRB_BASE 0x00000008
@@ -1635,17 +1456,11 @@ void fscc_port_set_clock_bits(struct fscc_port *port,
     fscc_port_set_register_rep(port, 2, FCR_OFFSET, (char *)data, data_index * 4);
 	
     ExFreePoolWithTag (data, 'stiB');
-
-    TraceEvents(TRACE_LEVEL_VERBOSE, TRACE_DEVICE, "%!FUNC! Exit");
 }
 
 void clear_frames(struct fscc_frame **pending_frame,
                   LIST_ENTRY *frame_list, WDFSPINLOCK *spinlock)
 {
-    TraceEvents(TRACE_LEVEL_VERBOSE, TRACE_DEVICE, 
-                "%!FUNC! pending_frame 0x%p, frame_list 0x%p, spinlock 0x%p", 
-                pending_frame, frame_list, spinlock);
-
     if (spinlock)
 		WdfSpinLockAcquire(*spinlock);
 	
@@ -1658,17 +1473,11 @@ void clear_frames(struct fscc_frame **pending_frame,
 
     if (spinlock)
 		WdfSpinLockRelease(*spinlock);
-
-    TraceEvents(TRACE_LEVEL_VERBOSE, TRACE_DEVICE, "%!FUNC! Exit");
 }
 
 void fscc_port_clear_iframes(struct fscc_port *port, unsigned lock)
 {
     WDFSPINLOCK *spinlock = 0;
-
-    TraceEvents(TRACE_LEVEL_VERBOSE, TRACE_DEVICE, 
-                "%!FUNC! port 0x%p, lock %d", 
-                port, lock);
 
     return_if_untrue(port);
 
@@ -1676,17 +1485,11 @@ void fscc_port_clear_iframes(struct fscc_port *port, unsigned lock)
 
     clear_frames(&port->pending_iframe, &port->iframes,
                  spinlock);
-
-    TraceEvents(TRACE_LEVEL_VERBOSE, TRACE_DEVICE, "%!FUNC! Exit");
 }
 
 void fscc_port_clear_oframes(struct fscc_port *port, unsigned lock)
 {
     WDFSPINLOCK *spinlock = 0;
-
-    TraceEvents(TRACE_LEVEL_VERBOSE, TRACE_DEVICE, 
-                "%!FUNC! port 0x%p, lock %d", 
-                port, lock);
 
     return_if_untrue(port);
 
@@ -1694,16 +1497,10 @@ void fscc_port_clear_oframes(struct fscc_port *port, unsigned lock)
 
     clear_frames(&port->pending_oframe, &port->oframes,
                  spinlock);
-
-    TraceEvents(TRACE_LEVEL_VERBOSE, TRACE_DEVICE, "%!FUNC! Exit");
 }
 
 void empty_frame_list(LIST_ENTRY *frames)
 {
-    TraceEvents(TRACE_LEVEL_VERBOSE, TRACE_DEVICE, 
-                "%!FUNC! frames 0x%p", 
-                frames);
-
     return_if_untrue(frames);
 	
 	while (!IsListEmpty(frames)) {	
@@ -1715,16 +1512,10 @@ void empty_frame_list(LIST_ENTRY *frames)
 
 		fscc_frame_delete(frame);
 	}
-
-    TraceEvents(TRACE_LEVEL_VERBOSE, TRACE_DEVICE, "%!FUNC! Exit");
 }
 
 unsigned fscc_port_using_async(struct fscc_port *port)
 {
-    TraceEvents(TRACE_LEVEL_VERBOSE, TRACE_DEVICE, 
-                "%!FUNC! port 0x%p", 
-                port);
-
     return_val_if_untrue(port, 0);
 
     switch (port->channel) {
@@ -1735,8 +1526,6 @@ unsigned fscc_port_using_async(struct fscc_port *port)
         return port->register_storage.FCR & 0x02000000;
     }
 
-    TraceEvents(TRACE_LEVEL_VERBOSE, TRACE_DEVICE, "%!FUNC! Exit");
-
     return 0;
 }
 
@@ -1746,10 +1535,6 @@ unsigned calculate_memory_usage(struct fscc_frame *pending_frame,
 {
 	LIST_ENTRY *frame_iter = 0;
     unsigned memory = 0;
-
-    TraceEvents(TRACE_LEVEL_VERBOSE, TRACE_DEVICE, 
-                "%!FUNC! pending_frame 0x%p, frame_list 0x%p, spinlock 0x%p", 
-                pending_frame, frame_list, spinlock);
 
     return_val_if_untrue(frame_list, 0);
 
@@ -1772,8 +1557,6 @@ unsigned calculate_memory_usage(struct fscc_frame *pending_frame,
     if (spinlock)
 		WdfSpinLockRelease(*spinlock);
 
-    TraceEvents(TRACE_LEVEL_VERBOSE, TRACE_DEVICE, "%!FUNC! Exit");
-
     return memory;
 }
 
@@ -1783,17 +1566,11 @@ unsigned fscc_port_get_output_memory_usage(struct fscc_port *port,
     WDFSPINLOCK *spinlock = 0;
 	unsigned value = 0;
 
-    TraceEvents(TRACE_LEVEL_VERBOSE, TRACE_DEVICE, 
-                "%!FUNC! port 0x%p, lock %d", 
-                port, lock);
-
     return_val_if_untrue(port, 0);
 
     spinlock = (lock) ? &port->oframe_spinlock : 0;
 	value = calculate_memory_usage(port->pending_oframe, &port->oframes,
                                    spinlock);
-
-    TraceEvents(TRACE_LEVEL_VERBOSE, TRACE_DEVICE, "%!FUNC! exit");
 
     return value;
 }
@@ -1804,10 +1581,6 @@ unsigned fscc_port_get_input_memory_usage(struct fscc_port *port,
     WDFSPINLOCK *spinlock = 0;
     unsigned memory = 0;
 
-    TraceEvents(TRACE_LEVEL_VERBOSE, TRACE_DEVICE, 
-                "%!FUNC! port 0x%p, lock %d", 
-                port, lock);
-
     return_val_if_untrue(port, 0);
 
     spinlock = (lock) ? &port->iframe_spinlock : 0;
@@ -1817,8 +1590,6 @@ unsigned fscc_port_get_input_memory_usage(struct fscc_port *port,
 
     memory += fscc_stream_get_length(port->istream);
 
-    TraceEvents(TRACE_LEVEL_VERBOSE, TRACE_DEVICE, "%!FUNC! Exit");
-
     return memory;
 }
 
@@ -1826,18 +1597,12 @@ unsigned fscc_port_get_input_memory_usage(struct fscc_port *port,
 struct fscc_frame *fscc_port_peek_front_frame(struct fscc_port *port,
                                               LIST_ENTRY *frames)
 {
-    TraceEvents(TRACE_LEVEL_VERBOSE, TRACE_DEVICE, 
-                "%!FUNC! port 0x%p, frames 0x%p", 
-                port, frames);
-
     return_val_if_untrue(port, 0);
     return_val_if_untrue(frames, 0);
 
 
 	if (IsListEmpty(frames))
 		return 0;
-
-    TraceEvents(TRACE_LEVEL_VERBOSE, TRACE_DEVICE, "%!FUNC! Exit");
 	
 	return CONTAINING_RECORD(frames->Flink, FSCC_FRAME, list);
 }
@@ -1850,10 +1615,6 @@ unsigned fscc_port_is_streaming(struct fscc_port *port)
     unsigned xsync_mode = 0;
     unsigned rlc_mode = 0;
     unsigned fsc_mode = 0;
-
-    TraceEvents(TRACE_LEVEL_VERBOSE, TRACE_DEVICE, 
-                "%!FUNC! port 0x%p", 
-                port);
     
     return_val_if_untrue(port, 0);
 
@@ -1861,8 +1622,6 @@ unsigned fscc_port_is_streaming(struct fscc_port *port)
     xsync_mode = ((port->register_storage.CCR0 & 0x3) == 0x1) ? 1 : 0;
     rlc_mode = (port->register_storage.CCR2 & 0xffff0000) ? 1 : 0;
     fsc_mode = (port->register_storage.CCR0 & 0x700) ? 1 : 0;
-
-    TraceEvents(TRACE_LEVEL_VERBOSE, TRACE_DEVICE, "%!FUNC! Exit");
     
     return ((transparent_mode || xsync_mode) && !(rlc_mode || fsc_mode)) ? 1 : 0;
 }
@@ -1870,10 +1629,6 @@ unsigned fscc_port_is_streaming(struct fscc_port *port)
 BOOLEAN has_frames(LIST_ENTRY *frames, WDFSPINLOCK *spinlock)
 {
     BOOLEAN empty = 0;
-
-    TraceEvents(TRACE_LEVEL_VERBOSE, TRACE_DEVICE, 
-                "%!FUNC! frames 0x%p, spinlock 0x%p", 
-                frames, spinlock);
 
     return_val_if_untrue(frames, 0);
 
@@ -1887,8 +1642,6 @@ BOOLEAN has_frames(LIST_ENTRY *frames, WDFSPINLOCK *spinlock)
     if (spinlock)
 		WdfSpinLockRelease(*spinlock);
 
-    TraceEvents(TRACE_LEVEL_VERBOSE, TRACE_DEVICE, "%!FUNC! Exit");
-
     return !empty;
 }
 
@@ -1896,16 +1649,9 @@ BOOLEAN fscc_port_has_iframes(struct fscc_port *port, unsigned lock)
 {
     WDFSPINLOCK *spinlock = 0;
 
-    TraceEvents(TRACE_LEVEL_VERBOSE, TRACE_DEVICE, 
-                "%!FUNC! port 0x%pk %d lock", 
-                port, lock);
-
     return_val_if_untrue(port, 0);
 
-
     spinlock = (lock) ? &port->iframe_spinlock : 0;
-
-    TraceEvents(TRACE_LEVEL_VERBOSE, TRACE_DEVICE, "%!FUNC! Exit");
 
     return has_frames(&port->iframes, spinlock);
 }
@@ -1914,15 +1660,9 @@ BOOLEAN fscc_port_has_oframes(struct fscc_port *port, unsigned lock)
 {
     WDFSPINLOCK *spinlock = 0;
 
-    TraceEvents(TRACE_LEVEL_VERBOSE, TRACE_DEVICE, 
-                "%!FUNC! port 0x%p, lock %d", 
-                port, lock);
-
     return_val_if_untrue(port, 0);
 
     spinlock = (lock) ? &port->oframe_spinlock : 0;
-
-    TraceEvents(TRACE_LEVEL_VERBOSE, TRACE_DEVICE, "%!FUNC! Exit");
 
     return has_frames(&port->oframes, spinlock);
 }
@@ -1930,15 +1670,9 @@ BOOLEAN fscc_port_has_oframes(struct fscc_port *port, unsigned lock)
 unsigned fscc_port_has_dma(struct fscc_port *port)
 {
     return_val_if_untrue(port, 0);
-
-    TraceEvents(TRACE_LEVEL_VERBOSE, TRACE_DEVICE, 
-                "%!FUNC! port 0x%p", 
-                port);
     
     //if (force_fifo)
-       //return 0;
-
-    TraceEvents(TRACE_LEVEL_VERBOSE, TRACE_DEVICE, "%!FUNC! Exit");
+    //   return 0;
         
     return port->card->dma;
 }
@@ -1947,15 +1681,9 @@ UINT32 fscc_port_get_TXCNT(struct fscc_port *port)
 {
     UINT32 fifo_bc_value = 0;
 
-    TraceEvents(TRACE_LEVEL_VERBOSE, TRACE_DEVICE, 
-                "%!FUNC! port 0x%p", 
-                port);
-
     return_val_if_untrue(port, 0);
 
     fifo_bc_value = fscc_port_get_register(port, 0, FIFO_BC_OFFSET);
-
-    TraceEvents(TRACE_LEVEL_VERBOSE, TRACE_DEVICE, "%!FUNC! Exit");
 
     return (fifo_bc_value & 0x1FFF0000) >> 16;
 }
@@ -1965,10 +1693,6 @@ void fscc_port_execute_transmit(struct fscc_port *port)
     unsigned command_register = 0;
     unsigned command_value = 0;
     unsigned command_bar = 0;
-
-    TraceEvents(TRACE_LEVEL_VERBOSE, TRACE_DEVICE, 
-                "%!FUNC! port 0x%p", 
-                port);
 
     return_if_untrue(port);
 
@@ -2002,23 +1726,15 @@ void fscc_port_execute_transmit(struct fscc_port *port)
     }
 
     fscc_port_set_register(port, command_bar, command_register, command_value);
-
-    TraceEvents(TRACE_LEVEL_VERBOSE, TRACE_DEVICE, "%!FUNC! Exit");
 }
 
 unsigned fscc_port_get_RFCNT(struct fscc_port *port)
 {
     UINT32 fifo_fc_value = 0;
 
-    TraceEvents(TRACE_LEVEL_VERBOSE, TRACE_DEVICE, 
-                "%!FUNC! port 0x%p", 
-                port);
-
     return_val_if_untrue(port, 0);
 
     fifo_fc_value = fscc_port_get_register(port, 0, FIFO_FC_OFFSET);
-
-    TraceEvents(TRACE_LEVEL_VERBOSE, TRACE_DEVICE, "%!FUNC! Exit");
 
     return (unsigned)(fifo_fc_value & 0x00000eff);
 }
@@ -2027,15 +1743,9 @@ UINT32 fscc_port_get_RXCNT(struct fscc_port *port)
 {
     UINT32 fifo_bc_value = 0;
 
-    TraceEvents(TRACE_LEVEL_VERBOSE, TRACE_DEVICE, 
-                "%!FUNC! port 0x%p", 
-                port);
-
     return_val_if_untrue(port, 0);
 
     fifo_bc_value = fscc_port_get_register(port, 0, FIFO_BC_OFFSET);
-
-    TraceEvents(TRACE_LEVEL_VERBOSE, TRACE_DEVICE, "%!FUNC! Exit");
 
     return fifo_bc_value & 0x00003FFF;
 }
