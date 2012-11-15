@@ -230,9 +230,9 @@ void istream_worker(WDFDPC Dpc)
     int receive_length = 0; /* Needs to be signed */
     unsigned current_memory = 0;
     unsigned memory_cap = 0;
-    char *buffer = 0;
 	static int rejected_last_stream = 0;
 	int status;
+	char buffer[8192];
 	
 	port = WdfObjectGet_FSCC_PORT(WdfDpcGetParentObject(Dpc));
 
@@ -272,8 +272,6 @@ void istream_worker(WDFDPC Dpc)
        of it. */
     if (receive_length + current_memory > memory_cap)
         receive_length = memory_cap - current_memory;
-	
-	buffer = (char *)ExAllocatePoolWithTag(NonPagedPool, receive_length, 'ataD');
 
     /* Make sure the kernel gives us enough memory to receive the data. */
     if (buffer == NULL) {
@@ -292,12 +290,9 @@ void istream_worker(WDFDPC Dpc)
 	if (status == FALSE) {
 		TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE, 
 			"Error adding stream data");
-		ExFreePoolWithTag(buffer, 'ataD');
 		WdfSpinLockRelease(port->iframe_spinlock);
 		return;
 	}
-	
-	ExFreePoolWithTag(buffer, 'ataD');
 
 	TraceEvents(TRACE_LEVEL_INFORMATION, TRACE_DEVICE, 
 		"Stream <= %i byte%s", receive_length,
