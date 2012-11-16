@@ -139,7 +139,7 @@ void iframe_worker(WDFDPC Dpc)
     }
 
     if (receive_length > 0) {
-        char *buffer = 0;
+		char buffer[8192];
 
         if (!port->pending_iframe) {
             port->pending_iframe = fscc_frame_new(0, fscc_port_has_dma(port), port);
@@ -167,24 +167,8 @@ void iframe_worker(WDFDPC Dpc)
             return;
         }
 
-		buffer = (char *)ExAllocatePoolWithTag(NonPagedPool, receive_length, 'ataD');
-
-        /* Make sure the kernel gives us enough memory to receive the data. */
-        if (buffer == NULL) {
-			TraceEvents(TRACE_LEVEL_WARNING, TRACE_DEVICE, 
-				"F#%i rejected (kmalloc of %i bytes)", port->pending_iframe->number, receive_length);
-
-            fscc_frame_delete(port->pending_iframe);
-            port->pending_iframe = 0;
-
-			WdfSpinLockRelease(port->iframe_spinlock);
-            return;
-        }
-
         fscc_port_get_register_rep(port, 0, FIFO_OFFSET, buffer, receive_length);
         fscc_frame_add_data(port->pending_iframe, buffer, receive_length);
-		
-		ExFreePoolWithTag(buffer, 'ataD');
 
 #ifdef __BIG_ENDIAN
         {
@@ -277,15 +261,6 @@ void istream_worker(WDFDPC Dpc)
        of it. */
     if (receive_length + current_memory > memory_cap)
         receive_length = memory_cap - current_memory;
-
-    /* Make sure the kernel gives us enough memory to receive the data. */
-    if (buffer == NULL) {
-		TraceEvents(TRACE_LEVEL_WARNING, TRACE_DEVICE, 
-			"Stream receive rejected (kmalloc of %i bytes)", receive_length);
-		
-		WdfSpinLockRelease(port->iframe_spinlock);
-        return;
-    }
 
     fscc_port_get_register_rep(port, 0, FIFO_OFFSET, buffer,
                                receive_length);
