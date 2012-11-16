@@ -1,3 +1,14 @@
+version 2.0.2 (11/16/2012)
+--------------------------------------------------------------------------------
+        * Improve port location naming in the Device Manager
+        * Fix a bug in fscc_read_with_timeout where a frame wasn't cancelled 
+          upon timeout
+        * Fix a bug where X-Sync mode wasn't considered stream data if there
+          wasn't any framing
+        * Improved debug prints
+        * IRQ and memory optimizations
+        * Fix a data loss bug in transparent mode
+
 version 2.0.1 (11/05/2012)
 --------------------------------------------------------------------------------
         * Bug fix that prevented initiating a read before data had arrived

@@ -60,6 +60,10 @@ echo Copying Docs...
 xcopy lib\c\docs %TOP%\lib\c\docs /e /i > nul
 xcopy lib\c\examples %TOP%\lib\c\examples /e /i > nul
 
+:copy_changelog
+echo Copying Changelog...
+copy ChangeLog.txt %TOP% > nul
+
 :zip_packages
 echo Zipping drivers...
 cd %TOP%\ > nul
