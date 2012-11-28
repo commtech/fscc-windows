@@ -874,7 +874,7 @@ Return Value:
     UNREFERENCED_PARAMETER(Interrupt);
 
     reqContext = SerialGetRequestContext(Extension->CurrentWriteRequest);
-	KdPrint(("A"));
+
     //
     // Check if the write length is non-zero.  If it is non-zero
     // then the ISR still owns the request. We calculate the the number
@@ -884,7 +884,6 @@ Return Value:
     //
 
     if (Extension->WriteLength) {
-		KdPrint(("B"));
 
         //
         // We could have an xoff counter masquerading as a

@@ -537,7 +537,6 @@ Return Value:
 
     interruptConfig.EvtInterruptDisable = SerialEvtInterruptDisable;
     interruptConfig.EvtInterruptEnable = SerialEvtInterruptEnable;
-	//interruptConfig.ShareVector = WdfTrue;
 
     WDF_OBJECT_ATTRIBUTES_INIT_CONTEXT_TYPE(&attributes, SERIAL_INTERRUPT_CONTEXT);
 
@@ -798,24 +797,24 @@ Return Value:
 
     if (!SerialGetRegistryKeyValue (Device,
                                     L"NineBitMode",
-                                    &pConfig->nine_bit)) {
-		pConfig->nine_bit = 0;
+                                    &pConfig->NineBit)) {
+		pConfig->NineBit = 0;
 	}
 
     if (!SerialGetRegistryKeyValue (Device,
-                                    L"TXTRIGGER",
+                                    L"TxTrigger",
                                     &pConfig->TxTrigger)) {
 		pConfig->TxTrigger = 16;
 	}
 
     if (!SerialGetRegistryKeyValue (Device,
-                                    L"RXTRIGGER",
+                                    L"RxTrigger",
                                     &pConfig->RxTrigger)) {
 		pConfig->RxTrigger = 64;
 	}
 
     if (!SerialGetRegistryKeyValue (Device,
-                                    L"AUTO485",
+                                    L"Auto485",
                                     &pConfig->Auto485)) {
 		pConfig->Auto485 = 0;
 	}
@@ -830,14 +829,14 @@ Return Value:
 		pConfig->ConfigReg |= 0x1;
 
     SerialGetRegistryKeyValue (Device,
-                               L"ENABLE485",
+                               L"Enable485",
                                &temp);
 
 	if (temp == 1)
 		pConfig->ConfigReg |= 0x2;
 
     SerialGetRegistryKeyValue (Device,
-                               L"RXECHOCANCEL",
+                               L"RxEchoCancel",
                                &temp);
 
 	if (temp == 1)
@@ -852,21 +851,21 @@ Return Value:
 
 
     if (!SerialGetRegistryKeyValue (Device,
-                                    L"CLOCK4X",
+                                    L"Clock4X",
                                     &pConfig->Clock4X)) {
 		pConfig->Clock4X = 0;
 	}
 
     if (!SerialGetRegistryKeyValue (Device,
-                                    L"ISOSYNC",
+                                    L"Isosync",
                                     &pConfig->Isosync)) {
 		pConfig->Isosync = 0;
 	}
 
     if (!SerialGetRegistryKeyValue (Device,
-                                    L"CLK1XDTR",
-                                    &pConfig->clk1xdtr)) {
-		pConfig->clk1xdtr = 0;
+                                    L"Clk1XDTR",
+                                    &pConfig->Clk1xDTR)) {
+		pConfig->Clk1xDTR = 0;
 	}
 
     if (!SerialGetRegistryKeyValue (Device,
@@ -877,16 +876,16 @@ Return Value:
 
     if (!SerialGetRegistryKeyValue (Device,
                                     L"HardwareRTSCTS",
-                                    &pConfig->hardwarertscts)) {
-		pConfig->hardwarertscts = 0;
+                                    &pConfig->HardwareRTSCTS)) {
+		pConfig->HardwareRTSCTS = 0;
 	}
 
     SerialGetRegistryKeyValue (Device,
-                               L"PORTTYPE",
+                               L"PortType",
                                &pConfig->PortType);
 
     SerialGetRegistryKeyValue (Device,
-                               L"REVID",
+                               L"RevID",
                                &pConfig->RevID);
 
     if (!SerialGetRegistryKeyValue (Device,
@@ -899,7 +898,6 @@ Return Value:
 
     if (NT_SUCCESS(status)) {
     }
-
 End:
 
    SerialDbgPrintEx (TRACE_LEVEL_INFORMATION, DBG_PNP, "<-- SerialEvtPrepareHardware 0x%x\n", status);
@@ -1266,7 +1264,7 @@ Return Value:
                              (BOOLEAN)PConfigData->AddressSpace,
                              &pDevExt->UnMapRegisters);
 
-	SerialDbgPrintEx(TRACE_LEVEL_INFORMATION, DBG_PNP, "Controller =  0x%x\n", pDevExt->Controller);
+
     if (!pDevExt->Controller) {
 
       SerialLogError(
@@ -1764,8 +1762,6 @@ Return Value:
     // and any memory associated with it.
     //
 
-
-
 ExtensionCleanup: ;
 
     SerialDbgPrintEx(TRACE_LEVEL_INFORMATION, DBG_PNP, "<-- SerialInitController %x\n", status);
@@ -1825,7 +1821,7 @@ Return Value:
 
    PAGED_CODE();
 
-   SerialDbgPrintEx(TRACE_LEVEL_INFORMATION, DBG_PNP, "--> SerialMapHWResources");
+   SerialDbgPrintEx(TRACE_LEVEL_INFORMATION, DBG_PNP, "--> SerialMapHWResources\n");
    
    //
    // Get the DeviceExtension..
@@ -1943,19 +1939,7 @@ Return Value:
 
     }       // for (i = 0;     i < WdfCollectionGetCount
 
-#if 0
-   SerialDbgPrintEx(TRACE_LEVEL_ERROR, DBG_PNP, "%i %i %i\n", WdfCmResourceListGetCount(PTrResList), gotIO, gotInt);
-   status = STATUS_INSUFFICIENT_RESOURCES;
-   goto End;
-   if(!((gotMem  || gotIO) && gotInt) )
-   {
-        status = STATUS_INSUFFICIENT_RESOURCES;
-        goto End;
-   }
-#endif
-
     gotIO = 1;
-	//WILL: Modified from TrController to TrController.LowPart
     PConfig->TrController.LowPart  = PtrToUlong(pDevExt->pdx.amccbase);
 
     if (!PConfig->TrController.LowPart) {
@@ -1967,33 +1951,25 @@ Return Value:
     //
     // We need the raw address to check if the debugger is using the com port
     //
-	//WILL: Modified from Controller to Controller.LowPart
     PConfig->Controller.LowPart  = PtrToUlong(pDevExt->pdx.amccbase);
     PConfig->AddressSpace  = pDevExt->pdx.flags;
     pDevExt->SerialReadUChar = SerialReadPortUChar;
     pDevExt->SerialWriteUChar = SerialWritePortUChar;
 
-
-
-
-
-
-
-
-   
-//DbgPrint("InterfaceType:%x\n",pdx->InterfaceType);
-//DbgPrint("BusNumber:%d\n",pdx->BusNumber);
-//DbgPrint("controller:%x\n",pdx->portbase);
-//DbgPrint("irq:%d\n",pdx->irql);
-		//PConfig->pboardlock = pDevExt->pdx.pboardlock;
-		//PConfig->InterfaceType  = pDevExt->pdx.InterfaceType;
-		//PConfig->BusNumber      = pDevExt->pdx.BusNumber;
-		//PConfig->PortType       = pDevExt->pdx.devid;
-		//PConfig->ClockRate = 1843200;
-		//PConfig->RevID = ver;
-		//PConfig->InterruptStatus = SerialPhysicalZero;
-		//PConfig->SpanOfInterruptStatus = SERIAL_STATUS_LENGTH;
-		//gotIO = 1;
+#if 0
+	//DbgPrint("InterfaceType:%x\n",pdx->InterfaceType);
+	//DbgPrint("BusNumber:%d\n",pdx->BusNumber);
+	//DbgPrint("controller:%x\n",pdx->portbase);
+	//DbgPrint("irq:%d\n",pdx->irql);
+	//PConfig->pboardlock = pDevExt->pdx.pboardlock;
+	//PConfig->InterfaceType  = pDevExt->pdx.InterfaceType;
+	//PConfig->BusNumber      = pDevExt->pdx.BusNumber;
+	//PConfig->PortType       = pDevExt->pdx.devid;
+	//PConfig->ClockRate = 1843200;
+	//PConfig->RevID = ver;
+	//PConfig->InterruptStatus = SerialPhysicalZero;
+	//PConfig->SpanOfInterruptStatus = SERIAL_STATUS_LENGTH;
+	//gotIO = 1;
 //#ifdef AMD64
 	//PConfig->Controller.QuadPart = (LONGLONG)pdx->portbase;
 //#else
@@ -2021,12 +1997,7 @@ Return Value:
 	//PConfig->TrVector = pdx->vector;
 	//PConfig->TrIrql = pdx->irql;
 	//PConfig->Affinity = pdx->affin;
-
-
-
-
-
-
+#endif
 
    //
    // First check what type of AddressSpace this port is in. Then check

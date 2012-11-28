@@ -464,14 +464,14 @@ typedef struct _CONFIG_DATA {
 	PULONG				clockreg_add;
 	PULONG				configreg_add;
 	ULONG				childportnumber;
-	ULONG				nine_bit;	//MDS nine_bit_mode
-	ULONG				boardtype;
-	ULONG				Isosync;//950 1x clock mode
-	ULONG				clk1xdtr;
-	PKSPIN_LOCK			pboardlock;
+	ULONG				NineBit;
+	ULONG				BoardType;
+	ULONG				Isosync; //950 1x clock mode
+	ULONG				Clk1xDTR;
+	PKSPIN_LOCK			pBoardLock;
 	ULONG				ExtCount;
 	ULONG				PortType;
-	ULONG				hardwarertscts;
+	ULONG				HardwareRTSCTS;
 	ULONG				RevID;
     } CONFIG_DATA,*PCONFIG_DATA;
 
@@ -1294,7 +1294,7 @@ typedef struct _SERIAL_DEVICE_EXTENSION {
 
     SERIAL_WMI_PERF_DATA WmiPerfData;
 
-		//fastcom additions
+	// Fastcom additions
 	ULONG				Auto485;	//fastcom add
 	ULONG				Clock4X;	//fastcom add
 	ULONG				ConfigReg;	//fastcom add
@@ -1306,19 +1306,19 @@ typedef struct _SERIAL_DEVICE_EXTENSION {
 	PUCHAR				configreg_add;
 	ULONG				childportnumber;
 	ULONG first_byte_flag;//nine bit mode first byte flag indicator
-	ULONG nine_bit;//nine bit mode option enable flag, 0 = normal, 1 = nine bit, 0x80000001 = nine bit with 2byte receive return (9bit rxdata returned)
+	ULONG NineBit; //nine bit mode option enable flag, 0 = normal, 1 = nine bit, 0x80000001 = nine bit with 2byte receive return (9bit rxdata returned)
 	ULONG savedmcr;
 	ULONG savedcfgreg;
 	ULONG type850or950;
 	ULONG boardtype;
 	ULONG Isosync;
-	ULONG clk1xdtr;
+	ULONG Clk1xDTR;
 	ULONG ExtCount;
 	ULONG PortType;
 	PIO_WORKITEM clockworkitem;
 	ULONG clockbeingset;
 	ULONG ppm;
-	PKSPIN_LOCK pboardlock;
+	PKSPIN_LOCK pBoardLock;
 	ULONG HardwareRTSCTS;
 
 	PDO_EXTENSION pdx;

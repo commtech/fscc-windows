@@ -2279,7 +2279,7 @@ void setconfigreg(PUCHAR port,ULONG childid,ULONG val,PSERIAL_DEVICE_EXTENSION e
 	
 	if(port==0)return; 				
 	
-	KeAcquireSpinLock(extension->pboardlock, &oldIrql);
+	KeAcquireSpinLock(extension->pBoardLock, &oldIrql);
 	
 	
 	
@@ -2353,7 +2353,7 @@ void setconfigreg(PUCHAR port,ULONG childid,ULONG val,PSERIAL_DEVICE_EXTENSION e
 	//DbgPrint("New      ConfigReg:%8.8x\n",orig_reg);
 	
 	
-	KeReleaseSpinLock(extension->pboardlock, oldIrql);
+	KeReleaseSpinLock(extension->pBoardLock, oldIrql);
 	
 	
 	
@@ -3392,7 +3392,7 @@ int SetICS30703Bits(PULONG port,unsigned char *progdata,PSERIAL_DEVICE_EXTENSION
 	KIRQL oldIrql;
 
 
- KeAcquireSpinLock(extension->pboardlock, &oldIrql);
+ KeAcquireSpinLock(extension->pBoardLock, &oldIrql);
 
 
 
@@ -3448,7 +3448,7 @@ int SetICS30703Bits(PULONG port,unsigned char *progdata,PSERIAL_DEVICE_EXTENSION
 //	printf("cs\n");
 	
 
-KeReleaseSpinLock(extension->pboardlock, oldIrql);	
+KeReleaseSpinLock(extension->pBoardLock, oldIrql);	
 	return 0;
 	
 
@@ -3464,7 +3464,7 @@ int SetICS30703Bits2(PULONG port,unsigned char *progdata,PSERIAL_DEVICE_EXTENSIO
 	KIRQL oldIrql;
 
 
- KeAcquireSpinLock(extension->pboardlock, &oldIrql);
+ KeAcquireSpinLock(extension->pBoardLock, &oldIrql);
 
 
 	savedval = READ_ANY(port);
@@ -3515,7 +3515,7 @@ int SetICS30703Bits2(PULONG port,unsigned char *progdata,PSERIAL_DEVICE_EXTENSIO
 	DELAY();
 	
 //	printf("cs\n");
-KeReleaseSpinLock(extension->pboardlock, oldIrql);		
+KeReleaseSpinLock(extension->pBoardLock, oldIrql);		
 	return 0;
 	
 	
@@ -3993,7 +3993,7 @@ BOOLEAN  setspecial1xclkdtr(PVOID Context)
 	PSERIAL_DEVICE_EXTENSION extension;
 	extension = (PSERIAL_DEVICE_EXTENSION)Context;
 	port = extension->Controller;
-	val = extension->clk1xdtr;
+	val = extension->Clk1xDTR;
 	
 	if(port==0)return FALSE; 				
 	if(extension->type850or950==1)

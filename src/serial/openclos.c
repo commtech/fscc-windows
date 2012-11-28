@@ -648,7 +648,6 @@ Return Value:
     // In PC's this bit is "anded" with the interrupt line.
     //
 
-	
     WRITE_MODEM_CONTROL(extension,
         extension->Controller,
         (UCHAR)(READ_MODEM_CONTROL(extension, extension->Controller) | SERIAL_MCR_OUT2)
