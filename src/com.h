@@ -39,28 +39,14 @@ typedef struct _PDO_EXTENSION
 {
 	ULONG flags;							// flags
 	PDEVICE_OBJECT DeviceObject;
-	PDEVICE_OBJECT Fdo;
 
-	PULONG portbase;
-	PULONG amccbase;
-	PULONG control;
-	ULONG vector;
-	ULONG bus;
-	ULONG instance;
-	ULONG irql;
-	KAFFINITY affin;
-	ULONG irql_raw;
-	KAFFINITY affin_raw;
-	ULONG vector_raw;
-
-	ULONG boardtype;
-	ULONG devicenum;
 	ULONG location;
-	INTERFACE_TYPE  InterfaceType;
-	ULONG BusNumber;
-	ULONG itype;
-	ULONG devid;
 	PKSPIN_LOCK pboardlock;
+
+	PULONG UartAddress;
+	PULONG FcrAddress;
+	UINT16 DeviceID;
+	unsigned Channel;
 } PDO_EXTENSION, *PPDO_EXTENSION;
 
 typedef BOOLEAN (*PCOM_GET_MEMORY_REGION)(IN WDFDEVICE Device, OUT PDO_EXTENSION *pdo_ext);

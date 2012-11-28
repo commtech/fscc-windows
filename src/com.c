@@ -42,28 +42,16 @@ BOOLEAN Bus_GetMemoryRegion(IN WDFDEVICE Device, OUT PDO_EXTENSION *pdo_ext)
 
 	pdo_ext->flags = card->bar[1].tr_descriptor->Flags; // The old driver might set flags to something else
 	// PDEVICE_OBJECT DeviceObject; // Skip for now
-	// PDEVICE_OBJECT Fdo; // Skip for now
 
-	pdo_ext->portbase = card->bar[0].address;
-	pdo_ext->amccbase = (PULONG)((char *)card->bar[1].address + (8 * com_port->channel));
-	pdo_ext->control = card->bar[2].address;
-	pdo_ext->vector = card->interrupt_tr_descriptor->u.Interrupt.Vector;
-	pdo_ext->bus = pdo_ext->vector;
-	// ULONG instance; // Skip for now
-	pdo_ext->irql = card->interrupt_tr_descriptor->u.Interrupt.Level;
-	pdo_ext->affin = card->interrupt_tr_descriptor->u.Interrupt.Affinity;
-	pdo_ext->irql_raw = card->interrupt_raw_descriptor->u.Interrupt.Level;
-	pdo_ext->affin_raw = card->interrupt_raw_descriptor->u.Interrupt.Affinity;
-	pdo_ext->vector_raw = card->interrupt_raw_descriptor->u.Interrupt.Vector;
 
 	// ULONG boardtype; // I don't see where this is initialized
-	// ULONG devicenum; // Skip for now
 	// ULONG location; // Skip for now
-	// INTERFACE_TYPE  InterfaceType; // I don't see where this is initialized
-	// ULONG BusNumber; // I don't see where this is initialized
-	// ULONG itype; // Looks to be LevelSensitive or Latched. Skip for now
-	// ULONG devid; // Skip for now	
 	// PKSPIN_LOCK pboardlock; // Skip for now	
+
+	pdo_ext->UartAddress = (PULONG)((char *)card->bar[1].address + (8 * com_port->channel));
+	pdo_ext->FcrAddress = card->bar[2].address;
+	pdo_ext->DeviceID = fscc_port_get_PDEV(fscc_port);
+	pdo_ext->Channel = com_port->channel;
 
     return TRUE;
 }

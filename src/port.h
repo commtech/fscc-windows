@@ -154,6 +154,7 @@ void fscc_port_get_registers(struct fscc_port *port,
 						   
 UCHAR fscc_port_get_FREV(struct fscc_port *port);
 UCHAR fscc_port_get_PREV(struct fscc_port *port);
+UINT16 fscc_port_get_PDEV(struct fscc_port *port);
 
 NTSTATUS fscc_port_purge_tx(struct fscc_port *port);
 NTSTATUS fscc_port_purge_rx(struct fscc_port *port);

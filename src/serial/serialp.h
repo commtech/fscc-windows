@@ -592,7 +592,7 @@ KAFFINITY
 #define SERIAL_PREFERRED_INTERRUPT_GROUP    SERIAL_LAST_INTERRUPT_GROUP
 
 
-
+BOOLEAN fscc_is_soft_uart(PVOID Context);
 BOOLEAN set_sample_rate(PVOID Context); //dont need for the 16c850
 BOOLEAN set_rx_trigger(PVOID Context);
 BOOLEAN set_tx_trigger(PVOID Context);
@@ -601,28 +601,6 @@ BOOLEAN enable_auto_485(PVOID Context);
 BOOLEAN set4x(PVOID Context);
 BOOLEAN  setisosync(PVOID Context);
 BOOLEAN setspecial1xclkdtr(PVOID Context);
-BOOLEAN  force_transmitter_off(PVOID Context);
-BOOLEAN  force_transmitter_on(PVOID Context);
 BOOLEAN setHardwareFlowControl(PVOID Context);
 
 #define result_array_size 512
-
-struct ResultStruct {
-	double target; 
-	double freq;
-	double errorPPM;
-	int VCO_Div;
-	int refDiv;
-	int outDiv; 
-	int failed;
-};
-
-struct IcpRsStruct {
-	double pdf;
-	double nbw;
-	double ratio;
-	double df;
-	ULONG Rs;
-	double icp;
-	ULONG icpnum;	//I have to use this in the switch statement because 8.75e-6 becomes 874
-};

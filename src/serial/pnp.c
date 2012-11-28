@@ -819,6 +819,7 @@ Return Value:
 		pConfig->Auto485 = 0;
 	}
 
+#if 0
 	pConfig->ConfigReg = 0;
 
     SerialGetRegistryKeyValue (Device,
@@ -848,7 +849,7 @@ Return Value:
 
 	if (temp == 1)
 		pConfig->ConfigReg |= 0x8;
-
+#endif
 
     if (!SerialGetRegistryKeyValue (Device,
                                     L"Clock4X",
@@ -876,23 +877,18 @@ Return Value:
 
     if (!SerialGetRegistryKeyValue (Device,
                                     L"HardwareRTSCTS",
-                                    &pConfig->HardwareRTSCTS)) {
-		pConfig->HardwareRTSCTS = 0;
+                                    &pConfig->HardwareRtsCts)) {
+		pConfig->HardwareRtsCts = 0;
 	}
-
-    SerialGetRegistryKeyValue (Device,
-                               L"PortType",
-                               &pConfig->PortType);
-
-    SerialGetRegistryKeyValue (Device,
-                               L"RevID",
-                               &pConfig->RevID);
 
     if (!SerialGetRegistryKeyValue (Device,
                                     L"SampleRate",
                                     &pConfig->SampleRate)) {
 		pConfig->SampleRate = 16;
 	}
+	
+	if (pConfig->SampleRate < 4) 
+		pConfig->SampleRate = 16;
 
     status = SerialInitController(pDevExt, pConfig);
 
@@ -1296,71 +1292,23 @@ Return Value:
     pDevExt->AddressSpace          = PConfigData->AddressSpace;
     pDevExt->SpanOfController      = PConfigData->SpanOfController;
 
+	
+	pDevExt->DeviceID = PConfigData->DeviceID;
+	pDevExt->Channel = PConfigData->Channel;
+	pDevExt->FcrAddress = pDevExt->pdx.FcrAddress;
 
+	pDevExt->TxTrigger = PConfigData->TxTrigger;
+	pDevExt->RxTrigger = PConfigData->RxTrigger;
 
-#if 0
-		//
-	// Save the value of clock input to the part.  We use this to calculate
-	// the divisor latch value.  The value is in Hertz.
-	//
-	pDevExt->boardtype = PConfigData->boardtype;
-	pDevExt->ClockRate = PConfigData->ClockRate;
-	pDevExt->clockreg_add = (PUCHAR)(pDevExt->pdx.control);
-	SerialDbgPrintEx(TRACE_LEVEL_INFORMATION, DBG_PNP, "configreg 0x%x\n", pDevExt->pdx.control);
-	//only check this one time, right here
-	pDevExt->type850or950 = uarttype_850_or_950(pDevExt->Controller);   
-
-	//this is here to force the first port to make the clockrate be what it is set to
-	//all other ports are ignored...
-	//personally I think I like it better to have the 4th port do the defaulting, 
-	//as you can make any port be anything that way...
-	//of course the only way to make it all work is to configure all ports on a card to be the same...
-	//this way it forces it to work, but you can only set it via the first port.
+	pDevExt->Clock4X = PConfigData->Clock4X;
+	pDevExt->Auto485 = PConfigData->Auto485;
+	pDevExt->HardwareRtsCts = PConfigData->HardwareRtsCts;
+	pDevExt->SampleRate = PConfigData->SampleRate;
 	
-	//defer this til open
-	//   new_clock_stuff(pDevExt,&pDevExt->ClockRate);
-	//   DbgPrint("setting clock to %d\n",pDevExt->ClockRate);
-	
-	//only setup the clock and features if we are in async mode!
-//#if 0
-	tul = READ_PORT_ULONG((PULONG)pDevExt->configreg_add);
-	if((pDevExt->childportnumber==0)&&((tul&0x01000000)==0x01000000))
-	{
-		//		DbgPrint("Setting Clock for FSCC:port1 async bit set:%8.8x\n",tul);
-		new_clock_stuff(pDevExt,&pDevExt->ClockRate);
-		//DbgPrint("configreg:%8.8x\n",extension->ConfigReg);
-		pDevExt->ConfigReg|=0x80000000;
-		setconfigreg(pDevExt->configreg_add,pDevExt->childportnumber,pDevExt->ConfigReg,pDevExt);
-	}
-	else if((pDevExt->childportnumber==1)&&((tul&0x02000000)==0x02000000))
-	{
-		//		DbgPrint("Setting Clock for FSCC:port2 async bit set:%8.8x\n",tul);
-		new_clock_stuff(pDevExt,&pDevExt->ClockRate);
-		//DbgPrint("configreg:%8.8x\n",extension->ConfigReg);
-		pDevExt->ConfigReg|=0x80000000;
-		setconfigreg(pDevExt->configreg_add,pDevExt->childportnumber,pDevExt->ConfigReg,pDevExt);
-	}
-	else
-	{
-		//this was a good idea, keep people from opening the port if not in async mode, but
-		//if you do this then you can't enable async mode from the ports dialog, only the sync dialog...
-		/*
-        ExReleaseFastMutex(&extension->OpenMutex);
-        InterlockedDecrement(&extension->OpenCount);
-        Irp->IoStatus.Status = STATUS_ACCESS_DENIED;
-        SerialCompleteRequest(extension, Irp, IO_NO_INCREMENT);
-        return STATUS_ACCESS_DENIED;
-		*/
-	}
-//#endif
-	
-	
-	//while we are here we ought to do the rest of our new configs
-	pDevExt->Isosync = PConfigData->Isosync;
-	pDevExt->clk1xdtr = PConfigData->clk1xdtr;
 	pDevExt->ExtCount = PConfigData->ExtCount;
-	pDevExt->PortType = PConfigData->PortType;
-	
+	pDevExt->ClockRate = PConfigData->ClockRate;
+	pDevExt->Isosync = PConfigData->Isosync;
+	pDevExt->Clk1xDTR = PConfigData->Clk1xDTR;
 	
 	//these are mutually exclusive.
 	//if you are in isosync (or set isosync, (either directly or by using the control panel)
@@ -1372,67 +1320,17 @@ Return Value:
 	//it will wipe the clk1xdtr setting
 	//
 	
-	if(pDevExt->clk1xdtr==1)
-	{
+	if(pDevExt->Clk1xDTR == 1)
 		setspecial1xclkdtr(pDevExt);
-	}
 	else
-	{
 		setisosync(pDevExt);
-	}
-	
-	
-	pDevExt->Clock4X = PConfigData->Clock4X;
+
 	set4x(pDevExt);
-	
-	
-	pDevExt->Auto485 = PConfigData->Auto485;
 	enable_auto_485(pDevExt);
-	
-	pDevExt->TxTrigger = PConfigData->TxTrigger;
 	set_tx_trigger(pDevExt);
-	
-	
-	pDevExt->RxTrigger = PConfigData->RxTrigger;
 	set_rx_trigger(pDevExt);
-	
-	pDevExt->HardwareRTSCTS = PConfigData->hardwarertscts;
 	setHardwareFlowControl(pDevExt);
-	
-	pDevExt->ppm = 25;	//default ppm is 25
-	
-	pDevExt->configreg_add = (PUCHAR)(pDevExt->pdx.control);
-	pDevExt->childportnumber = pDevExt->pdx.instance;
-	pDevExt->ConfigReg = PConfigData->ConfigReg;
-	
-	if(1)
-	{
-		ULONG tul;
-		tul = READ_PORT_ULONG((PULONG)pDevExt->configreg_add);
-		if(pDevExt->childportnumber==0)
-		{
-			if((tul&0x01000000)!=0) pDevExt->ConfigReg |= 0x80000000;
-			else pDevExt->ConfigReg &= 0x7FFFFFFF;
-		}
-		else
-		{
-			if((tul&0x02000000)!=0) pDevExt->ConfigReg |= 0x80000000;
-			else pDevExt->ConfigReg &= 0x7FFFFFFF;
-		}
-	}
-	
-	//defer this til open
-	//   setconfigreg(pDevExt->configreg_add,pDevExt->childportnumber,pDevExt->ConfigReg,pDevExt);
-	
-	pDevExt->SampleRate = PConfigData->SampleRate;
-	if(pDevExt->SampleRate <4) pDevExt->SampleRate = 16;
-	//set_sample_rate(pDevExt);
-	
-	//end of "new" additions 
-
-#endif
-
-
+	set_sample_rate(pDevExt);
 
 
 
@@ -1940,7 +1838,7 @@ Return Value:
     }       // for (i = 0;     i < WdfCollectionGetCount
 
     gotIO = 1;
-    PConfig->TrController.LowPart  = PtrToUlong(pDevExt->pdx.amccbase);
+    PConfig->TrController.LowPart  = PtrToUlong(pDevExt->pdx.UartAddress);
 
     if (!PConfig->TrController.LowPart) {
         SerialDbgPrintEx(TRACE_LEVEL_ERROR, DBG_PNP, "Bogus port address %x\n",
@@ -1951,53 +1849,14 @@ Return Value:
     //
     // We need the raw address to check if the debugger is using the com port
     //
-    PConfig->Controller.LowPart  = PtrToUlong(pDevExt->pdx.amccbase);
+    PConfig->Controller.LowPart  = PtrToUlong(pDevExt->pdx.UartAddress);
     PConfig->AddressSpace  = pDevExt->pdx.flags;
     pDevExt->SerialReadUChar = SerialReadPortUChar;
     pDevExt->SerialWriteUChar = SerialWritePortUChar;
 
-#if 0
-	//DbgPrint("InterfaceType:%x\n",pdx->InterfaceType);
-	//DbgPrint("BusNumber:%d\n",pdx->BusNumber);
-	//DbgPrint("controller:%x\n",pdx->portbase);
-	//DbgPrint("irq:%d\n",pdx->irql);
+	PConfig->DeviceID = pDevExt->pdx.DeviceID;
 	//PConfig->pboardlock = pDevExt->pdx.pboardlock;
-	//PConfig->InterfaceType  = pDevExt->pdx.InterfaceType;
-	//PConfig->BusNumber      = pDevExt->pdx.BusNumber;
-	//PConfig->PortType       = pDevExt->pdx.devid;
 	//PConfig->ClockRate = 1843200;
-	//PConfig->RevID = ver;
-	//PConfig->InterruptStatus = SerialPhysicalZero;
-	//PConfig->SpanOfInterruptStatus = SERIAL_STATUS_LENGTH;
-	//gotIO = 1;
-//#ifdef AMD64
-	//PConfig->Controller.QuadPart = (LONGLONG)pdx->portbase;
-//#else
-	//PConfig->Controller.LowPart = (ULONG)pdx->portbase;
-	//PConfig->Controller.HighPart = 0;
-//#endif
-	//PConfig->SpanOfController = SERIAL_REGISTER_SPAN;
-	//PConfig->AddressSpace = CM_RESOURCE_PORT_IO;
-	//gotInt = 1;
-	//PConfig->OriginalIrql = pdx->irql_raw;
-	//PConfig->OriginalVector  = pdx->vector_raw;
-	//PConfig->Affinity = pdx->affin_raw;
-	//PConfig->InterruptMode  = pdx->itype;
-	
-	
-	//PConfig->TrInterruptStatus = SerialPhysicalZero;
-	//gotIO = 1;
-//#ifdef AMD64
-	//PConfig->TrController.QuadPart = (LONGLONG)pdx->portbase;
-//#else
-	//PConfig->TrController.LowPart = (ULONG)pdx->portbase;
-	//PConfig->TrController.HighPart = 0;
-//#endif
-	//gotInt = 1;
-	//PConfig->TrVector = pdx->vector;
-	//PConfig->TrIrql = pdx->irql;
-	//PConfig->Affinity = pdx->affin;
-#endif
 
    //
    // First check what type of AddressSpace this port is in. Then check

@@ -457,22 +457,20 @@ typedef struct _CONFIG_DATA {
 
 	ULONG				Auto485;	//fastcom add
 	ULONG				Clock4X;	//fastcom add
-	ULONG				ConfigReg;	//fastcom add
 	ULONG				SampleRate; //fastcom add (950)
 	ULONG				RxTrigger;  //fastcom add
 	ULONG				TxTrigger;  //fastcom add
 	PULONG				clockreg_add;
-	PULONG				configreg_add;
-	ULONG				childportnumber;
 	ULONG				NineBit;
-	ULONG				BoardType;
 	ULONG				Isosync; //950 1x clock mode
 	ULONG				Clk1xDTR;
 	PKSPIN_LOCK			pBoardLock;
 	ULONG				ExtCount;
-	ULONG				PortType;
-	ULONG				HardwareRTSCTS;
-	ULONG				RevID;
+	ULONG				HardwareRtsCts;
+
+	UINT16				DeviceID;
+	unsigned			Channel;
+	PULONG				FcrAddress;
     } CONFIG_DATA,*PCONFIG_DATA;
 
 
@@ -1297,29 +1295,26 @@ typedef struct _SERIAL_DEVICE_EXTENSION {
 	// Fastcom additions
 	ULONG				Auto485;	//fastcom add
 	ULONG				Clock4X;	//fastcom add
-	ULONG				ConfigReg;	//fastcom add
 	ULONG				SampleRate; //fastcom add (950)
 	ULONG				RxTrigger;  //fastcom add
 	ULONG				TxTrigger;  //fastcom add
 	
 	PUCHAR				clockreg_add;
-	PUCHAR				configreg_add;
-	ULONG				childportnumber;
 	ULONG first_byte_flag;//nine bit mode first byte flag indicator
 	ULONG NineBit; //nine bit mode option enable flag, 0 = normal, 1 = nine bit, 0x80000001 = nine bit with 2byte receive return (9bit rxdata returned)
 	ULONG savedmcr;
 	ULONG savedcfgreg;
-	ULONG type850or950;
-	ULONG boardtype;
 	ULONG Isosync;
 	ULONG Clk1xDTR;
 	ULONG ExtCount;
-	ULONG PortType;
 	PIO_WORKITEM clockworkitem;
 	ULONG clockbeingset;
-	ULONG ppm;
 	PKSPIN_LOCK pBoardLock;
-	ULONG HardwareRTSCTS;
+	ULONG HardwareRtsCts;
+
+	UINT16 DeviceID;
+	unsigned Channel;
+	PULONG FcrAddress;
 
 	PDO_EXTENSION pdx;
 
@@ -1806,15 +1801,7 @@ typedef struct   _SUPPORTED_BAUD_RATES {
 
 
 
-VOID setmyclock (IN PDEVICE_OBJECT DeviceObject,IN PVOID Context);
 void setconfigreg(PUCHAR port,ULONG childid,ULONG val,PSERIAL_DEVICE_EXTENSION deviceExtension);
-void set_clock_generator(PUCHAR port, ULONG hval,ULONG nmbits);
-BOOLEAN SerialSetClock(IN PVOID Context, IN ULONG *rate);
-int SetICS30703Bits(PULONG port,unsigned char *progdata,PSERIAL_DEVICE_EXTENSION deviceExtension);
-int SetICS30703Bits2(PULONG port,unsigned char *progdata,PSERIAL_DEVICE_EXTENSION deviceExtension);
-BOOLEAN new_clock_stuff(IN PSERIAL_DEVICE_EXTENSION deviceExtension,IN ULONG *rate);
-int GetICS30703Data(unsigned long desired, unsigned long ppm, struct ResultStruct *theOne, struct IcpRsStruct *theOther, unsigned char *progdata);
-int uarttype_850_or_950(PUCHAR port);
 
 //#define IOCTL_SERIAL_SET_FIFO_CONTROL   CTL_CODE(FILE_DEVICE_SERIAL_PORT,39,METHOD_BUFFERED,FILE_ANY_ACCESS)
 #define IOCTL_SERIALP_GET_CONFIG_REG		CTL_CODE(FILE_DEVICE_SERIAL_PORT,40,METHOD_BUFFERED,FILE_ANY_ACCESS)
@@ -1835,7 +1822,6 @@ int uarttype_850_or_950(PUCHAR port);
 #define IOCTL_SERIALP_GET_TX_WRITE_SIZE		CTL_CODE(FILE_DEVICE_SERIAL_PORT,55,METHOD_BUFFERED,FILE_ANY_ACCESS)
 #define IOCTL_SERIALP_GET_SOFT_9_BIT		CTL_CODE(FILE_DEVICE_SERIAL_PORT,56,METHOD_BUFFERED,FILE_ANY_ACCESS) //MDS nine_bit_mode
 #define IOCTL_SERIALP_SET_SOFT_9_BIT		CTL_CODE(FILE_DEVICE_SERIAL_PORT,57,METHOD_BUFFERED,FILE_ANY_ACCESS) //MDS nine_bit_mode
-#define IOCTL_SERIALP_FORCE_TRANSMITTER_ENABLE		CTL_CODE(FILE_DEVICE_SERIAL_PORT,58,METHOD_BUFFERED,FILE_ANY_ACCESS)
 #define IOCTL_SERIALP_SET_ISOSYNC		CTL_CODE(FILE_DEVICE_SERIAL_PORT,59,METHOD_BUFFERED,FILE_ANY_ACCESS)
 #define IOCTL_SERIALP_GET_ISOSYNC		CTL_CODE(FILE_DEVICE_SERIAL_PORT,60,METHOD_BUFFERED,FILE_ANY_ACCESS)
 #define IOCTL_SERIALP_SET_CLK1XDTR		CTL_CODE(FILE_DEVICE_SERIAL_PORT,61,METHOD_BUFFERED,FILE_ANY_ACCESS)
