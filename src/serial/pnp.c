@@ -1354,7 +1354,7 @@ Return Value:
         return STATUS_ACCESS_DENIED;
 		*/
 	}
-#endif
+//#endif
 	
 	
 	//while we are here we ought to do the rest of our new configs
@@ -1432,7 +1432,7 @@ Return Value:
 	
 	//end of "new" additions 
 
-//#endif
+#endif
 
 
 
