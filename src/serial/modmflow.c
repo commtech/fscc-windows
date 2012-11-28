@@ -1617,12 +1617,9 @@ Return Value:
         // we can lower the count.
         //
 
-        WdfInterruptSynchronize(
-            Extension->WdfInterrupt,
-            SerialDecrementRTSCounter,
-            Extension
-            );
-
+        WdfInterruptAcquireLock (Extension->WdfInterrupt);
+        SerialDecrementRTSCounter(Extension->WdfInterrupt, Extension);
+        WdfInterruptReleaseLock (Extension->WdfInterrupt);
     }
 
 
@@ -1659,12 +1656,9 @@ Return Value:
 
     Extension = SerialGetDeviceExtension(WdfTimerGetParentObject(Timer));
 
-    WdfInterruptSynchronize(
-        Extension->WdfInterrupt,
-        SerialPerhapsLowerRTS,
-        Extension
-        );
-
+    WdfInterruptAcquireLock (Extension->WdfInterrupt);
+    SerialPerhapsLowerRTS(Extension->WdfInterrupt, Extension);
+    WdfInterruptReleaseLock (Extension->WdfInterrupt);
 }
 
 BOOLEAN

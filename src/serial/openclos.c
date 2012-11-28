@@ -255,12 +255,10 @@ SerialDeviceFileCreateWorker (
     //
     // Clear out the statistics.
     //
-
-    WdfInterruptSynchronize(
-        extension->WdfInterrupt,
-        SerialClearStats,
-        extension
-        );
+	
+	WdfInterruptAcquireLock (extension->WdfInterrupt);
+	SerialClearStats(extension->WdfInterrupt, extension);
+	WdfInterruptReleaseLock (extension->WdfInterrupt);
 #endif
 
     //
@@ -285,12 +283,10 @@ SerialDeviceFileCreateWorker (
     // Synchronize with the ISR and let it know that the device
     // has been successfully opened.
     //
-
-    WdfInterruptSynchronize(
-        extension->WdfInterrupt,
-        SerialMarkOpen,
-        extension
-        );
+	
+	WdfInterruptAcquireLock (extension->WdfInterrupt);
+	SerialMarkOpen(extension->WdfInterrupt, extension);
+	WdfInterruptReleaseLock (extension->WdfInterrupt);
 
     return STATUS_SUCCESS;
 
@@ -415,12 +411,10 @@ SerialFileCloseWorker(
         // Synchronize with the isr to turn off break if it
         // is already on.
         //
-
-        WdfInterruptSynchronize(
-            extension->WdfInterrupt,
-            SerialTurnOffBreak,
-            extension
-            );
+		
+		WdfInterruptAcquireLock (extension->WdfInterrupt);
+		SerialTurnOffBreak(extension->WdfInterrupt, extension);
+		WdfInterruptReleaseLock (extension->WdfInterrupt);
 
         //
         // Wait a reasonable amount of time (20 * fifodepth) until all characters
@@ -446,13 +440,10 @@ SerialFileCloseWorker(
         // Synchronize with the ISR to let it know that interrupts are
         // no longer important.
         //
-
-        WdfInterruptSynchronize(
-            extension->WdfInterrupt,
-            SerialMarkClose,
-            extension
-            );
-
+		
+		WdfInterruptAcquireLock (extension->WdfInterrupt);
+		SerialMarkClose(extension->WdfInterrupt, extension);
+		WdfInterruptReleaseLock (extension->WdfInterrupt);
 
         //
         // If the driver has automatically transmitted an Xoff in
@@ -657,11 +648,12 @@ Return Value:
     // In PC's this bit is "anded" with the interrupt line.
     //
 
+	
     WRITE_MODEM_CONTROL(extension,
         extension->Controller,
         (UCHAR)(READ_MODEM_CONTROL(extension, extension->Controller) | SERIAL_MCR_OUT2)
         );
-
+		
     extension->DeviceIsOpened = TRUE;
     extension->ErrorWord = 0;
 
@@ -678,7 +670,7 @@ SerialDrainUART(IN PSERIAL_DEVICE_EXTENSION PDevExt,
    //
    // Wait until all characters have been emptied out of the hardware.
    //
-
+   
    while ((READ_LINE_STATUS(PDevExt, PDevExt->Controller) &
            (SERIAL_LSR_THRE | SERIAL_LSR_TEMT))
            != (SERIAL_LSR_THRE | SERIAL_LSR_TEMT)) {
@@ -715,7 +707,7 @@ Return Value:
    // We do this by adjusting the OUT2 line in the modem control.
    // In PC's this bit is "anded" with the interrupt line.
    //
-
+   
    WRITE_MODEM_CONTROL(extension, extension->Controller,
                        (UCHAR)(READ_MODEM_CONTROL(extension, extension->Controller)
                                & ~SERIAL_MCR_OUT2));

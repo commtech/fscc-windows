@@ -28,6 +28,7 @@
 #include "isr.h"
 #include "public.h"
 #include "driver.h"
+#include "com.h"
 
 #include <ntddser.h>
 #include <ntstrsafe.h>
@@ -478,6 +479,14 @@ struct fscc_port *fscc_port_new(struct fscc_card *card, unsigned channel)
 	if (!NT_SUCCESS(status)) {
 		TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE, 
 			"fscc_card_set_reg_portnum failed %!STATUS!", status);
+	}
+
+	if (channel == 0) {
+		status = com_port_init(port, channel);
+		if (!NT_SUCCESS(status)) {
+			TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE, 
+				"com_port_init failed %!STATUS!", status);
+		}
 	}
 	
     TraceEvents(TRACE_LEVEL_VERBOSE, TRACE_DEVICE, "%!FUNC! Exit");

@@ -101,12 +101,9 @@ Return Value:
             // Complete the old wait if there is one.
             //
 
-            WdfInterruptSynchronize(
-                Extension->WdfInterrupt,
-                SerialFinishOldWait,
-                Extension
-                );
-
+            WdfInterruptAcquireLock (Extension->WdfInterrupt);
+            SerialFinishOldWait(Extension->WdfInterrupt, Extension);
+            WdfInterruptReleaseLock (Extension->WdfInterrupt);
             //
             // Any current waits should be on its way to completion
             // at this point.  There certainly shouldn't be any
@@ -199,12 +196,9 @@ Return Value:
 
                 Extension->CurrentWaitRequest = Extension->CurrentMaskRequest;
 
-                WdfInterruptSynchronize(
-                    Extension->WdfInterrupt,
-                    SerialGiveWaitToIsr,
-                    Extension
-                    );
-
+                WdfInterruptAcquireLock (Extension->WdfInterrupt);
+                SerialGiveWaitToIsr(Extension->WdfInterrupt, Extension);
+                WdfInterruptReleaseLock (Extension->WdfInterrupt);
                 //
                 // Since it isn't really the mask request anymore,
                 // null out that pointer.

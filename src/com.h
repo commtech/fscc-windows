@@ -24,10 +24,51 @@
 #include <ntddk.h>
 #include <wdf.h>
 
-#include "trace.h"
-
 #include "card.h"
 
-NTSTATUS com_port_init(struct fscc_card *card, unsigned channel);
+typedef struct com_port {
+	WDFDEVICE device;
+	
+	struct fscc_port *fscc_port;
+} COM_PORT;
+
+WDF_DECLARE_CONTEXT_TYPE(COM_PORT);
+
+typedef struct _PDO_EXTENSION 
+{
+	ULONG flags;							// flags
+	PDEVICE_OBJECT DeviceObject;
+	PDEVICE_OBJECT Fdo;
+
+	PULONG portbase;
+	PULONG amccbase;
+	PULONG control;
+	ULONG vector;
+	ULONG bus;
+	ULONG instance;
+	ULONG irql;
+	KAFFINITY affin;
+	ULONG irql_raw;
+	KAFFINITY affin_raw;
+	ULONG vector_raw;
+
+	ULONG boardtype;
+	ULONG devicenum;
+	ULONG location;
+	INTERFACE_TYPE  InterfaceType;
+	ULONG BusNumber;
+	ULONG itype;
+	ULONG devid;
+	PKSPIN_LOCK pboardlock;
+} PDO_EXTENSION, *PPDO_EXTENSION;
+
+typedef BOOLEAN (*PCOM_GET_MEMORY_REGION)(IN WDFDEVICE Device, OUT PDO_EXTENSION *pdo_ext);
+
+typedef struct _COM_INTERFACE_STANDARD {
+    INTERFACE                        InterfaceHeader;
+    PCOM_GET_MEMORY_REGION    GetMemoryRegion;
+} COM_INTERFACE_STANDARD, *PCOM_INTERFACE_STANDARD;
+
+NTSTATUS com_port_init(struct fscc_port *port, unsigned channel);
 
 #endif

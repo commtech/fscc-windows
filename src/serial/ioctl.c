@@ -709,12 +709,10 @@ Return Value:
 
                 S.Extension = Extension;
                 S.Data = (PVOID) (ULONG_PTR) AppropriateDivisor;
-                WdfInterruptSynchronize(
-                    Extension->WdfInterrupt,
-                    SerialSetBaud,
-                    &S
-                    );
 
+                WdfInterruptAcquireLock (Extension->WdfInterrupt);
+                SerialSetBaud(Extension->WdfInterrupt, &S);
+                WdfInterruptReleaseLock (Extension->WdfInterrupt);
             }
 
             break;
@@ -754,12 +752,10 @@ Return Value:
             S.Extension = Extension;
             S.Data = buffer;
 
-            WdfInterruptSynchronize(
-                Extension->WdfInterrupt,
-                SerialGetMCRContents,
-                &S
-                );
-
+            WdfInterruptAcquireLock (Extension->WdfInterrupt);
+            SerialGetMCRContents(Extension->WdfInterrupt, &S);
+            WdfInterruptReleaseLock (Extension->WdfInterrupt);
+            
             break;
         }
         case IOCTL_SERIAL_SET_MODEM_CONTROL: {
@@ -774,13 +770,10 @@ Return Value:
             S.Extension = Extension;
             S.Data = buffer;
 
-
-            WdfInterruptSynchronize(
-                Extension->WdfInterrupt,
-                SerialSetMCRContents,
-                &S
-                );
-
+            WdfInterruptAcquireLock (Extension->WdfInterrupt);
+            SerialSetMCRContents(Extension->WdfInterrupt, &S);
+            WdfInterruptReleaseLock (Extension->WdfInterrupt);
+            
             break;
         }
         case IOCTL_SERIAL_SET_FIFO_CONTROL: {
@@ -795,13 +788,10 @@ Return Value:
             S.Extension = Extension;
             S.Data = buffer;
 
-
-            WdfInterruptSynchronize(
-                Extension->WdfInterrupt,
-                SerialSetFCRContents,
-                &S
-                );
-
+            WdfInterruptAcquireLock (Extension->WdfInterrupt);
+            SerialSetFCRContents(Extension->WdfInterrupt, &S);
+            WdfInterruptReleaseLock (Extension->WdfInterrupt);
+            
             break;
         }
         case IOCTL_SERIAL_SET_LINE_CONTROL: {
@@ -947,12 +937,10 @@ Return Value:
                         (LData | LParity | LStop));
             Extension->ValidDataMask = Mask;
 
-            WdfInterruptSynchronize(
-                Extension->WdfInterrupt,
-                SerialSetLineControl,
-                Extension
-                );
-
+            WdfInterruptAcquireLock (Extension->WdfInterrupt);
+            SerialSetLineControl(Extension->WdfInterrupt, Extension);
+            WdfInterruptReleaseLock (Extension->WdfInterrupt);
+            
             break;
         }
         case IOCTL_SERIAL_GET_LINE_CONTROL: {
@@ -1124,12 +1112,9 @@ Return Value:
             Extension->WmiCommData.XonCharacter = NewChars->XonChar;
             Extension->WmiCommData.XoffCharacter = NewChars->XoffChar;
 
-            WdfInterruptSynchronize(
-                Extension->WdfInterrupt,
-                SerialSetChars,
-                &S
-                );
-
+            WdfInterruptAcquireLock (Extension->WdfInterrupt);
+            SerialSetChars(Extension->WdfInterrupt, &S);
+            WdfInterruptReleaseLock (Extension->WdfInterrupt);
 
             break;
 
@@ -1166,14 +1151,11 @@ Return Value:
 
             } else {
 
-                WdfInterruptSynchronize(
-                    Extension->WdfInterrupt,
-                    ((IoControlCode ==
+                WdfInterruptAcquireLock (Extension->WdfInterrupt);
+                ((IoControlCode ==
                      IOCTL_SERIAL_SET_DTR)?
-                     (SerialSetDTR):(SerialClrDTR)),
-                    Extension
-                    );
-
+                     (SerialSetDTR):(SerialClrDTR))(Extension->WdfInterrupt, Extension);
+                WdfInterruptReleaseLock (Extension->WdfInterrupt);
             }
 
             break;
@@ -1202,14 +1184,11 @@ Return Value:
 
             } else {
 
-                WdfInterruptSynchronize(
-                    Extension->WdfInterrupt,
-                    ((IoControlCode ==
+                WdfInterruptAcquireLock (Extension->WdfInterrupt);
+                ((IoControlCode ==
                      IOCTL_SERIAL_SET_RTS)?
-                     (SerialSetRTS):(SerialClrRTS)),
-                    Extension
-                    );
-
+                     (SerialSetRTS):(SerialClrRTS))(Extension->WdfInterrupt, Extension);
+                WdfInterruptReleaseLock (Extension->WdfInterrupt);
             }
 
             break;
@@ -1217,44 +1196,32 @@ Return Value:
         }
         case IOCTL_SERIAL_SET_XOFF: {
 
-            WdfInterruptSynchronize(
-                Extension->WdfInterrupt,
-                SerialPretendXoff,
-                Extension
-                );
-
+            WdfInterruptAcquireLock (Extension->WdfInterrupt);
+            SerialPretendXoff(Extension->WdfInterrupt, Extension);
+            WdfInterruptReleaseLock (Extension->WdfInterrupt);
             break;
 
         }
         case IOCTL_SERIAL_SET_XON: {
 
-            WdfInterruptSynchronize(
-                Extension->WdfInterrupt,
-                SerialPretendXon,
-                Extension
-                );
-
+            WdfInterruptAcquireLock (Extension->WdfInterrupt);
+            SerialPretendXon(Extension->WdfInterrupt, Extension);
+            WdfInterruptReleaseLock (Extension->WdfInterrupt);
             break;
 
         }
         case IOCTL_SERIAL_SET_BREAK_ON: {
 
-            WdfInterruptSynchronize(
-                Extension->WdfInterrupt,
-                SerialTurnOnBreak,
-                Extension
-                );
-
+            WdfInterruptAcquireLock (Extension->WdfInterrupt);
+            SerialTurnOnBreak(Extension->WdfInterrupt, Extension);
+            WdfInterruptReleaseLock (Extension->WdfInterrupt);
             break;
         }
         case IOCTL_SERIAL_SET_BREAK_OFF: {
 
-            WdfInterruptSynchronize(
-                Extension->WdfInterrupt,
-                SerialTurnOffBreak,
-                Extension
-                );
-
+            WdfInterruptAcquireLock (Extension->WdfInterrupt);
+            SerialTurnOffBreak(Extension->WdfInterrupt, Extension);
+            WdfInterruptReleaseLock (Extension->WdfInterrupt);
             break;
         }
         case IOCTL_SERIAL_SET_QUEUE_SIZE: {
@@ -1629,12 +1596,9 @@ Return Value:
 
             }
 
-            WdfInterruptSynchronize(
-                Extension->WdfInterrupt,
-                SerialSetHandFlow,
-                &S
-                );
-
+            WdfInterruptAcquireLock (Extension->WdfInterrupt);
+            SerialSetHandFlow(Extension->WdfInterrupt, &S);
+            WdfInterruptReleaseLock (Extension->WdfInterrupt);
             break;
 
         }
@@ -1653,12 +1617,9 @@ Return Value:
             S.Extension = Extension;
             S.Data = buffer;
 
-            WdfInterruptSynchronize(
-                Extension->WdfInterrupt,
-                SerialGetModemUpdate,
-                &S
-                );
-
+            WdfInterruptAcquireLock (Extension->WdfInterrupt);
+            SerialGetModemUpdate(Extension->WdfInterrupt, &S);
+            WdfInterruptReleaseLock (Extension->WdfInterrupt);
             break;
 
         }
@@ -1710,12 +1671,9 @@ Return Value:
 
             //IoAcquireCancelSpinLock(&OldIrql);
 
-            WdfInterruptSynchronize(
-                Extension->WdfInterrupt,
-                SerialGetCommStatus,
-                &S
-                );
-
+            WdfInterruptAcquireLock (Extension->WdfInterrupt);
+            SerialGetCommStatus(Extension->WdfInterrupt, &S);
+            WdfInterruptReleaseLock (Extension->WdfInterrupt);
             //IoReleaseCancelSpinLock(OldIrql);
 
             break;
@@ -1826,12 +1784,10 @@ Return Value:
             S.Extension = Extension;
             S.Data = buffer;
 
-            WdfInterruptSynchronize(
-                Extension->WdfInterrupt,
-                SerialSetEscapeChar,
-                reqContext
-                );
 
+            WdfInterruptAcquireLock (Extension->WdfInterrupt);
+            SerialSetEscapeChar(Extension->WdfInterrupt, reqContext);
+            WdfInterruptReleaseLock (Extension->WdfInterrupt);
             break;
 
         }
@@ -1863,21 +1819,16 @@ Return Value:
             reqContext->Information = sizeof(SERIALPERF_STATS);
             reqContext->Status = STATUS_SUCCESS;
 
-            WdfInterruptSynchronize(
-                Extension->WdfInterrupt,
-                SerialGetStats,
-                reqContext
-                );
-
+            WdfInterruptAcquireLock (Extension->WdfInterrupt);
+            SerialGetStats(Extension->WdfInterrupt, reqContext);
+            WdfInterruptReleaseLock (Extension->WdfInterrupt);
             break;
         }
         case IOCTL_SERIAL_CLEAR_STATS: {
-
-            WdfInterruptSynchronize(
-                Extension->WdfInterrupt,
-                SerialClearStats,
-                Extension
-                );
+                
+            WdfInterruptAcquireLock (Extension->WdfInterrupt);
+            SerialClearStats(Extension->WdfInterrupt, Extension);
+            WdfInterruptReleaseLock (Extension->WdfInterrupt);
             break;
         }
         default: {
@@ -2157,7 +2108,10 @@ Return Value:
 
        S.Extension = pDevExt;
        S.Data = &pBasic->HandFlow;
-       WdfInterruptSynchronize(pDevExt->WdfInterrupt, SerialSetHandFlow, &S);
+       
+       WdfInterruptAcquireLock (pDevExt->WdfInterrupt);
+       SerialSetHandFlow(pDevExt->WdfInterrupt, &S);
+       WdfInterruptReleaseLock (pDevExt->WdfInterrupt);
 
        if (pDevExt->FifoPresent) {
           pDevExt->TxFifoAmount = pBasic->TxFifo;

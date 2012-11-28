@@ -25,7 +25,6 @@
 #include "utils.h"
 #include "isr.h"
 #include "driver.h"
-#include "com.h"
 
 #include <ntddser.h>
 #include <ntstrsafe.h>
@@ -81,13 +80,6 @@ struct fscc_card *fscc_card_new(WDFDRIVER Driver, IN PWDFDEVICE_INIT DeviceInit)
 	for (i = 0; i < 2; i++) {
 		struct fscc_port *port = 0;
 		
-		status = com_port_init(card, i);
-		if (!NT_SUCCESS(status)) {
-			TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE, 
-				"com_port_init failed %!STATUS!", status);
-			return 0;
-		}
-		
 		port = fscc_port_new(card, i);
 		
 		if (!port)
@@ -102,7 +94,7 @@ struct fscc_card *fscc_card_new(WDFDRIVER Driver, IN PWDFDEVICE_INIT DeviceInit)
 
 		card->ports[i] = port;
 	};
-	
+
 	WDF_INTERRUPT_CONFIG_INIT(&interruptConfig, fscc_isr, NULL);
 	interruptConfig.ShareVector = WdfTrue;
 	WDF_OBJECT_ATTRIBUTES_INIT_CONTEXT_TYPE(&interruptAttributes, FSCC_CARD);
@@ -113,7 +105,7 @@ struct fscc_card *fscc_card_new(WDFDRIVER Driver, IN PWDFDEVICE_INIT DeviceInit)
 			"WdfInterruptCreate failed %!STATUS!", status);
 		return 0;
 	}
-	
+
     TraceEvents(TRACE_LEVEL_VERBOSE, TRACE_DEVICE, "%!FUNC! Exit");
 	
 	return card;
@@ -125,7 +117,7 @@ NTSTATUS fscc_card_prepare_hardware(IN WDFDEVICE Device, IN WDFCMRESLIST Resourc
 	unsigned bar_counter = 0;
 	unsigned i = 0;
 
-    TraceEvents(TRACE_LEVEL_VERBOSE, TRACE_DEVICE, 
+    TraceEvents(TRACE_LEVEL_INFORMATION, TRACE_DEVICE, 
                 "%!FUNC! Device 0x%p, ResourcesRaw 0x%p, ResourcesTranslated 0x%p", 
                 Device, ResourcesRaw, ResourcesTranslated);
 	
@@ -143,15 +135,50 @@ NTSTATUS fscc_card_prepare_hardware(IN WDFDEVICE Device, IN WDFCMRESLIST Resourc
 		case CmResourceTypePort:
 			card->bar[bar_counter].address = ULongToPtr(descriptor->u.Port.Start.LowPart);
 			card->bar[bar_counter].memory_mapped = FALSE;
+			card->bar[bar_counter].tr_descriptor = descriptor;
 			bar_counter++;
 			break;
 			
 		case CmResourceTypeMemory:
 			card->bar[bar_counter].address = MmMapIoSpace(descriptor->u.Memory.Start, descriptor->u.Memory.Length, MmNonCached);
 			card->bar[bar_counter].memory_mapped = TRUE;
+			card->bar[bar_counter].tr_descriptor = descriptor;
 			bar_counter++;
 			break;
-		}		
+
+		case CmResourceTypeInterrupt:
+			card->interrupt_tr_descriptor = descriptor;
+			break;
+		}
+
+	}
+
+	bar_counter = 0;
+
+	for (i = 0; i < WdfCmResourceListGetCount(ResourcesRaw); i++) {
+		PCM_PARTIAL_RESOURCE_DESCRIPTOR descriptor;
+		
+		descriptor = WdfCmResourceListGetDescriptor(ResourcesRaw, i);
+		
+		if (!descriptor)
+			return STATUS_DEVICE_CONFIGURATION_ERROR;
+			
+		switch (descriptor->Type) {
+		case CmResourceTypePort:
+			card->bar[bar_counter].raw_descriptor = descriptor;
+			bar_counter++;
+			break;
+			
+		case CmResourceTypeMemory:
+			card->bar[bar_counter].raw_descriptor = descriptor;
+			bar_counter++;
+			break;
+
+		case CmResourceTypeInterrupt:
+			card->interrupt_raw_descriptor = descriptor;
+			break;
+		}
+
 	}
 
 	for (i = 0; i < 2; i++)

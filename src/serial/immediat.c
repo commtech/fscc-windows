@@ -139,12 +139,9 @@ Return Value:
         }
     }
 
-    WdfInterruptSynchronize(
-        Extension->WdfInterrupt,
-        SerialGiveImmediateToIsr,
-        Extension
-        );
-
+    WdfInterruptAcquireLock (Extension->WdfInterrupt);
+    SerialGiveImmediateToIsr(Extension->WdfInterrupt, Extension);
+    WdfInterruptReleaseLock (Extension->WdfInterrupt);
 
     SerialDbgPrintEx(TRACE_LEVEL_INFORMATION, DBG_IOCTLS,
                      "<SerialStartImmediate\n");
@@ -262,12 +259,11 @@ Return Value:
 
     *CurrentOpRequest = NULL;
     *NewRequest = NULL;
-     WdfInterruptSynchronize(
-        Extension->WdfInterrupt,
-        SerialProcessEmptyTransmit,
-        Extension
-        );
 
+    WdfInterruptAcquireLock (Extension->WdfInterrupt);
+    SerialProcessEmptyTransmit(Extension->WdfInterrupt, Extension);
+    WdfInterruptReleaseLock (Extension->WdfInterrupt);
+    
     SerialCompleteRequest(oldRequest, reqContext->Status, reqContext->Information);
 }
 

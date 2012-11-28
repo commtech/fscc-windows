@@ -95,12 +95,9 @@ Return Value:
             //
 
 
-            WdfInterruptSynchronize(
-                Extension->WdfInterrupt,
-                SerialPurgeInterruptBuff,
-                Extension
-                );
-
+            WdfInterruptAcquireLock (Extension->WdfInterrupt);
+            SerialPurgeInterruptBuff(Extension->WdfInterrupt, Extension);
+            WdfInterruptReleaseLock (Extension->WdfInterrupt);
         }
 
         reqContext->Status = STATUS_SUCCESS;

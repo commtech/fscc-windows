@@ -18,7 +18,7 @@ Environment:
 --*/
 
 #include "precomp.h"
-
+#define EVENT_TRACTING
 #if defined(EVENT_TRACING)
 #include "write.tmh"
 #endif
@@ -288,12 +288,9 @@ Return Value:
             }
         }
 
-        WdfInterruptSynchronize(
-            Extension->WdfInterrupt,
-            SerialGiveWriteToIsr,
-            Extension
-            );
-
+        WdfInterruptAcquireLock (Extension->WdfInterrupt);
+        SerialGiveWriteToIsr(Extension->WdfInterrupt, Extension);
+        WdfInterruptReleaseLock (Extension->WdfInterrupt);
     } WHILE (FALSE);
 
     SerialDbgPrintEx(TRACE_LEVEL_INFORMATION, DBG_WRITE, "<SerialStartWrite \n");
@@ -421,12 +418,10 @@ Return Value:
                 //
 
                 Extension->CurrentXoffRequest = request;
-                WdfInterruptSynchronize(
-                    Extension->WdfInterrupt,
-                    SerialGiveXoffToIsr,
-                    Extension
-                    );
 
+                WdfInterruptAcquireLock (Extension->WdfInterrupt);
+                SerialGiveXoffToIsr(Extension->WdfInterrupt, Extension);
+                WdfInterruptReleaseLock (Extension->WdfInterrupt);
                 //
                 // Start the timer for the counter and increment
                 // the reference count since the timer has a
@@ -477,12 +472,10 @@ Return Value:
         if (!*NewRequest) {
 
 
-            WdfInterruptSynchronize(
-                Extension->WdfInterrupt,
-                SerialProcessEmptyTransmit,
-                Extension
-                );
 
+            WdfInterruptAcquireLock (Extension->WdfInterrupt);
+            SerialProcessEmptyTransmit(Extension->WdfInterrupt, Extension);
+            WdfInterruptReleaseLock (Extension->WdfInterrupt);
             break;
 
         } else if (SerialGetRequestContext(*NewRequest)->MajorFunction
@@ -673,7 +666,7 @@ Return Value:
     UNREFERENCED_PARAMETER(Interrupt);
 
     reqContext = SerialGetRequestContext(Extension->CurrentWriteRequest);
-
+	
     //
     // We might have a xoff counter request masquerading as a
     // write.  The length of these requests will always be one
@@ -721,6 +714,7 @@ Return Value:
         // interrupt.  The 8250 family of devices will always
         // signal a transmit holding register empty interrupt
         // *ANY* time this bit is set to one.  By doing things
+
         // this way we can simply use the normal interrupt code
         // to start off this write.
         //
@@ -743,10 +737,8 @@ Return Value:
     // however, it won't take much additional time to turn
     // on the RTS line if we are doing transmit toggling.
     //
-
     if ((Extension->HandFlow.FlowReplace & SERIAL_RTS_MASK) ==
         SERIAL_TRANSMIT_TOGGLE) {
-
         SerialSetRTS(Extension->WdfInterrupt, Extension);
 
     }
@@ -882,7 +874,7 @@ Return Value:
     UNREFERENCED_PARAMETER(Interrupt);
 
     reqContext = SerialGetRequestContext(Extension->CurrentWriteRequest);
-
+	KdPrint(("A"));
     //
     // Check if the write length is non-zero.  If it is non-zero
     // then the ISR still owns the request. We calculate the the number
@@ -892,6 +884,7 @@ Return Value:
     //
 
     if (Extension->WriteLength) {
+		KdPrint(("B"));
 
         //
         // We could have an xoff counter masquerading as a

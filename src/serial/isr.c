@@ -236,7 +236,7 @@ Return Value:
                     & SERIAL_IIR_NO_INTERRUPT_PENDING));
 
     } else {
-
+		
         ServicedAnInterrupt = TRUE;
         do {
 
@@ -260,7 +260,7 @@ Return Value:
             switch (InterruptIdReg) {
 
                 case SERIAL_IIR_RLS: {
-
+					KdPrint(("E1"));
                     SerialProcessLSR(Extension);
 
                     break;
@@ -271,6 +271,7 @@ Return Value:
                 case SERIAL_IIR_CTI:
 
                 {
+					//KdPrint(("E2"));
 
                     //
                     // Reading the receive buffer will quiet this interrupt.
@@ -538,7 +539,6 @@ doTrasmitStuff:;
                             if ((Extension->HandFlow.FlowReplace &
                                  SERIAL_RTS_MASK) ==
                                  SERIAL_TRANSMIT_TOGGLE) {
-
                                 //
                                 // We have to raise if we're sending
                                 // this character.
@@ -591,7 +591,6 @@ doTrasmitStuff:;
                             if ((Extension->HandFlow.FlowReplace &
                                  SERIAL_RTS_MASK) ==
                                  SERIAL_TRANSMIT_TOGGLE) {
-
                                 //
                                 // We have to raise if we're sending
                                 // this character.
@@ -664,13 +663,11 @@ doTrasmitStuff:;
                             (!Extension->TXHolding ||
                              (Extension->TXHolding == SERIAL_TX_XOFF)
                             )) {
-
                             Extension->TransmitImmediate = FALSE;
 
                             if ((Extension->HandFlow.FlowReplace &
                                  SERIAL_RTS_MASK) ==
                                  SERIAL_TRANSMIT_TOGGLE) {
-
                                 //
                                 // We have to raise if we're sending
                                 // this character.
@@ -689,7 +686,6 @@ doTrasmitStuff:;
                                     )?Extension->CountOfTryingToLowerRTS++:0;
 
                             } else {
-
                                 Extension->PerfStats.TransmittedCount++;
                                 Extension->WmiPerfData.TransmittedCount++;
                                 WRITE_TRANSMIT_HOLDING(Extension,
@@ -707,16 +703,17 @@ doTrasmitStuff:;
                         } else if (!Extension->TXHolding) {
 
                             ULONG amountToWrite;
-
+KdPrint(("T1"));
                             if (Extension->FifoPresent) {
 
                                 amountToWrite = (Extension->TxFifoAmount <
                                                  Extension->WriteLength)?
                                                 Extension->TxFifoAmount:
                                                 Extension->WriteLength;
+KdPrint(("T2 %i", amountToWrite));
 
                             } else {
-
+KdPrint(("T3"));
                                 amountToWrite = 1;
 
                             }
@@ -730,8 +727,10 @@ doTrasmitStuff:;
                                 //
 
                                 SerialSetRTS(Extension->WdfInterrupt, Extension);
+KdPrint(("T4"));
 
                                 if (amountToWrite == 1) {
+KdPrint(("T5"));
 
                                     Extension->PerfStats.TransmittedCount++;
                                     Extension->WmiPerfData.TransmittedCount++;
@@ -740,7 +739,7 @@ doTrasmitStuff:;
                                         *(Extension->WriteCurrentChar));
 
                                 } else {
-
+KdPrint(("T6"));
                                     Extension->PerfStats.TransmittedCount +=
                                         amountToWrite;
                                     Extension->WmiPerfData.TransmittedCount +=
@@ -750,15 +749,15 @@ doTrasmitStuff:;
                                         Extension->WriteCurrentChar,
                                         amountToWrite);
                                 }
-
+KdPrint(("T7"));
                                 SerialInsertQueueDpc(
                                     Extension->StartTimerLowerRTSDpc
                                     )?Extension->CountOfTryingToLowerRTS++:0;
 
                             } else {
-
+KdPrint(("T8"));
                                 if (amountToWrite == 1) {
-
+KdPrint(("T9"));
                                     Extension->PerfStats.TransmittedCount++;
                                     Extension->WmiPerfData.TransmittedCount++;
                                     WRITE_TRANSMIT_HOLDING(Extension,
@@ -766,7 +765,7 @@ doTrasmitStuff:;
                                         *(Extension->WriteCurrentChar));
 
                                 } else {
-
+KdPrint(("H3 %i", amountToWrite));
                                     Extension->PerfStats.TransmittedCount +=
                                         amountToWrite;
                                     Extension->WmiPerfData.TransmittedCount +=
@@ -785,6 +784,7 @@ doTrasmitStuff:;
                             Extension->WriteLength -= amountToWrite;
 
                             if (!Extension->WriteLength) {
+								KdPrint(("Final"));
 
                                 //
                                 // No More characters left.  This

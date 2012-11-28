@@ -391,12 +391,10 @@ Return Value:
                 // Update the number of characters in the
                 // interrupt read buffer.
                 //
-
-                WdfInterruptSynchronize(
-                    Extension->WdfInterrupt,
-                    SerialUpdateInterruptBuffer,
-                    &updateChar
-                    );
+                    
+                WdfInterruptAcquireLock (Extension->WdfInterrupt);
+                SerialUpdateInterruptBuffer(Extension->WdfInterrupt, &updateChar);
+                WdfInterruptReleaseLock (Extension->WdfInterrupt);
 
                 reqContext->Status =  STATUS_SUCCESS;
 
@@ -440,12 +438,9 @@ Return Value:
                 // number of characters and if necessary it will have the
                 // isr switch to copying into the users buffer.
                 //
-
-                WdfInterruptSynchronize(
-                    Extension->WdfInterrupt,
-                    SerialUpdateAndSwitchToUser,
-                    &updateChar
-                    );
+                WdfInterruptAcquireLock (Extension->WdfInterrupt);
+                SerialUpdateAndSwitchToUser(Extension->WdfInterrupt, &updateChar);
+                WdfInterruptReleaseLock (Extension->WdfInterrupt);
 
                 if (!updateChar.Completed) {
 
@@ -949,11 +944,9 @@ Return Value:
 
         if (extension->ReadByIsr) {
 
-            WdfInterruptSynchronize(
-                extension->WdfInterrupt,
-                SerialUpdateReadByIsr,
-                extension
-                );
+            WdfInterruptAcquireLock (extension->WdfInterrupt);
+            SerialUpdateReadByIsr(extension->WdfInterrupt, extension);
+            WdfInterruptReleaseLock (extension->WdfInterrupt);
 
             //
             // Save off the "last" time something was read.
@@ -1524,11 +1517,9 @@ Return Value:
                              newBuffer
                              );
 
-        WdfInterruptSynchronize(
-            Extension->WdfInterrupt,
-            SerialUpdateAndSwitchToNew,
-            &rp
-            );
+        WdfInterruptAcquireLock (Extension->WdfInterrupt);
+        SerialUpdateAndSwitchToNew(Extension->WdfInterrupt, &rp);
+        WdfInterruptReleaseLock (Extension->WdfInterrupt);
 
         //
         // Free up the memory that the old buffer consumed.

@@ -32,6 +32,8 @@
 struct BAR {
 	void *address;
 	BOOLEAN memory_mapped;
+	PCM_PARTIAL_RESOURCE_DESCRIPTOR raw_descriptor;
+	PCM_PARTIAL_RESOURCE_DESCRIPTOR tr_descriptor;
 };
 
 typedef struct fscc_card {
@@ -46,6 +48,8 @@ typedef struct fscc_card {
     unsigned dma;
 
 	WDFINTERRUPT interrupt;
+	PCM_PARTIAL_RESOURCE_DESCRIPTOR interrupt_tr_descriptor;
+	PCM_PARTIAL_RESOURCE_DESCRIPTOR interrupt_raw_descriptor;
 
 	struct fscc_port *ports[2];
 } FSCC_CARD;

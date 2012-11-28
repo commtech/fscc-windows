@@ -20,7 +20,7 @@
 signature="$WINDOWS NT$"
 Class=Ports
 ClassGuid={4D36E978-E325-11CE-BFC1-08002BE10318}
-Provider=%MSFT%
+Provider=%ManufacturerName%
 CatalogFile=fscc.cat
 
 
@@ -30,7 +30,7 @@ CatalogFile=fscc.cat
 ExcludeFromSelect=*
 
 [Manufacturer]
-%MSFT%=MSFT,NT$ARCH$
+%ManufacturerName%=MSFT,NT$ARCH$
 
 [SourceDisksFiles]
 wdfserial.sys=1
@@ -88,7 +88,7 @@ KmdfService = Serial, Serial_wdfsect
 KmdfLibraryVersion = $KMDFVERSION$
 
 [Strings]
-MSFT = "Microsoft"
+ManufacturerName = "Commtech, Inc."
 Serial.SVCDESC = "WDF Serial driver"
 PNP0500.DevDesc = "Communications Port"
 PNP0501.DevDesc = "Communications Port"
