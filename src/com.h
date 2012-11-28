@@ -30,6 +30,7 @@ typedef struct com_port {
 	WDFDEVICE device;
 	
 	struct fscc_port *fscc_port;
+	unsigned channel;
 } COM_PORT;
 
 WDF_DECLARE_CONTEXT_TYPE(COM_PORT);

@@ -45,7 +45,7 @@ BOOLEAN Bus_GetMemoryRegion(IN WDFDEVICE Device, OUT PDO_EXTENSION *pdo_ext)
 	// PDEVICE_OBJECT Fdo; // Skip for now
 
 	pdo_ext->portbase = card->bar[0].address;
-	pdo_ext->amccbase = card->bar[1].address;
+	pdo_ext->amccbase = (PULONG)((char *)card->bar[1].address + (8 * com_port->channel));
 	pdo_ext->control = card->bar[2].address;
 	pdo_ext->vector = card->interrupt_tr_descriptor->u.Interrupt.Vector;
 	pdo_ext->bus = pdo_ext->vector;
@@ -217,6 +217,7 @@ NTSTATUS com_port_init(struct fscc_port *fscc_port, unsigned channel)
 	com_port = WdfObjectGet_COM_PORT(device);
 	
 	com_port->fscc_port = fscc_port;
+	com_port->channel = channel;
 
     //
     // Create a custom interface so that other drivers can
