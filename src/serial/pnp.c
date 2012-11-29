@@ -795,6 +795,7 @@ Return Value:
         pConfig->TL16C550CAFC = 0;
     }
 
+	// TODO: Will, maybe add the defaults to SerialGetConfigDefaults later on so you can use driverDefaults.X
     if (!SerialGetRegistryKeyValue (Device,
                                     L"NineBitMode",
                                     &pConfig->NineBit)) {
@@ -850,12 +851,6 @@ Return Value:
 	if (temp == 1)
 		pConfig->ConfigReg |= 0x8;
 #endif
-
-    if (!SerialGetRegistryKeyValue (Device,
-                                    L"Clock4X",
-                                    &pConfig->Clock4X)) {
-		pConfig->Clock4X = 0;
-	}
 
     if (!SerialGetRegistryKeyValue (Device,
                                     L"Isosync",
@@ -1227,7 +1222,6 @@ Return Value:
     NTSTATUS status = STATUS_SUCCESS;
     SHORT junk;
     int i;
-	ULONG tul;  //temp ulong
 
     PAGED_CODE();
 
@@ -1295,20 +1289,19 @@ Return Value:
 	
 	pDevExt->DeviceID = PConfigData->DeviceID;
 	pDevExt->Channel = PConfigData->Channel;
-	pDevExt->FcrAddress = pDevExt->pdx.FcrAddress;
+	pDevExt->FcrAddress = PConfigData->FcrAddress;
 
 	pDevExt->TxTrigger = PConfigData->TxTrigger;
 	pDevExt->RxTrigger = PConfigData->RxTrigger;
 
-	pDevExt->Clock4X = PConfigData->Clock4X;
 	pDevExt->Auto485 = PConfigData->Auto485;
 	pDevExt->HardwareRtsCts = PConfigData->HardwareRtsCts;
 	pDevExt->SampleRate = PConfigData->SampleRate;
 	
 	pDevExt->ExtCount = PConfigData->ExtCount;
-	pDevExt->ClockRate = PConfigData->ClockRate;
 	pDevExt->Isosync = PConfigData->Isosync;
 	pDevExt->Clk1xDTR = PConfigData->Clk1xDTR;
+	pDevExt->NineBit = PConfigData->NineBit;
 	
 	//these are mutually exclusive.
 	//if you are in isosync (or set isosync, (either directly or by using the control panel)
@@ -1325,12 +1318,27 @@ Return Value:
 	else
 		setisosync(pDevExt);
 
-	set4x(pDevExt);
 	enable_auto_485(pDevExt);
 	set_tx_trigger(pDevExt);
 	set_rx_trigger(pDevExt);
 	setHardwareFlowControl(pDevExt);
 	set_sample_rate(pDevExt);
+
+	if (pDevExt->NineBit == 1) {
+		PUCHAR port;
+		UCHAR temp;
+		UCHAR savereg;
+			
+		pDevExt->first_byte_flag = 0;
+		port = pDevExt->Controller;
+
+		savereg = READ_PORT_UCHAR(port + 3);
+		WRITE_PORT_UCHAR(port + 3, 0x0);
+		WRITE_PORT_UCHAR(port + 7, 0xd); // NMR
+
+		WRITE_PORT_UCHAR(port + 5, (UCHAR)(0x1)); // Enable/disable nine bit mode. Write 0x0 to disable
+		WRITE_PORT_UCHAR(port + 3, (UCHAR)savereg);
+	}
 
 
 
@@ -1523,6 +1531,7 @@ Return Value:
 
         if (!NT_ERROR(SerialGetDivisorFromBaud(
                                             pDevExt->ClockRate,
+                                            pDevExt->SampleRate,
                                             (LONG)SupportedBaudRates[i].BaudRate,
                                             &junk
                                             ))) {
@@ -1855,8 +1864,8 @@ Return Value:
     pDevExt->SerialWriteUChar = SerialWritePortUChar;
 
 	PConfig->DeviceID = pDevExt->pdx.DeviceID;
-	//PConfig->pboardlock = pDevExt->pdx.pboardlock;
-	//PConfig->ClockRate = 1843200;
+	PConfig->Channel = pDevExt->pdx.Channel;
+	PConfig->FcrAddress = pDevExt->pdx.FcrAddress;
 
    //
    // First check what type of AddressSpace this port is in. Then check
@@ -2738,6 +2747,7 @@ Return Value:
       SERIAL_IOCTL_SYNC s;
 
       SerialGetDivisorFromBaud( extension->ClockRate,
+                                extension->SampleRate,
                                 extension->CurrentBaud,
                                 &appropriateDivisor );
 

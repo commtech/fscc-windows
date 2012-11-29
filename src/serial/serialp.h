@@ -236,6 +236,7 @@ EVT_WDF_INTERRUPT_ISR SerialISR;
 NTSTATUS
 SerialGetDivisorFromBaud(
     IN ULONG ClockRate,
+    IN ULONG SampleRate,
     IN LONG DesiredBaud,
     OUT PSHORT AppropriateDivisor
     );
@@ -598,7 +599,6 @@ BOOLEAN set_rx_trigger(PVOID Context);
 BOOLEAN set_tx_trigger(PVOID Context);
 BOOLEAN  set_ext_count(PVOID Context);
 BOOLEAN enable_auto_485(PVOID Context);
-BOOLEAN set4x(PVOID Context);
 BOOLEAN  setisosync(PVOID Context);
 BOOLEAN setspecial1xclkdtr(PVOID Context);
 BOOLEAN setHardwareFlowControl(PVOID Context);

@@ -1671,6 +1671,7 @@ Return Value:
 NTSTATUS
 SerialGetDivisorFromBaud(
                         IN ULONG ClockRate,
+                        IN ULONG SampleRate,
                         IN LONG DesiredBaud,
                         OUT PSHORT AppropriateDivisor
                         )
@@ -1724,7 +1725,7 @@ Return Value:
    // Reject any non-positive bauds.
    //
 
-   denominator = DesiredBaud*(ULONG)16;
+   denominator = DesiredBaud*SampleRate;
 
    if (DesiredBaud <= 0) {
 
@@ -2159,32 +2160,6 @@ BOOLEAN  enable_auto_485(PVOID Context)
 	WRITE_PORT_UCHAR(port + 3, 0xBF);
 	WRITE_PORT_UCHAR(port + 2, 0x00); // Clear the EFR bit (Latch extendeds);
 	WRITE_PORT_UCHAR(port + 3, (UCHAR)savereg);
-
-	return TRUE;
-}
-
-BOOLEAN  set4x(PVOID Context)
-{
-	ULONG savereg;
-	PUCHAR port;
-	ULONG val;
-	PSERIAL_DEVICE_EXTENSION extension;
-	extension = (PSERIAL_DEVICE_EXTENSION)Context;
-	port = extension->Controller;
-	val = extension->Clock4X;
-	
-	if (port == 0)
-		return FALSE;
-
-	savereg = READ_PORT_UCHAR(port+3);
-	WRITE_PORT_UCHAR(port+3,0xBF);//set to get to Extended regs
-	WRITE_PORT_UCHAR(port+2,0x10);//set the EFR bit (enable extendeds);
-	WRITE_PORT_UCHAR(port+3,(UCHAR)savereg);
-	if(val==1) WRITE_PORT_UCHAR(port+4,(UCHAR)(READ_PORT_UCHAR(port+4)|0x80));//if true set to divide by 4
-	else WRITE_PORT_UCHAR(port+4,(UCHAR)(READ_PORT_UCHAR(port+4)&0x7F));//else set to divide by 1
-	WRITE_PORT_UCHAR(port+3,0xBF);//set to get to Extended regs
-	WRITE_PORT_UCHAR(port+2,0x00);//set the EFR bit (enable extendeds);
-	WRITE_PORT_UCHAR(port+3,(UCHAR)savereg);
 
 	return TRUE;
 }
