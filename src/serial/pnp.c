@@ -796,11 +796,13 @@ Return Value:
     }
 
 	// TODO: Will, maybe add the defaults to SerialGetConfigDefaults later on so you can use driverDefaults.X
+#if 0
     if (!SerialGetRegistryKeyValue (Device,
                                     L"NineBitMode",
                                     &pConfig->NineBit)) {
 		pConfig->NineBit = 0;
 	}
+#endif
 
     if (!SerialGetRegistryKeyValue (Device,
                                     L"TxTrigger",
@@ -856,18 +858,6 @@ Return Value:
                                     L"Isosync",
                                     &pConfig->Isosync)) {
 		pConfig->Isosync = 0;
-	}
-
-    if (!SerialGetRegistryKeyValue (Device,
-                                    L"Clk1XDTR",
-                                    &pConfig->Clk1xDTR)) {
-		pConfig->Clk1xDTR = 0;
-	}
-
-    if (!SerialGetRegistryKeyValue (Device,
-                                    L"ExtCount",
-                                    &pConfig->ExtCount)) {
-		pConfig->ExtCount = 0;
 	}
 
     if (!SerialGetRegistryKeyValue (Device,
@@ -1290,40 +1280,19 @@ Return Value:
 	pDevExt->DeviceID = PConfigData->DeviceID;
 	pDevExt->Channel = PConfigData->Channel;
 	pDevExt->FcrAddress = PConfigData->FcrAddress;
-
-	pDevExt->TxTrigger = PConfigData->TxTrigger;
-	pDevExt->RxTrigger = PConfigData->RxTrigger;
-
-	pDevExt->Auto485 = PConfigData->Auto485;
-	pDevExt->HardwareRtsCts = PConfigData->HardwareRtsCts;
-	pDevExt->SampleRate = PConfigData->SampleRate;
 	
-	pDevExt->ExtCount = PConfigData->ExtCount;
-	pDevExt->Isosync = PConfigData->Isosync;
-	pDevExt->Clk1xDTR = PConfigData->Clk1xDTR;
+	SetAuto485(pDevExt, (BOOLEAN)PConfigData->Auto485);
+	SetTxTrigger(pDevExt, PConfigData->TxTrigger);
+	SetRxTrigger(pDevExt, PConfigData->RxTrigger);
+	SetSampleRate(pDevExt, PConfigData->SampleRate);
+	SetIsosync(pDevExt, (BOOLEAN)PConfigData->Isosync);
+	SetHardwareFlowControl(pDevExt, (BOOLEAN)PConfigData->HardwareRtsCts);
+	
+#if 0
 	pDevExt->NineBit = PConfigData->NineBit;
-	
-	//these are mutually exclusive.
-	//if you are in isosync (or set isosync, (either directly or by using the control panel)
-	//it will wipe the clk1xdtr setting
-	//so
-	//on boot, if they specify clk1xdtr we don't set the isosync (which would clear it)
-	//and if they don't then it is just as normal
-	//note that even with this, once they open the port (say using control panel) and call the isosync set ioctl
-	//it will wipe the clk1xdtr setting
-	//
-	
-	if(pDevExt->Clk1xDTR == 1)
-		setspecial1xclkdtr(pDevExt);
-	else
-		setisosync(pDevExt);
+#endif
 
-	enable_auto_485(pDevExt);
-	set_tx_trigger(pDevExt);
-	set_rx_trigger(pDevExt);
-	setHardwareFlowControl(pDevExt);
-	set_sample_rate(pDevExt);
-
+#if 0
 	if (pDevExt->NineBit == 1) {
 		PUCHAR port;
 		UCHAR temp;
@@ -1339,7 +1308,7 @@ Return Value:
 		WRITE_PORT_UCHAR(port + 5, (UCHAR)(0x1)); // Enable/disable nine bit mode. Write 0x0 to disable
 		WRITE_PORT_UCHAR(port + 3, (UCHAR)savereg);
 	}
-
+#endif
 
 
     //
@@ -1725,6 +1694,7 @@ Return Value:
    ULONG gotMem = 0;
    BOOLEAN DebugPortInUse = FALSE;
    COM_INTERFACE_STANDARD ComInterface;
+   PDO_EXTENSION pdx;
 
    PAGED_CODE();
 
@@ -1742,7 +1712,7 @@ Return Value:
                                     1,
                                     NULL);// InterfaceSpecific Data
 
-   ComInterface.GetMemoryRegion(ComInterface.InterfaceHeader.Context, &pDevExt->pdx);
+   ComInterface.GetMemoryRegion(ComInterface.InterfaceHeader.Context, &pdx);
 
    if ((PResList == NULL) || (PTrResList == NULL)) {
         ASSERT(PResList != NULL);
@@ -1847,7 +1817,7 @@ Return Value:
     }       // for (i = 0;     i < WdfCollectionGetCount
 
     gotIO = 1;
-    PConfig->TrController.LowPart  = PtrToUlong(pDevExt->pdx.UartAddress);
+    PConfig->TrController.LowPart  = PtrToUlong(pdx.UartAddress);
 
     if (!PConfig->TrController.LowPart) {
         SerialDbgPrintEx(TRACE_LEVEL_ERROR, DBG_PNP, "Bogus port address %x\n",
@@ -1858,14 +1828,14 @@ Return Value:
     //
     // We need the raw address to check if the debugger is using the com port
     //
-    PConfig->Controller.LowPart  = PtrToUlong(pDevExt->pdx.UartAddress);
-    PConfig->AddressSpace  = pDevExt->pdx.flags;
+    PConfig->Controller.LowPart  = PtrToUlong(pdx.UartAddress);
+    PConfig->AddressSpace  = pdx.flags;
     pDevExt->SerialReadUChar = SerialReadPortUChar;
     pDevExt->SerialWriteUChar = SerialWritePortUChar;
 
-	PConfig->DeviceID = pDevExt->pdx.DeviceID;
-	PConfig->Channel = pDevExt->pdx.Channel;
-	PConfig->FcrAddress = pDevExt->pdx.FcrAddress;
+	PConfig->DeviceID = pdx.DeviceID;
+	PConfig->Channel = pdx.Channel;
+	PConfig->FcrAddress = pdx.FcrAddress;
 
    //
    // First check what type of AddressSpace this port is in. Then check

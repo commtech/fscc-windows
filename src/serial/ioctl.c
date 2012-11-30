@@ -1832,6 +1832,306 @@ Return Value:
             WdfInterruptReleaseLock (Extension->WdfInterrupt);
             break;
         }
+		case IOCTL_SERIALP_ENABLE_AUTO485: {
+            WdfInterruptAcquireLock (Extension->WdfInterrupt);
+            EnableAuto485(Extension);
+            WdfInterruptReleaseLock (Extension->WdfInterrupt);
+		}
+		case IOCTL_SERIALP_DISABLE_AUTO485: {
+            WdfInterruptAcquireLock (Extension->WdfInterrupt);
+            DisableAuto485(Extension);
+            WdfInterruptReleaseLock (Extension->WdfInterrupt);
+		}
+		case IOCTL_SERIALP_SET_TX_TRIGGER: {
+			unsigned level = 0;
+
+			Status = WdfRequestRetrieveInputBuffer(Request, sizeof(unsigned), &buffer, &bufSize);
+            if (!NT_SUCCESS(Status)) {
+                SerialDbgPrintEx(TRACE_LEVEL_ERROR, DBG_IOCTLS, "Could not get request memory buffer %X\n", Status);
+                break;
+            }
+
+            level = (unsigned)buffer;
+
+			if (level < 4096) {
+				WdfInterruptAcquireLock (Extension->WdfInterrupt);
+				SetTxTrigger(Extension, level);
+				WdfInterruptReleaseLock (Extension->WdfInterrupt);
+			}
+			else {
+	            Status = STATUS_INVALID_PARAMETER;
+			}
+				
+			break;
+		}
+		case IOCTL_SERIALP_SET_RX_TRIGGER: {
+			unsigned level = 0;
+
+			Status = WdfRequestRetrieveInputBuffer(Request, sizeof(unsigned), &buffer, &bufSize);
+            if (!NT_SUCCESS(Status)) {
+                SerialDbgPrintEx(TRACE_LEVEL_ERROR, DBG_IOCTLS, "Could not get request memory buffer %X\n", Status);
+                break;
+            }
+
+            level = (unsigned)buffer;
+
+			if (level < 4096) {
+				WdfInterruptAcquireLock (Extension->WdfInterrupt);
+				SetRxTrigger(Extension, level);
+				WdfInterruptReleaseLock (Extension->WdfInterrupt);
+			}
+			else {
+	            Status = STATUS_INVALID_PARAMETER;
+			}
+				
+			break;
+		}
+		case IOCTL_SERIALP_SET_SAMPLE_RATE: {
+			unsigned rate = 0;
+
+			Status = WdfRequestRetrieveInputBuffer(Request, sizeof(unsigned), &buffer, &bufSize);
+            if (!NT_SUCCESS(Status)) {
+                SerialDbgPrintEx(TRACE_LEVEL_ERROR, DBG_IOCTLS, "Could not get request memory buffer %X\n", Status);
+                break;
+            }
+
+            rate = (unsigned)buffer;
+
+			if (rate <= 16 && rate >= 4) {
+				WdfInterruptAcquireLock (Extension->WdfInterrupt);
+				SetSampleRate(Extension, rate);
+				WdfInterruptReleaseLock (Extension->WdfInterrupt);
+			}
+			else {
+	            Status = STATUS_INVALID_PARAMETER;
+			}
+				
+			break;
+		}
+#if 0
+		case IOCTL_SERIALP_SET_TX_WRITE_SIZE:
+			{
+            PULONG input = Irp->AssociatedIrp.SystemBuffer;
+            PULONG output = Irp->AssociatedIrp.SystemBuffer;
+
+            if (IrpSp->Parameters.DeviceIoControl.InputBufferLength <
+                sizeof(ULONG)) {
+
+                Status = STATUS_INVALID_PARAMETER;
+                break;
+            }
+            if (IrpSp->Parameters.DeviceIoControl.OutputBufferLength <
+                sizeof(ULONG)) {
+                Status = STATUS_BUFFER_TOO_SMALL;
+                break;
+
+            }
+
+			if((input[0]<4096)&&(input[0]>0))
+				{
+				Extension->TxFifoAmount = input[0];
+				output[0] = 1;			
+	            Irp->IoStatus.Status = STATUS_SUCCESS;
+				}
+			else 
+				{
+				output[0] = 0;
+	            Irp->IoStatus.Status = STATUS_INVALID_PARAMETER;
+				}
+			
+            Irp->IoStatus.Information = sizeof(ULONG);
+			break;
+			}
+#endif
+		case IOCTL_SERIALP_ENABLE_ISOSYNC: {
+            WdfInterruptAcquireLock (Extension->WdfInterrupt);
+            EnableIsosync(Extension);
+            WdfInterruptReleaseLock (Extension->WdfInterrupt);
+		}
+#if 0
+		case IOCTL_SERIALP_SET_HARDWARE_RTSCTS:
+			{
+            PULONG input = Irp->AssociatedIrp.SystemBuffer;
+            PULONG output = Irp->AssociatedIrp.SystemBuffer;
+
+            if (IrpSp->Parameters.DeviceIoControl.InputBufferLength <
+                sizeof(ULONG)) {
+
+                Status = STATUS_INVALID_PARAMETER;
+                break;
+            }
+            if (IrpSp->Parameters.DeviceIoControl.OutputBufferLength <
+                sizeof(ULONG)) {
+                Status = STATUS_BUFFER_TOO_SMALL;
+                break;
+
+            }
+			Extension->HardwareRTSCTS = input[0];
+//			DbgPrint("HardwareRTSCTS:%x\n",Extension->HardwareRTSCTS);
+            KeSynchronizeExecution(Extension->Interrupt, setHardwareFlowControl,Extension);
+			
+			output[0] = 1;			
+            Irp->IoStatus.Information = sizeof(ULONG);
+            Irp->IoStatus.Status = STATUS_SUCCESS;
+				
+			break;
+			}
+		case IOCTL_SERIALP_GET_HARDWARE_RTSCTS:
+			{
+            PULONG output = Irp->AssociatedIrp.SystemBuffer;
+
+            if (IrpSp->Parameters.DeviceIoControl.OutputBufferLength <
+                sizeof(ULONG)) {
+                Status = STATUS_BUFFER_TOO_SMALL;
+                break;
+
+            }
+            Irp->IoStatus.Status = STATUS_SUCCESS;
+            Irp->IoStatus.Information = sizeof(ULONG);
+			output[0] = Extension->HardwareRTSCTS;						
+			break;
+			}
+#endif
+		case IOCTL_SERIALP_GET_AUTO485: {
+            BOOLEAN *status = 0;
+
+            Status = WdfRequestRetrieveOutputBuffer (Request, sizeof(*status), &buffer, &bufSize );
+            if( !NT_SUCCESS(Status) ) {
+                SerialDbgPrintEx(TRACE_LEVEL_ERROR, DBG_IOCTLS, "Could not get request memory buffer %X\n", Status);
+                break;
+            }
+
+            status = (BOOLEAN *)status;
+
+            *status = (BOOLEAN)Extension->Auto485;
+
+            reqContext->Information = sizeof(*status);
+		}
+		case IOCTL_SERIALP_GET_ISOSYNC: {
+            BOOLEAN *status = 0;
+
+            Status = WdfRequestRetrieveOutputBuffer (Request, sizeof(*status), &buffer, &bufSize );
+            if( !NT_SUCCESS(Status) ) {
+                SerialDbgPrintEx(TRACE_LEVEL_ERROR, DBG_IOCTLS, "Could not get request memory buffer %X\n", Status);
+                break;
+            }
+
+            status = (BOOLEAN *)status;
+
+            *status = (BOOLEAN)Extension->Isosync;
+
+            reqContext->Information = sizeof(*status);
+		}
+#if 0
+//MDS nine_bit_mode
+		case IOCTL_SERIALP_GET_SOFT_9_BIT:
+			{
+            PULONG output = Irp->AssociatedIrp.SystemBuffer;
+
+            if (IrpSp->Parameters.DeviceIoControl.OutputBufferLength <
+                sizeof(ULONG)) {
+                Status = STATUS_BUFFER_TOO_SMALL;
+                break;
+
+            }
+            Irp->IoStatus.Status = STATUS_SUCCESS;
+            Irp->IoStatus.Information = sizeof(ULONG);
+			output[0] = Extension->nine_bit;						
+			
+			break;
+			}
+//end MDS
+		case IOCTL_SERIALP_GET_TX_TRIGGER:
+			{
+            PULONG output = Irp->AssociatedIrp.SystemBuffer;
+
+            if (IrpSp->Parameters.DeviceIoControl.OutputBufferLength <
+                sizeof(ULONG)) {
+                Status = STATUS_BUFFER_TOO_SMALL;
+                break;
+
+            }
+            Irp->IoStatus.Status = STATUS_SUCCESS;
+            Irp->IoStatus.Information = sizeof(ULONG);
+			output[0] = Extension->TxTrigger;						
+			
+			break;
+			}
+#endif
+		case IOCTL_SERIALP_GET_RX_TRIGGER: {
+            unsigned *level = 0;
+
+            Status = WdfRequestRetrieveOutputBuffer (Request, sizeof(*level), &buffer, &bufSize );
+            if( !NT_SUCCESS(Status) ) {
+                SerialDbgPrintEx(TRACE_LEVEL_ERROR, DBG_IOCTLS, "Could not get request memory buffer %X\n", Status);
+                break;
+            }
+
+            level = (unsigned *)level;
+
+            *level = (unsigned)Extension->RxTrigger;
+
+            reqContext->Information = sizeof(*level);
+		}
+		case IOCTL_SERIALP_GET_SAMPLE_RATE: {
+            unsigned *rate = 0;
+
+            Status = WdfRequestRetrieveOutputBuffer (Request, sizeof(*rate), &buffer, &bufSize );
+            if( !NT_SUCCESS(Status) ) {
+                SerialDbgPrintEx(TRACE_LEVEL_ERROR, DBG_IOCTLS, "Could not get request memory buffer %X\n", Status);
+                break;
+            }
+
+            rate = (unsigned *)rate;
+
+            *rate = (unsigned)Extension->SampleRate;
+
+            reqContext->Information = sizeof(*rate);
+		}
+#if 0
+		case IOCTL_SERIALP_GET_TX_WRITE_SIZE:
+			{
+            PULONG output = Irp->AssociatedIrp.SystemBuffer;
+
+            if (IrpSp->Parameters.DeviceIoControl.OutputBufferLength <
+                sizeof(ULONG)) {
+                Status = STATUS_BUFFER_TOO_SMALL;
+                break;
+
+            }
+            Irp->IoStatus.Status = STATUS_SUCCESS;
+            Irp->IoStatus.Information = sizeof(ULONG);
+			output[0] = Extension->TxFifoAmount;						
+			
+			break;
+			}
+		case IOCTL_SERIALP_FORCE_TRANSMITTER_ENABLE:
+			{
+            PULONG input = Irp->AssociatedIrp.SystemBuffer;
+            PULONG output = Irp->AssociatedIrp.SystemBuffer;
+
+            if (IrpSp->Parameters.DeviceIoControl.InputBufferLength <
+                sizeof(ULONG)) {
+
+                Status = STATUS_INVALID_PARAMETER;
+                break;
+            }
+            if (IrpSp->Parameters.DeviceIoControl.OutputBufferLength <
+                sizeof(ULONG)) {
+                Status = STATUS_BUFFER_TOO_SMALL;
+                break;
+
+            }
+			if(input[0]==1) KeSynchronizeExecution(Extension->Interrupt, force_transmitter_on,Extension);
+			else KeSynchronizeExecution(Extension->Interrupt, force_transmitter_off,Extension);
+			
+			output[0] = 1;			
+            Irp->IoStatus.Information = sizeof(ULONG);
+            Irp->IoStatus.Status = STATUS_SUCCESS;
+				
+			break;
+			}
+#endif
         default: {
 
             Status = STATUS_INVALID_PARAMETER;

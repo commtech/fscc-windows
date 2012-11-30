@@ -593,14 +593,16 @@ KAFFINITY
 #define SERIAL_PREFERRED_INTERRUPT_GROUP    SERIAL_LAST_INTERRUPT_GROUP
 
 
-BOOLEAN fscc_is_soft_uart(PVOID Context);
-BOOLEAN set_sample_rate(PVOID Context); //dont need for the 16c850
-BOOLEAN set_rx_trigger(PVOID Context);
-BOOLEAN set_tx_trigger(PVOID Context);
-BOOLEAN  set_ext_count(PVOID Context);
-BOOLEAN enable_auto_485(PVOID Context);
-BOOLEAN  setisosync(PVOID Context);
-BOOLEAN setspecial1xclkdtr(PVOID Context);
-BOOLEAN setHardwareFlowControl(PVOID Context);
+BOOLEAN SetRxTrigger(PVOID Context, unsigned level);
+BOOLEAN SetTxTrigger(PVOID Context, unsigned level);
+BOOLEAN SetAuto485(PVOID Context, BOOLEAN status);
+BOOLEAN EnableAuto485(PVOID Context);
+BOOLEAN DisableAuto485(PVOID Context);
+BOOLEAN FsccIsSoftUart(PVOID Context);
+BOOLEAN SetSampleRate(PVOID Context, unsigned rate);
+BOOLEAN SetIsosync(PVOID Context, BOOLEAN status);
+BOOLEAN EnableIsosync(PVOID Context);
+BOOLEAN DisableIsosync(PVOID Context);
+BOOLEAN SetHardwareFlowControl(PVOID Context, BOOLEAN status);
 
 #define result_array_size 512

@@ -1942,7 +1942,7 @@ SerialCompleteRequest(
 
 }
 
-BOOLEAN fscc_is_soft_uart(PVOID Context)
+BOOLEAN FsccIsSoftUart(PVOID Context)
 {
 	PSERIAL_DEVICE_EXTENSION extension;
 	extension = (PSERIAL_DEVICE_EXTENSION)Context;
@@ -1961,7 +1961,7 @@ BOOLEAN fscc_is_soft_uart(PVOID Context)
 	return FALSE;
 }
 
-BOOLEAN set_sample_rate(PVOID Context)
+BOOLEAN SetSampleRate(PVOID Context, unsigned rate)
 {
 	ULONG savereg;
 	PUCHAR port;
@@ -1969,36 +1969,37 @@ BOOLEAN set_sample_rate(PVOID Context)
 	PSERIAL_DEVICE_EXTENSION extension;
 	extension = (PSERIAL_DEVICE_EXTENSION)Context;
 	port = extension->Controller;
-	val = extension->SampleRate;
 	
 	if (port == 0)
 		return FALSE; 	
+	
+	extension->SampleRate = rate;
 
-	savereg = READ_PORT_UCHAR(port+3);
+	savereg = READ_PORT_UCHAR(port + 3);
 	WRITE_PORT_UCHAR(port + 3, 0);
 	WRITE_PORT_UCHAR(port + 7, 2);
-	WRITE_PORT_UCHAR(port + 5, (UCHAR)val);
+	WRITE_PORT_UCHAR(port + 5, (UCHAR)rate);
 	WRITE_PORT_UCHAR(port + 3, (UCHAR)savereg);
+
+    SerialDbgPrintEx(TRACE_LEVEL_INFORMATION, DBG_PNP,
+                     "Sample Rate: %i\n", rate);
 
 	return TRUE;
 }
 
-BOOLEAN set_rx_trigger(PVOID Context)
+BOOLEAN SetRxTrigger(PVOID Context, unsigned level)
 {
 	ULONG savereg;
 	PUCHAR port;
-	ULONG val;
 	UCHAR temp;
 	PSERIAL_DEVICE_EXTENSION extension;
 	extension = (PSERIAL_DEVICE_EXTENSION)Context;
 	port = extension->Controller;
-	val = extension->RxTrigger;
-	
-	
-	//DbgPrint("set_rx_trigger port:%x val:%x\n",port,val);
 	
 	if (port == 0)
 		return FALSE; 	
+
+	extension->RxTrigger = level;
 
 	savereg = READ_PORT_UCHAR(port + 3);
 	WRITE_PORT_UCHAR(port + 3, 0xbf);
@@ -2021,32 +2022,35 @@ BOOLEAN set_rx_trigger(PVOID Context)
 	savereg = READ_PORT_UCHAR(port + 3);
 	WRITE_PORT_UCHAR(port + 3, 0);
 	WRITE_PORT_UCHAR(port + 7, 5);
-	WRITE_PORT_UCHAR(port + 5, (UCHAR)(val & 0x7f));
+	WRITE_PORT_UCHAR(port + 5, (UCHAR)(level & 0x7f));
 
-	if (fscc_is_soft_uart(Context) == TRUE) {
+	if (FsccIsSoftUart(Context) == TRUE) {
 		// for our custom 4k buffer, extended trigger values
 		WRITE_PORT_UCHAR(port + 7, 0x15);
-		WRITE_PORT_UCHAR(port + 5, (UCHAR)((val >> 7)&0x3f));
+		WRITE_PORT_UCHAR(port + 5, (UCHAR)((level >> 7) & 0x3f));
 	}
 
-	WRITE_PORT_UCHAR(port+3,(UCHAR)savereg);
+	WRITE_PORT_UCHAR(port + 3,(UCHAR)savereg);
+
+    SerialDbgPrintEx(TRACE_LEVEL_INFORMATION, DBG_PNP,
+                     "Rx Trigger: %i\n", level);
 
 	return TRUE;
 }
 
-BOOLEAN set_tx_trigger(PVOID Context)
+BOOLEAN SetTxTrigger(PVOID Context, unsigned level)
 {
 	ULONG savereg;
 	PUCHAR port;
-	ULONG val;
 	UCHAR temp;
 	PSERIAL_DEVICE_EXTENSION extension;
 	extension = (PSERIAL_DEVICE_EXTENSION)Context;
 	port = extension->Controller;
-	val = extension->TxTrigger;
 	
 	if (port == 0)
 		return FALSE;
+
+	extension->TxTrigger = level;
 
 	savereg = READ_PORT_UCHAR(port + 3);
 	WRITE_PORT_UCHAR(port + 3, 0xbf);
@@ -2068,79 +2072,35 @@ BOOLEAN set_tx_trigger(PVOID Context)
 	savereg = READ_PORT_UCHAR(port+3);
 	WRITE_PORT_UCHAR(port + 3, 0);
 	WRITE_PORT_UCHAR(port + 7, 4);
-	WRITE_PORT_UCHAR(port + 5, (UCHAR)(val & 0x7f));
+	WRITE_PORT_UCHAR(port + 5, (UCHAR)(level & 0x7f));
 		
-	if (fscc_is_soft_uart(Context) == TRUE) {
+	if (FsccIsSoftUart(Context) == TRUE) {
 		// for our custom 4k buffer, extended trigger values
 		WRITE_PORT_UCHAR(port + 7, 0x14);
-		WRITE_PORT_UCHAR(port + 5, (UCHAR)((val >> 7)&0x3f));
+		WRITE_PORT_UCHAR(port + 5, (UCHAR)((level >> 7) & 0x3f));
 	}
 
 	WRITE_PORT_UCHAR(port + 3, (UCHAR)savereg);
 
-	return TRUE;
-}
-
-
-BOOLEAN  set_ext_count(PVOID Context)
-{
-	ULONG savereg;
-	PUCHAR port;
-	ULONG val;
-	UCHAR temp;
-	PSERIAL_DEVICE_EXTENSION extension;
-	extension = (PSERIAL_DEVICE_EXTENSION)Context;
-	port = extension->Controller;
-	if(extension->ExtCount>0) val = extension->ExtCount-1;
-	else val=0;
-	
-	if (port == 0)
-		return FALSE; 		
-
-	savereg = READ_PORT_UCHAR(port+3);
-	WRITE_PORT_UCHAR(port+3,0xbf);
-	WRITE_PORT_UCHAR(port+2,0x10);//turn on enhanced mode
-	WRITE_PORT_UCHAR(port+3,0);
-		
-	if(val==0)
-	{
-		WRITE_PORT_UCHAR(port+7,0x16);
-		WRITE_PORT_UCHAR(port+5,(UCHAR)(0x00));
-			
-		WRITE_PORT_UCHAR(port+7,0x17);
-		WRITE_PORT_UCHAR(port+5,(UCHAR)(0x00));//force enable to 0 to turn off external transmit mode
-	}
-	else
-	{
-		WRITE_PORT_UCHAR(port+7,0x16);
-		WRITE_PORT_UCHAR(port+5,(UCHAR)(val&0xff));//set external transmit count
-			
-		WRITE_PORT_UCHAR(port+7,0x17);
-		WRITE_PORT_UCHAR(port+5,(UCHAR)(((val>>8)&0x1f)|0x80));//set external transmit count (upper portion) + enable bit
-	}
-	WRITE_PORT_UCHAR(port+3,0xbf);
-	WRITE_PORT_UCHAR(port+2,0x00);//turn off enhanced mode
-	WRITE_PORT_UCHAR(port+3,(UCHAR)savereg);
+    SerialDbgPrintEx(TRACE_LEVEL_INFORMATION, DBG_PNP,
+                     "Tx Trigger: %i\n", level);
 
 	return TRUE;
 }
 
-
-BOOLEAN  enable_auto_485(PVOID Context)
+BOOLEAN SetAuto485(PVOID Context, BOOLEAN status)
 {
 	ULONG savereg;
 	PUCHAR port;
-	ULONG val;
 	UCHAR temp;
 	PSERIAL_DEVICE_EXTENSION extension;
 	extension = (PSERIAL_DEVICE_EXTENSION)Context;
 	port = extension->Controller;
-	val = extension->Auto485;
-	
-	//DbgPrint("enable_auto_485 port:%x val:%x\n",port,val);
 	
 	if (port == 0)
 		return FALSE;
+
+	extension->Auto485 = status;
 
 	savereg = READ_PORT_UCHAR(port + 3);
 
@@ -2152,235 +2112,117 @@ BOOLEAN  enable_auto_485(PVOID Context)
 
 	temp = 0x20; // Always assume triggers are active
 
-	if (val == 0)	
-		WRITE_PORT_UCHAR(port + 5, (UCHAR)(temp & 0xEF)); // Disable 485
-	if (val == 1)  
+	if (status)
 		WRITE_PORT_UCHAR(port + 5, (UCHAR)(temp | 0x10)); // Enable 485
+	else
+		WRITE_PORT_UCHAR(port + 5, (UCHAR)(temp & 0xEF)); // Disable 485
 
 	WRITE_PORT_UCHAR(port + 3, 0xBF);
 	WRITE_PORT_UCHAR(port + 2, 0x00); // Clear the EFR bit (Latch extendeds);
 	WRITE_PORT_UCHAR(port + 3, (UCHAR)savereg);
 
+    SerialDbgPrintEx(TRACE_LEVEL_INFORMATION, DBG_PNP,
+                     "Auto 485: %i\n", status);
+
 	return TRUE;
 }
 
-void setconfigreg(PUCHAR port,ULONG childid,ULONG val,PSERIAL_DEVICE_EXTENSION extension)
+BOOLEAN EnableAuto485(PVOID Context)
 {
-	ULONG orig_reg;
-	ULONG mask;
-	ULONG reg;
-	KIRQL oldIrql;
-	//rework this for FSCC
-	//DbgPrint("SetConfig: configreg:%x child:%d value:%x\n",port,childid,val);
-	
-	if(port==0)return; 				
-	
-	KeAcquireSpinLock(extension->pBoardLock, &oldIrql);
-	
-	
-	
-	
-	orig_reg = READ_PORT_ULONG((PULONG)port);
-	
-	//DbgPrint("Original ConfigReg:%8.8x\n",orig_reg);
-	
-	/*
-	if((configreg&1)==1) Params->PortSettings.CTSDisable=1; !!doesn't exist
-	else Params->PortSettings.CTSDisable=0; 
-	
-	  if((configreg&2)==2) Params->PortSettings.Enable485=1;
-	  else Params->PortSettings.Enable485=0;
-	  
-		if((configreg&4)==4) Params->PortSettings.RxEchoCancel=1;
-		else Params->PortSettings.RxEchoCancel=0;
-		
-		  if((configreg&8)==8) Params->PortSettings.ControlSource485=1; !!doesn't exist, only dtr
-		  else Params->PortSettings.ControlSource485=0;
-		  
-			
-			  assign EN485_CTL   = my_io_reg3[18];
-			  assign EN485TT_CTL = my_io_reg3[17];
-			  assign RXECHO_CTL	 = my_io_reg3[16];
-			  
-				
-				  assign EN485_CTLB   = my_io_reg3[22];
-				  assign EN485TT_CTLB = my_io_reg3[21];
-				  assign RXECHO_CTLB	 = my_io_reg3[20];
-				  
-					
-	*/
-	
-	if(childid==0) 
-	{
-		if((orig_reg&0x01000000)!=0)
-		{
-			//only set if in async mode
-			orig_reg = orig_reg & 0xfef8ffff;
-			if((val&2)!=0)  orig_reg |= 0x00040000;
-			if((val&4)!=0)  orig_reg |= 0x00010000;
-			if((val&0x80000000)!=0) orig_reg |= 0x01000000;
-		}
-		else
-		{
-			//allow switch into async mode here!
-			orig_reg = orig_reg & 0xfeffffff;
-			if((val&0x80000000)!=0) orig_reg |= 0x01000000;
-		}
-	}
-	else
-	{
-		if((orig_reg&0x02000000)!=0)
-		{
-			//only set if in async mode
-			orig_reg = orig_reg & 0xfd8fffff;
-			if((val&2)!=0)  orig_reg |= 0x00400000;
-			if((val&4)!=0)  orig_reg |= 0x00100000;
-			if((val&0x80000000)!=0) orig_reg |= 0x02000000;
-		}
-		else
-		{
-			//allow switch into async mode here!
-			orig_reg = orig_reg & 0xfdffffff;
-			if((val&0x80000000)!=0) orig_reg |= 0x02000000;
-		}
-	}
-	
-	WRITE_PORT_ULONG((PULONG)port,orig_reg);
-	//DbgPrint("New      ConfigReg:%8.8x\n",orig_reg);
-	
-	
-	KeReleaseSpinLock(extension->pBoardLock, oldIrql);
-	
-	
-	
+	return SetAuto485(Context, TRUE);
 }
 
+BOOLEAN DisableAuto485(PVOID Context)
+{
+	return SetAuto485(Context, FALSE);
+}
 
-
-
-
-BOOLEAN  setisosync(PVOID Context)
+BOOLEAN SetIsosync(PVOID Context, BOOLEAN status)
 {
 	ULONG savereg;
 	PUCHAR port;
-	ULONG val;
 	PSERIAL_DEVICE_EXTENSION extension;
 	
 	extension = (PSERIAL_DEVICE_EXTENSION)Context;
 	port = extension->Controller;
-	val = extension->Isosync;
-	
-	if(port==0)return FALSE; 				
-	savereg = READ_PORT_UCHAR(port+3);
-	WRITE_PORT_UCHAR(port+3,0xbf);
-	WRITE_PORT_UCHAR(port+2,0x10);//turn on enhanced mode
-	
-	WRITE_PORT_UCHAR(port+3,0);
-	WRITE_PORT_UCHAR(port+7,3);//CKS register
-	
-	if(val==0) WRITE_PORT_UCHAR(port+5,0x00);//normal 550 mode
-	else if(val==1)	WRITE_PORT_UCHAR(port+5,(UCHAR)(0xDD));//1x iso sync mode, tx clocked 1x by RI input,rx clocked by dsr clock retransmitted on DTR
-	else if(val==2)	WRITE_PORT_UCHAR(port+5,(UCHAR)(0x19));//1x rx iso sync mode, tx clocked internal bgr, rx clocked by dsr clock retransmitted on DTR
-	
-	WRITE_PORT_UCHAR(port+3,0xbf);
-	WRITE_PORT_UCHAR(port+2,0x00);//clear the EFR bit (Latch extendeds);
-	
-	WRITE_PORT_UCHAR(port+3,(UCHAR)savereg&0x7f);
-	
-	if(val==0)
-	{
-		WRITE_PORT_UCHAR(port+7,0x0e);//put MDM address (0x0e) into the SPR
-		WRITE_PORT_UCHAR(port+0x05,0x00);//MDM register normal
-	}
-	else if(val==1)
-	{
-		WRITE_PORT_UCHAR(port+7,0x0e);//put MDM address (0x0e) into the SPR
-		WRITE_PORT_UCHAR(port+0x05,0x06);//MDM register disable RI & DSR interrutps
-	}
-	else if(val==2)
-	{
-		WRITE_PORT_UCHAR(port+7,0x0e);//put MDM address (0x0e) into the SPR
-		WRITE_PORT_UCHAR(port+0x05,0x02);//MDM register disable DSR interrupt
-	}
-	
-	WRITE_PORT_UCHAR(port+3,(UCHAR)savereg);
-	
-	return TRUE;
-}
-
-BOOLEAN  setspecial1xclkdtr(PVOID Context)
-{
-	ULONG savereg;
-	PUCHAR port;
-	ULONG val;
-	UCHAR temp;
-	PSERIAL_DEVICE_EXTENSION extension;
-	extension = (PSERIAL_DEVICE_EXTENSION)Context;
-	port = extension->Controller;
-	val = extension->Clk1xDTR;
 	
 	if (port == 0)
-		return FALSE; 		
+		return FALSE; 
 
-	//DbgPrint("950\n");
-	//DbgPrint("setdtr1x port:%x val:%x\n",port,val);
-		
-	savereg = READ_PORT_UCHAR(port+3);
-	WRITE_PORT_UCHAR(port+3,0xbf);
-	WRITE_PORT_UCHAR(port+2,0x10);//turn on enhanced mode
-		
-	WRITE_PORT_UCHAR(port+3,0);
-	WRITE_PORT_UCHAR(port+7,3);//CKS register
-	temp = 0x20;//allways assume triggers are active
-	if(val==0)	WRITE_PORT_UCHAR(port+5,0x00);//normal 550 mode
-	if(val==1)  WRITE_PORT_UCHAR(port+5,(UCHAR)(0x10));// tx clocked normal , rx normal (async) 1x clk transmitted on DTR
-		
-	WRITE_PORT_UCHAR(port+3,0xbf);
-	WRITE_PORT_UCHAR(port+2,0x00);//clear the EFR bit (Latch extendeds);
-	WRITE_PORT_UCHAR(port+3,(UCHAR)savereg);
+	extension->Isosync = status;
 
+	savereg = READ_PORT_UCHAR(port + 3);
+	WRITE_PORT_UCHAR(port + 3, 0xbf);
+	WRITE_PORT_UCHAR(port + 2, 0x10); // Turn on enhanced mode
+	
+	WRITE_PORT_UCHAR(port + 3, 0);
+	WRITE_PORT_UCHAR(port + 7, 3); // CKS register
+	
+	if (status)
+		WRITE_PORT_UCHAR(port + 5,(UCHAR)0xDD); //1x iso sync mode, tx clocked 1x by RI input,rx clocked by dsr clock retransmitted on DTR
+	else 
+		WRITE_PORT_UCHAR(port + 5, 0x00); // Normal 550 mode
+	
+	WRITE_PORT_UCHAR(port + 3, 0xbf);
+	WRITE_PORT_UCHAR(port + 2, 0x00);//clear the EFR bit (Latch extendeds);
+	
+	WRITE_PORT_UCHAR(port + 3, (UCHAR)savereg & 0x7f);
+	
+	if (status) {
+		WRITE_PORT_UCHAR(port + 7, 0x0e);//put MDM address (0x0e) into the SPR
+		WRITE_PORT_UCHAR(port + 0x05, 0x06);//MDM register disable RI & DSR interrutps
+	}
+	else {
+		WRITE_PORT_UCHAR(port + 7, 0x0e);//put MDM address (0x0e) into the SPR
+		WRITE_PORT_UCHAR(port + 0x05, 0x00);//MDM register normal
+	}
+	
+	WRITE_PORT_UCHAR(port + 3, (UCHAR)savereg);
+
+    SerialDbgPrintEx(TRACE_LEVEL_INFORMATION, DBG_PNP,
+                     "Isosync: %i\n", status);
+	
 	return TRUE;
 }
 
-BOOLEAN  setHardwareFlowControl(PVOID Context)
+BOOLEAN EnableIsosync(PVOID Context)
+{
+	return SetIsosync(Context, TRUE);
+}
+
+BOOLEAN DisableIsosync(PVOID Context)
+{
+	return SetIsosync(Context, FALSE);
+}
+
+BOOLEAN SetHardwareFlowControl(PVOID Context, BOOLEAN status)
 {
 	ULONG savereg;
 	PUCHAR port;
-	ULONG value;
 	UCHAR temp;
 	PSERIAL_DEVICE_EXTENSION extension;
 	extension = (PSERIAL_DEVICE_EXTENSION)Context;
 	port = extension->Controller;
-	value = extension->HardwareRtsCts;
 	
 	if (port == 0)
 		return FALSE; 	
+
+	extension->HardwareRtsCts = status;
 		
 	savereg = READ_PORT_UCHAR(port+3);
-	WRITE_PORT_UCHAR(port+3,0xbf);
+	WRITE_PORT_UCHAR(port + 3, 0xbf);
 
-	WRITE_PORT_UCHAR(port+2,0x10);//turn on enhanced mode
+	WRITE_PORT_UCHAR(port + 2, 0x10);//turn on enhanced mode
 
-	switch (value)
-	{
-	case 0:
-		WRITE_PORT_UCHAR(port+2,0x00);//turn off CTS+RTS flow control - EFR=0x00
-		break;
-	case 1:
-		WRITE_PORT_UCHAR(port+2,0x50);//turn on RTS flow control - EFR=0x50 - Enhanced mode+RTS Flow
-		break;
-	case 2:
-		WRITE_PORT_UCHAR(port+2,0x90);//turn on CTS flow control - EFR=0x90 - Enhanced mode+CTS Flow
-		break;
-	case 3:
-		WRITE_PORT_UCHAR(port+2,0xd0);//turn on CTS+RTS flow control - EFR=0xd0 - Enhanced mode+CTS Flow+RTS Flow
-		break;
-	default:
-		DbgPrint("%d, invalid selectiojn for HardwareRtsCts\n",value);
-	}
+	if (status)
+		WRITE_PORT_UCHAR(port + 2, 0xd0);//turn on CTS+RTS flow control - EFR=0xd0 - Enhanced mode+CTS Flow+RTS Flow
+	else
+		WRITE_PORT_UCHAR(port + 2, 0x00);//turn off CTS+RTS flow control - EFR=0x00
 		
-	WRITE_PORT_UCHAR(port+3,(UCHAR)savereg);
-	DbgPrint("HardwareRtsCts = %d\n",value);
+	WRITE_PORT_UCHAR(port + 3, (UCHAR)savereg);
+
+    SerialDbgPrintEx(TRACE_LEVEL_INFORMATION, DBG_PNP,
+                     "Hardware Flow Control: %i\n", status);
 
 	return TRUE;
 }
