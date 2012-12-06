@@ -20,6 +20,7 @@ SOURCES=card.c \
         stream.c \
         utils.c \
 		debug.c \
+		com.c \
         fscc.rc
 
 #

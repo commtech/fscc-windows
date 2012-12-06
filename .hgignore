@@ -2,7 +2,13 @@ syntax: glob
 
 tmp\
 src\objfre*
+src\objchk*
+src\serial\objfre*
+src\serial\objchk*
 src\buildfre*
+src\buildchk*
+src\serial\buildfre*
+src\serial\buildchk*
 bin\
 lib\c\docs
 *.exp

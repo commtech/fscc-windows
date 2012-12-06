@@ -125,13 +125,47 @@ NTSTATUS fscc_card_prepare_hardware(IN WDFDEVICE Device, IN WDFCMRESLIST Resourc
 		case CmResourceTypePort:
 			card->bar[bar_counter].address = ULongToPtr(descriptor->u.Port.Start.LowPart);
 			card->bar[bar_counter].memory_mapped = FALSE;
+			card->bar[bar_counter].tr_descriptor = descriptor;
 			bar_counter++;
 			break;
 			
 		case CmResourceTypeMemory:
 			card->bar[bar_counter].address = MmMapIoSpace(descriptor->u.Memory.Start, descriptor->u.Memory.Length, MmNonCached);
 			card->bar[bar_counter].memory_mapped = TRUE;
+			card->bar[bar_counter].tr_descriptor = descriptor;
 			bar_counter++;
+			break;
+
+		case CmResourceTypeInterrupt:
+			card->interrupt_tr_descriptor = descriptor;
+			break;
+		}
+
+	}
+
+	bar_counter = 0;
+
+	for (i = 0; i < WdfCmResourceListGetCount(ResourcesRaw); i++) {
+		PCM_PARTIAL_RESOURCE_DESCRIPTOR descriptor;
+		
+		descriptor = WdfCmResourceListGetDescriptor(ResourcesRaw, i);
+		
+		if (!descriptor)
+			return STATUS_DEVICE_CONFIGURATION_ERROR;
+			
+		switch (descriptor->Type) {
+		case CmResourceTypePort:
+			card->bar[bar_counter].raw_descriptor = descriptor;
+			bar_counter++;
+			break;
+			
+		case CmResourceTypeMemory:
+			card->bar[bar_counter].raw_descriptor = descriptor;
+			bar_counter++;
+			break;
+
+		case CmResourceTypeInterrupt:
+			card->interrupt_raw_descriptor = descriptor;
 			break;
 		}		
 	}
