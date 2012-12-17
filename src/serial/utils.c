@@ -1961,25 +1961,18 @@ BOOLEAN FsccIsSoftUart(PVOID Context)
 	return FALSE;
 }
 
-BOOLEAN SetSampleRate(PVOID Context, unsigned rate)
+BOOLEAN SetSampleRate(SERIAL_DEVICE_EXTENSION *pDevExt, unsigned rate)
 {
-	ULONG savereg;
-	PUCHAR port;
-	ULONG val;
-	PSERIAL_DEVICE_EXTENSION extension;
-	extension = (PSERIAL_DEVICE_EXTENSION)Context;
-	port = extension->Controller;
+	UCHAR savereg;
 	
-	if (port == 0)
-		return FALSE; 	
-	
-	extension->SampleRate = rate;
+	pDevExt->SampleRate = rate;
 
-	savereg = READ_PORT_UCHAR(port + 3);
-	WRITE_PORT_UCHAR(port + 3, 0);
-	WRITE_PORT_UCHAR(port + 7, 2);
-	WRITE_PORT_UCHAR(port + 5, (UCHAR)rate);
-	WRITE_PORT_UCHAR(port + 3, (UCHAR)savereg);
+    savereg = pDevExt->SerialReadUChar(pDevExt->Controller + 3);
+
+    pDevExt->SerialWriteUChar(pDevExt->Controller + 3, 0);
+    pDevExt->SerialWriteUChar(pDevExt->Controller + 7, 2);
+    pDevExt->SerialWriteUChar(pDevExt->Controller + 5, (UCHAR)rate);
+    pDevExt->SerialWriteUChar(pDevExt->Controller + 3, (UCHAR)savereg);
 
     SerialDbgPrintEx(TRACE_LEVEL_INFORMATION, DBG_PNP,
                      "Sample Rate: %i\n", rate);
@@ -1987,50 +1980,43 @@ BOOLEAN SetSampleRate(PVOID Context, unsigned rate)
 	return TRUE;
 }
 
-BOOLEAN SetRxTrigger(PVOID Context, unsigned level)
+BOOLEAN SetRxTrigger(SERIAL_DEVICE_EXTENSION *pDevExt, unsigned level)
 {
-	ULONG savereg;
-	PUCHAR port;
+	UCHAR savereg;
 	UCHAR temp;
-	PSERIAL_DEVICE_EXTENSION extension;
-	extension = (PSERIAL_DEVICE_EXTENSION)Context;
-	port = extension->Controller;
-	
-	if (port == 0)
-		return FALSE; 	
 
-	extension->RxTrigger = level;
+	pDevExt->RxTrigger = level;
 
-	savereg = READ_PORT_UCHAR(port + 3);
-	WRITE_PORT_UCHAR(port + 3, 0xbf);
-	WRITE_PORT_UCHAR(port + 2, 0x10);//turn on enhanced mode
-		
-	WRITE_PORT_UCHAR(port + 3,0);
-	WRITE_PORT_UCHAR(port + 7,0);
+    savereg = pDevExt->SerialReadUChar(pDevExt->Controller + 3);
+    
+    pDevExt->SerialWriteUChar(pDevExt->Controller + 3, 0xbf);
+    pDevExt->SerialWriteUChar(pDevExt->Controller + 2, 0x10); // Turn on enhanced mode
+    pDevExt->SerialWriteUChar(pDevExt->Controller + 3, 0);
+    pDevExt->SerialWriteUChar(pDevExt->Controller + 7, 0);
 
-	if(extension->Auto485 == 1) 
+	if(pDevExt->Auto485 == 1) 
 		temp = 0x10;
 	else 
 		temp = 0;
 
-	WRITE_PORT_UCHAR(port + 5,(UCHAR)(temp | 0x20));//enable triggers
-	WRITE_PORT_UCHAR(port + 3, 0xbf);
-	WRITE_PORT_UCHAR(port + 2, 0x00);//clear the EFR bit (Latch extendeds);
-	WRITE_PORT_UCHAR(port + 3, (UCHAR)savereg);
+    pDevExt->SerialWriteUChar(pDevExt->Controller + 5, temp | 0x20); // Enable triggers
+    pDevExt->SerialWriteUChar(pDevExt->Controller + 3, 0xbf);
+    pDevExt->SerialWriteUChar(pDevExt->Controller + 2, 0x00); // Clear the EFR bit (latch extendeds)
+    pDevExt->SerialWriteUChar(pDevExt->Controller + 3, savereg);
 		
 		
-	savereg = READ_PORT_UCHAR(port + 3);
-	WRITE_PORT_UCHAR(port + 3, 0);
-	WRITE_PORT_UCHAR(port + 7, 5);
-	WRITE_PORT_UCHAR(port + 5, (UCHAR)(level & 0x7f));
+    savereg = pDevExt->SerialReadUChar(pDevExt->Controller + 3);
+    pDevExt->SerialWriteUChar(pDevExt->Controller + 3, 0);
+    pDevExt->SerialWriteUChar(pDevExt->Controller + 7, 5);
+    pDevExt->SerialWriteUChar(pDevExt->Controller + 5, level & 0x7f);
 
-	if (FsccIsSoftUart(Context) == TRUE) {
+	if (FsccIsSoftUart(pDevExt) == TRUE) {
 		// for our custom 4k buffer, extended trigger values
-		WRITE_PORT_UCHAR(port + 7, 0x15);
-		WRITE_PORT_UCHAR(port + 5, (UCHAR)((level >> 7) & 0x3f));
+        pDevExt->SerialWriteUChar(pDevExt->Controller + 7, 0x15);
+        pDevExt->SerialWriteUChar(pDevExt->Controller + 5, (level >> 7) & 0x3f);
 	}
 
-	WRITE_PORT_UCHAR(port + 3,(UCHAR)savereg);
+    pDevExt->SerialWriteUChar(pDevExt->Controller + 3, savereg);
 
     SerialDbgPrintEx(TRACE_LEVEL_INFORMATION, DBG_PNP,
                      "Rx Trigger: %i\n", level);
@@ -2038,49 +2024,42 @@ BOOLEAN SetRxTrigger(PVOID Context, unsigned level)
 	return TRUE;
 }
 
-BOOLEAN SetTxTrigger(PVOID Context, unsigned level)
+BOOLEAN SetTxTrigger(SERIAL_DEVICE_EXTENSION *pDevExt, unsigned level)
 {
-	ULONG savereg;
-	PUCHAR port;
+	UCHAR savereg;
 	UCHAR temp;
-	PSERIAL_DEVICE_EXTENSION extension;
-	extension = (PSERIAL_DEVICE_EXTENSION)Context;
-	port = extension->Controller;
-	
-	if (port == 0)
-		return FALSE;
 
-	extension->TxTrigger = level;
+	pDevExt->TxTrigger = level;
 
-	savereg = READ_PORT_UCHAR(port + 3);
-	WRITE_PORT_UCHAR(port + 3, 0xbf);
-	WRITE_PORT_UCHAR(port + 2, 0x10);//turn on enhanced mode
-		
-	WRITE_PORT_UCHAR(port + 3, 0);
-	WRITE_PORT_UCHAR(port + 7, 0);
+    savereg = pDevExt->SerialReadUChar(pDevExt->Controller + 3);
+    pDevExt->SerialWriteUChar(pDevExt->Controller + 3, 0xbf);
+    pDevExt->SerialWriteUChar(pDevExt->Controller + 2, 0x10); // Turn on enhanced mode
+    pDevExt->SerialWriteUChar(pDevExt->Controller + 3, 0);
+    pDevExt->SerialWriteUChar(pDevExt->Controller + 7, 0);
 
-	if (extension->Auto485 == 1) 
-		temp = 0x10;
-	else 
-		temp = 0;
+    if(pDevExt->Auto485 == 1) 
+        temp = 0x10;
+    else 
+        temp = 0;
 
-	WRITE_PORT_UCHAR(port + 5, (UCHAR)(temp | 0x20));//enable triggers
-	WRITE_PORT_UCHAR(port + 3, 0xbf);
-	WRITE_PORT_UCHAR(port + 2, 0x00);//clear the EFR bit (Latch extendeds);
-	WRITE_PORT_UCHAR(port + 3, (UCHAR)savereg);
-		
-	savereg = READ_PORT_UCHAR(port+3);
-	WRITE_PORT_UCHAR(port + 3, 0);
-	WRITE_PORT_UCHAR(port + 7, 4);
-	WRITE_PORT_UCHAR(port + 5, (UCHAR)(level & 0x7f));
-		
-	if (FsccIsSoftUart(Context) == TRUE) {
-		// for our custom 4k buffer, extended trigger values
-		WRITE_PORT_UCHAR(port + 7, 0x14);
-		WRITE_PORT_UCHAR(port + 5, (UCHAR)((level >> 7) & 0x3f));
-	}
+    pDevExt->SerialWriteUChar(pDevExt->Controller + 5, temp | 0x20); // Enable triggers
+    pDevExt->SerialWriteUChar(pDevExt->Controller + 3, 0xbf);
+    pDevExt->SerialWriteUChar(pDevExt->Controller + 2, 0x00); // Clear the EFR bit (latch extendeds)
+    pDevExt->SerialWriteUChar(pDevExt->Controller + 3, savereg);
+        
+        
+    savereg = pDevExt->SerialReadUChar(pDevExt->Controller + 3);
+    pDevExt->SerialWriteUChar(pDevExt->Controller + 3, 0);
+    pDevExt->SerialWriteUChar(pDevExt->Controller + 7, 4);
+    pDevExt->SerialWriteUChar(pDevExt->Controller + 5, level & 0x7f);
 
-	WRITE_PORT_UCHAR(port + 3, (UCHAR)savereg);
+    if (FsccIsSoftUart(pDevExt) == TRUE) {
+        // for our custom 4k buffer, extended trigger values
+        pDevExt->SerialWriteUChar(pDevExt->Controller + 7, 0x14);
+        pDevExt->SerialWriteUChar(pDevExt->Controller + 5, (level >> 7) & 0x3f);
+    }
+
+    pDevExt->SerialWriteUChar(pDevExt->Controller + 3, savereg);
 
     SerialDbgPrintEx(TRACE_LEVEL_INFORMATION, DBG_PNP,
                      "Tx Trigger: %i\n", level);
@@ -2088,38 +2067,31 @@ BOOLEAN SetTxTrigger(PVOID Context, unsigned level)
 	return TRUE;
 }
 
-BOOLEAN SetAuto485(PVOID Context, BOOLEAN status)
+BOOLEAN SetAuto485(SERIAL_DEVICE_EXTENSION *pDevExt, BOOLEAN status)
 {
-	ULONG savereg;
-	PUCHAR port;
+	UCHAR savereg;
 	UCHAR temp;
-	PSERIAL_DEVICE_EXTENSION extension;
-	extension = (PSERIAL_DEVICE_EXTENSION)Context;
-	port = extension->Controller;
-	
-	if (port == 0)
-		return FALSE;
 
-	extension->Auto485 = status;
+	pDevExt->Auto485 = status;
 
-	savereg = READ_PORT_UCHAR(port + 3);
+    savereg = pDevExt->SerialReadUChar(pDevExt->Controller + 3);
 
-	WRITE_PORT_UCHAR(port + 3, 0xBF);
-	WRITE_PORT_UCHAR(port + 2, 0x10); // Enable enhanced mode
+    pDevExt->SerialWriteUChar(pDevExt->Controller + 3, 0xbf);
+    pDevExt->SerialWriteUChar(pDevExt->Controller + 2, 0x10); // Enable enhanced mode
 		
-	WRITE_PORT_UCHAR(port + 3, 0);
-	WRITE_PORT_UCHAR(port + 7, 0);
+    pDevExt->SerialWriteUChar(pDevExt->Controller + 3, 0);
+    pDevExt->SerialWriteUChar(pDevExt->Controller + 7, 0);
 
 	temp = 0x20; // Always assume triggers are active
 
 	if (status)
-		WRITE_PORT_UCHAR(port + 5, (UCHAR)(temp | 0x10)); // Enable 485
+        pDevExt->SerialWriteUChar(pDevExt->Controller + 5, temp | 0x10); // Enable 485
 	else
-		WRITE_PORT_UCHAR(port + 5, (UCHAR)(temp & 0xEF)); // Disable 485
+        pDevExt->SerialWriteUChar(pDevExt->Controller + 5, temp & 0xEF); // Disable 485
 
-	WRITE_PORT_UCHAR(port + 3, 0xBF);
-	WRITE_PORT_UCHAR(port + 2, 0x00); // Clear the EFR bit (Latch extendeds);
-	WRITE_PORT_UCHAR(port + 3, (UCHAR)savereg);
+    pDevExt->SerialWriteUChar(pDevExt->Controller + 3, 0xbf);
+    pDevExt->SerialWriteUChar(pDevExt->Controller + 2, 0x00); // Clear the EFR bit (Latch extendeds);
+    pDevExt->SerialWriteUChar(pDevExt->Controller + 3, savereg);
 
     SerialDbgPrintEx(TRACE_LEVEL_INFORMATION, DBG_PNP,
                      "Auto 485: %i\n", status);
@@ -2127,57 +2099,46 @@ BOOLEAN SetAuto485(PVOID Context, BOOLEAN status)
 	return TRUE;
 }
 
-BOOLEAN EnableAuto485(PVOID Context)
+BOOLEAN EnableAuto485(SERIAL_DEVICE_EXTENSION *pDevExt)
 {
-	return SetAuto485(Context, TRUE);
+	return SetAuto485(pDevExt, TRUE);
 }
 
-BOOLEAN DisableAuto485(PVOID Context)
+BOOLEAN DisableAuto485(SERIAL_DEVICE_EXTENSION *pDevExt)
 {
-	return SetAuto485(Context, FALSE);
+	return SetAuto485(pDevExt, FALSE);
 }
 
-BOOLEAN SetIsosync(PVOID Context, BOOLEAN status)
+BOOLEAN SetIsosync(SERIAL_DEVICE_EXTENSION *pDevExt, BOOLEAN status)
 {
-	ULONG savereg;
-	PUCHAR port;
-	PSERIAL_DEVICE_EXTENSION extension;
-	
-	extension = (PSERIAL_DEVICE_EXTENSION)Context;
-	port = extension->Controller;
-	
-	if (port == 0)
-		return FALSE; 
+	UCHAR savereg;
 
-	extension->Isosync = status;
+	pDevExt->Isosync = status;
 
-	savereg = READ_PORT_UCHAR(port + 3);
-	WRITE_PORT_UCHAR(port + 3, 0xbf);
-	WRITE_PORT_UCHAR(port + 2, 0x10); // Turn on enhanced mode
+    savereg = pDevExt->SerialReadUChar(pDevExt->Controller + 3);
+
+    pDevExt->SerialWriteUChar(pDevExt->Controller + 3, 0xbf);
+    pDevExt->SerialWriteUChar(pDevExt->Controller + 2, 0x10); // Turn on enhanced mode
 	
-	WRITE_PORT_UCHAR(port + 3, 0);
-	WRITE_PORT_UCHAR(port + 7, 3); // CKS register
+    pDevExt->SerialWriteUChar(pDevExt->Controller + 3, 0);
+    pDevExt->SerialWriteUChar(pDevExt->Controller + 7, 3); // CKS register
 	
 	if (status)
-		WRITE_PORT_UCHAR(port + 5,(UCHAR)0xDD); //1x iso sync mode, tx clocked 1x by RI input,rx clocked by dsr clock retransmitted on DTR
+        pDevExt->SerialWriteUChar(pDevExt->Controller + 5, 0xdd); //1x iso sync mode, tx clocked 1x by RI input,rx clocked by dsr clock retransmitted on DTR
 	else 
-		WRITE_PORT_UCHAR(port + 5, 0x00); // Normal 550 mode
+        pDevExt->SerialWriteUChar(pDevExt->Controller + 5, 0x00); // Normal 550 mode
 	
-	WRITE_PORT_UCHAR(port + 3, 0xbf);
-	WRITE_PORT_UCHAR(port + 2, 0x00);//clear the EFR bit (Latch extendeds);
+    pDevExt->SerialWriteUChar(pDevExt->Controller + 3, 0xbf);
+    pDevExt->SerialWriteUChar(pDevExt->Controller + 2, 0x00); //clear the EFR bit (Latch extendeds);
+    pDevExt->SerialWriteUChar(pDevExt->Controller + 3, savereg & 0x7f);
 	
-	WRITE_PORT_UCHAR(port + 3, (UCHAR)savereg & 0x7f);
+    pDevExt->SerialWriteUChar(pDevExt->Controller + 7, 0x0e); //put MDM address (0x0e) into the SPR
+	if (status)
+        pDevExt->SerialWriteUChar(pDevExt->Controller + 5, 0x06); //MDM register disable RI & DSR interrutps
+	else
+        pDevExt->SerialWriteUChar(pDevExt->Controller + 5, 0x00); //MDM register normal
 	
-	if (status) {
-		WRITE_PORT_UCHAR(port + 7, 0x0e);//put MDM address (0x0e) into the SPR
-		WRITE_PORT_UCHAR(port + 0x05, 0x06);//MDM register disable RI & DSR interrutps
-	}
-	else {
-		WRITE_PORT_UCHAR(port + 7, 0x0e);//put MDM address (0x0e) into the SPR
-		WRITE_PORT_UCHAR(port + 0x05, 0x00);//MDM register normal
-	}
-	
-	WRITE_PORT_UCHAR(port + 3, (UCHAR)savereg);
+    pDevExt->SerialWriteUChar(pDevExt->Controller + 3, savereg);
 
     SerialDbgPrintEx(TRACE_LEVEL_INFORMATION, DBG_PNP,
                      "Isosync: %i\n", status);
@@ -2185,41 +2146,32 @@ BOOLEAN SetIsosync(PVOID Context, BOOLEAN status)
 	return TRUE;
 }
 
-BOOLEAN EnableIsosync(PVOID Context)
+BOOLEAN EnableIsosync(SERIAL_DEVICE_EXTENSION *pDevExt)
 {
-	return SetIsosync(Context, TRUE);
+	return SetIsosync(pDevExt, TRUE);
 }
 
-BOOLEAN DisableIsosync(PVOID Context)
+BOOLEAN DisableIsosync(SERIAL_DEVICE_EXTENSION *pDevExt)
 {
-	return SetIsosync(Context, FALSE);
+	return SetIsosync(pDevExt, FALSE);
 }
 
-BOOLEAN SetHardwareFlowControl(PVOID Context, BOOLEAN status)
+BOOLEAN SetHardwareFlowControl(SERIAL_DEVICE_EXTENSION *pDevExt, BOOLEAN status)
 {
-	ULONG savereg;
-	PUCHAR port;
-	UCHAR temp;
-	PSERIAL_DEVICE_EXTENSION extension;
-	extension = (PSERIAL_DEVICE_EXTENSION)Context;
-	port = extension->Controller;
-	
-	if (port == 0)
-		return FALSE; 	
+	UCHAR savereg;	
 
-	extension->HardwareRtsCts = status;
+	pDevExt->HardwareRtsCts = status;
 		
-	savereg = READ_PORT_UCHAR(port+3);
-	WRITE_PORT_UCHAR(port + 3, 0xbf);
-
-	WRITE_PORT_UCHAR(port + 2, 0x10);//turn on enhanced mode
+    savereg = pDevExt->SerialReadUChar(pDevExt->Controller + 3);
+    pDevExt->SerialWriteUChar(pDevExt->Controller + 3, 0xbf);
+    pDevExt->SerialWriteUChar(pDevExt->Controller + 2, 0x10); //turn on enhanced mode
 
 	if (status)
-		WRITE_PORT_UCHAR(port + 2, 0xd0);//turn on CTS+RTS flow control - EFR=0xd0 - Enhanced mode+CTS Flow+RTS Flow
+        pDevExt->SerialWriteUChar(pDevExt->Controller + 2, 0xd0);//turn on CTS+RTS flow control - EFR=0xd0 - Enhanced mode+CTS Flow+RTS Flow
 	else
-		WRITE_PORT_UCHAR(port + 2, 0x00);//turn off CTS+RTS flow control - EFR=0x00
+        pDevExt->SerialWriteUChar(pDevExt->Controller + 2, 0x00);//turn off CTS+RTS flow control - EFR=0x00
 		
-	WRITE_PORT_UCHAR(port + 3, (UCHAR)savereg);
+    pDevExt->SerialWriteUChar(pDevExt->Controller + 3, savereg);
 
     SerialDbgPrintEx(TRACE_LEVEL_INFORMATION, DBG_PNP,
                      "Hardware Flow Control: %i\n", status);
