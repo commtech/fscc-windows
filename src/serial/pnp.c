@@ -1290,9 +1290,7 @@ Return Value:
 	
 #if 0
 	pDevExt->NineBit = PConfigData->NineBit;
-#endif
 
-#if 0
 	if (pDevExt->NineBit == 1) {
 		PUCHAR port;
 		UCHAR temp;
@@ -1705,15 +1703,6 @@ Return Value:
    //
    pDevExt = SerialGetDeviceExtension (Device);
 
-   status = WdfFdoQueryForInterface(Device,
-                                    &GUID_COM_INTERFACE_STANDARD,
-                                    (PINTERFACE) &ComInterface,
-                                    sizeof(COM_INTERFACE_STANDARD),
-                                    1,
-                                    NULL);// InterfaceSpecific Data
-
-   ComInterface.GetMemoryRegion(ComInterface.InterfaceHeader.Context, &pdx);
-
    if ((PResList == NULL) || (PTrResList == NULL)) {
         ASSERT(PResList != NULL);
         ASSERT(PTrResList != NULL);
@@ -1816,6 +1805,19 @@ Return Value:
 
     }       // for (i = 0;     i < WdfCollectionGetCount
 
+   status = WdfFdoQueryForInterface(Device,
+                                    &GUID_COM_INTERFACE_STANDARD,
+                                    (PINTERFACE) &ComInterface,
+                                    sizeof(COM_INTERFACE_STANDARD),
+                                    1,
+                                    NULL);// InterfaceSpecific Data
+	if (!NT_SUCCESS(status)) {
+		SerialDbgPrintEx(TRACE_LEVEL_ERROR, DBG_PNP, "Can't open interface to FSCC\n");
+		goto End;
+	}
+
+   ComInterface.GetMemoryRegion(ComInterface.InterfaceHeader.Context, &pdx);
+   
     gotIO = 1;
     PConfig->TrController.LowPart  = PtrToUlong(pdx.UartAddress);
 
@@ -1832,6 +1834,12 @@ Return Value:
     PConfig->AddressSpace  = pdx.flags;
     pDevExt->SerialReadUChar = SerialReadPortUChar;
     pDevExt->SerialWriteUChar = SerialWritePortUChar;
+
+   if(!((gotMem  || gotIO) && gotInt) )
+   {
+        status = STATUS_INSUFFICIENT_RESOURCES;
+        goto End;
+   }
 
 	PConfig->DeviceID = pdx.DeviceID;
 	PConfig->Channel = pdx.Channel;
