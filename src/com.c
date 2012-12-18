@@ -28,32 +28,84 @@
 #include <ntstrsafe.h>
 
 
-BOOLEAN Bus_GetMemoryRegion(IN WDFDEVICE Device, OUT PDO_EXTENSION *pdo_ext)
+void Bus_GetFsccInfo(IN WDFDEVICE Device, OUT PDO_EXTENSION *pdo_ext)
 {
 	struct com_port *com_port = 0;
 	struct fscc_port *fscc_port = 0;
 	struct fscc_card *card = 0;
 
-    TraceEvents(TRACE_LEVEL_INFORMATION, TRACE_DEVICE, "%!FUNC! Device 0x%p", Device);
-
 	com_port = WdfObjectGet_COM_PORT(Device);
 	fscc_port = com_port->fscc_port;
 	card = fscc_port->card;
 
-	pdo_ext->flags = card->bar[1].tr_descriptor->Flags; // The old driver might set flags to something else
-	// PDEVICE_OBJECT DeviceObject; // Skip for now
-
-
-	// ULONG boardtype; // I don't see where this is initialized
-	// ULONG location; // Skip for now
-	// PKSPIN_LOCK pboardlock; // Skip for now	
-
+	pdo_ext->flags = card->bar[1].tr_descriptor->Flags;
 	pdo_ext->UartAddress = (PULONG)((char *)card->bar[1].address + (8 * com_port->channel));
 	pdo_ext->FcrAddress = card->bar[2].address;
 	pdo_ext->DeviceID = fscc_port_get_PDEV(fscc_port);
 	pdo_ext->Channel = com_port->channel;
+}
 
-    return TRUE;
+BOOLEAN Bus_IsFsccOpen(IN WDFDEVICE Device)
+{
+	struct com_port *com_port = 0;
+	struct fscc_port *fscc_port = 0;
+
+	com_port = WdfObjectGet_COM_PORT(Device);
+	fscc_port = com_port->fscc_port;
+
+	return (fscc_port->open_counter > 0);
+}
+
+void Bus_EnableAsync(IN WDFDEVICE Device)
+{
+	struct com_port *com_port = 0;
+	struct fscc_port *fscc_port = 0;
+	struct fscc_card *card = 0;
+	struct fscc_registers regs;
+
+	com_port = WdfObjectGet_COM_PORT(Device);
+	fscc_port = com_port->fscc_port;
+
+	FSCC_REGISTERS_INIT(regs);
+	regs.FCR = fscc_port->register_storage.FCR;
+
+	switch (fscc_port->channel) {
+	case 0:
+		regs.FCR |= 0x01000000;
+		break;
+
+	case 1:
+		regs.FCR |= 0x02000000;
+		break;
+	}
+
+	fscc_port_set_registers(fscc_port, &regs);
+}
+
+void Bus_DisableAsync(IN WDFDEVICE Device)
+{
+	struct com_port *com_port = 0;
+	struct fscc_port *fscc_port = 0;
+	struct fscc_card *card = 0;
+	struct fscc_registers regs;
+
+	com_port = WdfObjectGet_COM_PORT(Device);
+	fscc_port = com_port->fscc_port;
+
+	FSCC_REGISTERS_INIT(regs);
+	regs.FCR = fscc_port->register_storage.FCR;
+
+	switch (fscc_port->channel) {
+	case 0:
+		regs.FCR &= ~(0x01000000);
+		break;
+
+	case 1:
+		regs.FCR &= ~(0x02000000);
+		break;
+	}
+
+	fscc_port_set_registers(fscc_port, &regs);
 }
 
 FsccEvtDeviceResourcesQuery(WDFDEVICE Device, WDFCMRESLIST res_list)
@@ -225,7 +277,10 @@ NTSTATUS com_port_init(struct fscc_port *fscc_port, unsigned channel)
     ComInterface.InterfaceHeader.InterfaceDereference =
         WdfDeviceInterfaceDereferenceNoOp;
 
-    ComInterface.GetMemoryRegion = Bus_GetMemoryRegion;
+    ComInterface.GetFsccInfo = Bus_GetFsccInfo;
+    ComInterface.IsFsccOpen = Bus_IsFsccOpen;
+    ComInterface.EnableAsync = Bus_EnableAsync;
+    ComInterface.DisableAsync = Bus_DisableAsync;
 
     WDF_QUERY_INTERFACE_CONFIG_INIT(&qiConfig,
                                     (PINTERFACE) &ComInterface,

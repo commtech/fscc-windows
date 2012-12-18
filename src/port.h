@@ -124,6 +124,8 @@ typedef struct fscc_port {
     unsigned last_isr_value;
 
 	WDFTIMER timer;
+
+	unsigned open_counter;
 	
 } FSCC_PORT;
 

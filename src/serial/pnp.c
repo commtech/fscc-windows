@@ -1816,7 +1816,7 @@ Return Value:
 		goto End;
 	}
 
-   ComInterface.GetMemoryRegion(ComInterface.InterfaceHeader.Context, &pdx);
+   ComInterface.GetFsccInfo(ComInterface.InterfaceHeader.Context, &pdx);
    
     gotIO = 1;
     PConfig->TrController.LowPart  = PtrToUlong(pdx.UartAddress);

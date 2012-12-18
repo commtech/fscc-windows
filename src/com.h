@@ -38,10 +38,6 @@ WDF_DECLARE_CONTEXT_TYPE(COM_PORT);
 typedef struct _PDO_EXTENSION 
 {
 	ULONG flags;							// flags
-	PDEVICE_OBJECT DeviceObject;
-
-	ULONG location;
-	PKSPIN_LOCK pboardlock;
 
 	PULONG UartAddress;
 	PULONG FcrAddress;
@@ -49,11 +45,17 @@ typedef struct _PDO_EXTENSION
 	unsigned Channel;
 } PDO_EXTENSION, *PPDO_EXTENSION;
 
-typedef BOOLEAN (*PCOM_GET_MEMORY_REGION)(IN WDFDEVICE Device, OUT PDO_EXTENSION *pdo_ext);
+typedef void (*PCOM_GET_FSCC_INFO)(IN WDFDEVICE Device, OUT PDO_EXTENSION *pdo_ext);
+typedef BOOLEAN (*PCOM_IS_FSCC_OPEN)(IN WDFDEVICE Device);
+typedef void (*PCOM_ENABLE_ASYNC)(IN WDFDEVICE Device);
+typedef void (*PCOM_DISABLE_ASYNC)(IN WDFDEVICE Device);
 
 typedef struct _COM_INTERFACE_STANDARD {
     INTERFACE                        InterfaceHeader;
-    PCOM_GET_MEMORY_REGION    GetMemoryRegion;
+    PCOM_GET_FSCC_INFO    GetFsccInfo;
+    PCOM_IS_FSCC_OPEN    IsFsccOpen;
+    PCOM_ENABLE_ASYNC    EnableAsync;
+    PCOM_DISABLE_ASYNC    DisableAsync;
 } COM_INTERFACE_STANDARD, *PCOM_INTERFACE_STANDARD;
 
 NTSTATUS com_port_init(struct fscc_port *port, unsigned channel);

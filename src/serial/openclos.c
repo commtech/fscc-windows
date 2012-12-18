@@ -19,6 +19,13 @@ Environment:
 
 #include "precomp.h"
 
+#include "../com.h"
+#include "../public.h"
+
+#include <initguid.h>
+#include <ntddser.h>
+#include <stdlib.h>
+
 #if defined(EVENT_TRACING)
 #include "openclos.tmh"
 #endif
@@ -134,6 +141,7 @@ SerialDeviceFileCreateWorker (
     )
 {
     NTSTATUS status;
+    COM_INTERFACE_STANDARD ComInterface;
     PSERIAL_DEVICE_EXTENSION extension = SerialGetDeviceExtension (Device);
 
     //
@@ -203,6 +211,25 @@ SerialDeviceFileCreateWorker (
     if (!NT_SUCCESS(status)) {
         return status;
     }
+
+
+    status = WdfFdoQueryForInterface(Device,
+                                    &GUID_COM_INTERFACE_STANDARD,
+                                    (PINTERFACE) &ComInterface,
+                                    sizeof(COM_INTERFACE_STANDARD),
+                                    1,
+                                    NULL);// InterfaceSpecific Data
+    if (!NT_SUCCESS(status)) {
+        SerialDbgPrintEx(TRACE_LEVEL_ERROR, DBG_PNP, "Can't open interface to FSCC\n");
+        return STATUS_UNSUCCESSFUL;
+    }
+
+    if (ComInterface.IsFsccOpen(ComInterface.InterfaceHeader.Context) == TRUE) {
+        SerialDbgPrintEx(TRACE_LEVEL_ERROR, DBG_PNP, "FSCC port is already open\n");
+        return STATUS_NOT_SUPPORTED;
+    }
+
+    ComInterface.EnableAsync(ComInterface.InterfaceHeader.Context);
 
     //
     // wakeup is not currently enabled
@@ -377,6 +404,9 @@ SerialFileCloseWorker(
     // Holds a character time.
     //
     LARGE_INTEGER charTime;
+
+    COM_INTERFACE_STANDARD ComInterface;
+    NTSTATUS status;
 
     PSERIAL_DEVICE_EXTENSION extension = SerialGetDeviceExtension(Device);
     PSERIAL_INTERRUPT_CONTEXT interruptContext = SerialGetInterruptContext(extension->WdfInterrupt);
@@ -604,6 +634,20 @@ SerialFileCloseWorker(
     // were gone.
     //
     WdfDeviceSetStaticStopRemove(Device, TRUE);
+
+
+    status = WdfFdoQueryForInterface(Device,
+                                    &GUID_COM_INTERFACE_STANDARD,
+                                    (PINTERFACE) &ComInterface,
+                                    sizeof(COM_INTERFACE_STANDARD),
+                                    1,
+                                    NULL);// InterfaceSpecific Data
+    if (!NT_SUCCESS(status)) {
+        SerialDbgPrintEx(TRACE_LEVEL_ERROR, DBG_PNP, "Can't open interface to FSCC\n");
+    }
+    else {
+        ComInterface.DisableAsync(ComInterface.InterfaceHeader.Context);
+    }
 
     return;
 

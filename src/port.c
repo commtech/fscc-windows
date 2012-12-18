@@ -40,8 +40,11 @@
 EVT_WDF_IO_QUEUE_IO_DEVICE_CONTROL fscc_port_ioctl;
 EVT_WDF_IO_QUEUE_IO_WRITE port_write_handler;
 EVT_WDF_IO_QUEUE_IO_READ read_event_handler;
+EVT_WDF_IO_QUEUE_IO_DEFAULT create_event_handler;
 EVT_WDF_DPC user_read_worker;
 EVT_WDF_REQUEST_CANCEL EvtRequestCancel;
+EVT_WDF_DEVICE_FILE_CREATE MyEvtDeviceFileCreate;
+EVT_WDF_FILE_CLOSE MyEvtFileClose;
 
 void empty_frame_list(LIST_ENTRY *frames);
 
@@ -88,6 +91,8 @@ struct fscc_port *fscc_port_new(struct fscc_card *card, unsigned channel)
 
 	WDF_DPC_CONFIG dpcConfig;
 	WDF_OBJECT_ATTRIBUTES dpcAttributes;
+
+	WDF_FILEOBJECT_CONFIG deviceConfig;
 
 	unsigned port_number = 0;
 	
@@ -166,6 +171,20 @@ struct fscc_port *fscc_port_new(struct fscc_card *card, unsigned channel)
 			"WdfPdoInitAllocate failed %!STATUS!", status);
 		return 0;
 	}
+
+	//WDF_OBJECT_ATTRIBUTES_INIT(&attributes);
+	//attributes.SynchronizationScope = WdfSynchronizationScopeNone;
+	WDF_FILEOBJECT_CONFIG_INIT(
+	                           &deviceConfig,
+	                           MyEvtDeviceFileCreate,
+	                           MyEvtFileClose,
+	                           WDF_NO_EVENT_CALLBACK // No cleanup callback function
+	                           );
+	WdfDeviceInitSetFileObjectConfig(
+	                                 DeviceInit,
+	                                 &deviceConfig,
+	                                 WDF_NO_OBJECT_ATTRIBUTES
+	                                 );
 
 	status = WdfPdoInitAssignRawDevice(DeviceInit, (const LPGUID)&GUID_DEVCLASS_FSCC);
 	if (!NT_SUCCESS(status)) {
@@ -254,7 +273,8 @@ struct fscc_port *fscc_port_new(struct fscc_card *card, unsigned channel)
 	port->channel = channel;
 	port->device = device;
 	port->istream = fscc_stream_new();
-	
+	port->open_counter = 0;
+
 	WDF_IO_QUEUE_CONFIG_INIT(&queue_config, WdfIoQueueDispatchSequential);
 	queue_config.EvtIoDeviceControl = fscc_port_ioctl;
 		
@@ -573,6 +593,30 @@ NTSTATUS fscc_port_release_hardware(struct fscc_port *port)
 #endif
 
 	return STATUS_SUCCESS;
+}
+
+VOID MyEvtDeviceFileCreate(
+  IN  WDFDEVICE Device,
+  IN  WDFREQUEST Request,
+  IN  WDFFILEOBJECT FileObject
+)
+{
+	struct fscc_port *port = 0;
+
+	port = WdfObjectGet_FSCC_PORT(Device);
+	port->open_counter++;
+
+	WdfRequestComplete(Request, STATUS_SUCCESS);
+}
+
+VOID MyEvtFileClose(
+  IN  WDFFILEOBJECT FileObject
+)
+{
+	struct fscc_port *port = 0;
+
+	port = WdfObjectGet_FSCC_PORT(WdfFileObjectGetDevice(FileObject));
+	port->open_counter--;
 }
 	
 /******************************************************************************/
