@@ -29,193 +29,27 @@
 #include <ntddser.h>
 #include <ntstrsafe.h>
 
-EVT_WDF_DEVICE_PREPARE_HARDWARE fscc_card_prepare_hardware;
-EVT_WDF_DEVICE_RELEASE_HARDWARE fscc_card_release_hardware;
-
-struct fscc_card *fscc_card_new(WDFDRIVER Driver, IN PWDFDEVICE_INIT DeviceInit)
-{
-	WDF_PNPPOWER_EVENT_CALLBACKS  pnpPowerCallbacks;
-	WDF_OBJECT_ATTRIBUTES attributes;
-	NTSTATUS status;
-	WDFDEVICE device;
-	struct fscc_card *card = 0;
-	unsigned i = 0;
-    WDF_DEVICE_PNP_CAPABILITIES pnpCaps;
-	
-	WDF_INTERRUPT_CONFIG  interruptConfig;
-	WDF_OBJECT_ATTRIBUTES  interruptAttributes;
-	
-	WDF_OBJECT_ATTRIBUTES_INIT_CONTEXT_TYPE(&attributes, FSCC_CARD);
-	
-    WdfDeviceInitSetDeviceType(DeviceInit, FILE_DEVICE_SERIAL_PORT);
-	WdfDeviceInitSetPowerPolicyOwnership(DeviceInit, TRUE);
-	
-	WDF_PNPPOWER_EVENT_CALLBACKS_INIT(&pnpPowerCallbacks);
-	pnpPowerCallbacks.EvtDevicePrepareHardware = fscc_card_prepare_hardware;
-	pnpPowerCallbacks.EvtDeviceReleaseHardware = fscc_card_release_hardware;
-	WdfDeviceInitSetPnpPowerEventCallbacks(DeviceInit, &pnpPowerCallbacks);
-
-	status = WdfDeviceCreate(&DeviceInit, &attributes, &device);  
-	if(!NT_SUCCESS(status)) {
-        TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE, 
-			"WdfDeviceCreate failed %!STATUS!", status);
-		return 0;
-	}
-
-	card = WdfObjectGet_FSCC_CARD(device);
-
-	card->device = device;
-	card->dma = 0;
-	card->driver = Driver;
-
-	WDF_DEVICE_PNP_CAPABILITIES_INIT(&pnpCaps);
-    pnpCaps.Removable = WdfFalse;
-	pnpCaps.UniqueID = WdfTrue;
-    WdfDeviceSetPnpCapabilities(card->device, &pnpCaps);
-	
-	for (i = 0; i < 2; i++) {
-		struct fscc_port *port = 0;
-		
-		port = fscc_port_new(card, i);
-		
-		if (!port)
-			return 0;
-
-		status = WdfFdoAddStaticChild(card->device, port->device);
-		if (!NT_SUCCESS(status)) {
-			WdfObjectDelete(port->device);
-			TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE, 
-				"WdfFdoAddStaticChild failed %!STATUS!", status);
-		}
-
-		card->ports[i] = port;
-	};
-	
-	WDF_INTERRUPT_CONFIG_INIT(&interruptConfig, fscc_isr, NULL);
-	interruptConfig.ShareVector = WdfTrue;
-	WDF_OBJECT_ATTRIBUTES_INIT_CONTEXT_TYPE(&interruptAttributes, FSCC_CARD);
-
-	status = WdfInterruptCreate(card->device, &interruptConfig, &interruptAttributes, &card->interrupt);
-	if (!NT_SUCCESS(status)) {
-        TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE, 
-			"WdfInterruptCreate failed %!STATUS!", status);
-		return 0;
-	}
-
-	return card;
-}
-
-NTSTATUS fscc_card_prepare_hardware(IN WDFDEVICE Device, IN WDFCMRESLIST ResourcesRaw, IN WDFCMRESLIST ResourcesTranslated)
-{
-	struct fscc_card *card = 0;
-	unsigned bar_counter = 0;
-	unsigned i = 0;
-	
-	card = WdfObjectGet_FSCC_CARD(Device);
-
-	for (i = 0; i < WdfCmResourceListGetCount(ResourcesTranslated); i++) {
-		PCM_PARTIAL_RESOURCE_DESCRIPTOR descriptor;
-		
-		descriptor = WdfCmResourceListGetDescriptor(ResourcesTranslated, i);
-		
-		if (!descriptor)
-			return STATUS_DEVICE_CONFIGURATION_ERROR;
-			
-		switch (descriptor->Type) {
-		case CmResourceTypePort:
-			card->bar[bar_counter].address = ULongToPtr(descriptor->u.Port.Start.LowPart);
-			card->bar[bar_counter].memory_mapped = FALSE;
-			card->bar[bar_counter].tr_descriptor = descriptor;
-			bar_counter++;
-			break;
-			
-		case CmResourceTypeMemory:
-			card->bar[bar_counter].address = MmMapIoSpace(descriptor->u.Memory.Start, descriptor->u.Memory.Length, MmNonCached);
-			card->bar[bar_counter].memory_mapped = TRUE;
-			card->bar[bar_counter].tr_descriptor = descriptor;
-			bar_counter++;
-			break;
-
-		case CmResourceTypeInterrupt:
-			card->interrupt_tr_descriptor = descriptor;
-			break;
-		}
-
-	}
-
-	bar_counter = 0;
-
-	for (i = 0; i < WdfCmResourceListGetCount(ResourcesRaw); i++) {
-		PCM_PARTIAL_RESOURCE_DESCRIPTOR descriptor;
-		
-		descriptor = WdfCmResourceListGetDescriptor(ResourcesRaw, i);
-		
-		if (!descriptor)
-			return STATUS_DEVICE_CONFIGURATION_ERROR;
-			
-		switch (descriptor->Type) {
-		case CmResourceTypePort:
-			card->bar[bar_counter].raw_descriptor = descriptor;
-			bar_counter++;
-			break;
-			
-		case CmResourceTypeMemory:
-			card->bar[bar_counter].raw_descriptor = descriptor;
-			bar_counter++;
-			break;
-
-		case CmResourceTypeInterrupt:
-			card->interrupt_raw_descriptor = descriptor;
-			break;
-		}		
-	}
-
-	for (i = 0; i < 2; i++)
-		fscc_port_prepare_hardware(card->ports[i]);
-
-	return STATUS_SUCCESS;
-}
-
-NTSTATUS fscc_card_release_hardware(WDFDEVICE Device, WDFCMRESLIST ResourcesTranslated)
-{
-	unsigned bar_counter = 0;
-	unsigned i = 0;
-	struct fscc_card *card = 0;
-	
-	card = WdfObjectGet_FSCC_CARD(Device);
-
-	//WdfInterruptDisable(card->interrupt);
-
-	for (i = 0; i < 2; i++)
-		fscc_port_release_hardware(card->ports[i]);
-
-	for (i = 0; i < WdfCmResourceListGetCount(ResourcesTranslated); i++) {		
-		PCM_PARTIAL_RESOURCE_DESCRIPTOR descriptor;
-		
-		descriptor = WdfCmResourceListGetDescriptor(ResourcesTranslated, i);
-		
-		if (!descriptor)
-			return STATUS_DEVICE_CONFIGURATION_ERROR;
-		
-		switch (descriptor->Type) {
-		case CmResourceTypePort:
-			bar_counter++;
-			break;
-			
-		case CmResourceTypeMemory:
-			MmUnmapIoSpace(card->bar[bar_counter].address, descriptor->u.Memory.Length);
-			bar_counter++;
-			break;
-		}
-	}
-
-	return STATUS_SUCCESS;
-}
-
+#if 0
 NTSTATUS fscc_card_registry_open(struct fscc_card *card, WDFKEY *key)
 {
 	return WdfDeviceOpenRegistryKey(card->device, PLUGPLAY_REGKEY_DEVICE, STANDARD_RIGHTS_ALL, 
 		                            WDF_NO_OBJECT_ATTRIBUTES, key);
+}
+#endif
+
+
+struct fscc_card *fscc_card_new(void)
+{
+    struct fscc_card *card = 0;
+	
+	card = ExAllocatePoolWithTag(NonPagedPool, sizeof(*card), 'draC');
+
+    if (card == NULL) {
+		TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE, "Not enough memory to allocate card");
+        return 0;
+    }
+
+    return card;
 }
 
 void *fscc_card_get_BAR(struct fscc_card *card, unsigned number)

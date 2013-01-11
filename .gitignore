@@ -1,12 +1,12 @@
 tmp/
 src/objfre*
 src/objchk*
-src/serial/objfre*
-src/serial/objchk*
+src/classinstaller/objfre*
+src/classinstaller/objchk*
 src/buildfre*
 src/buildchk*
-src/serial/buildfre*
-src/serial/buildchk*
+src/classinstaller/buildfre*
+src/classinstaller/buildchk*
 bin/
 lib/c/docs
 *.exp

@@ -72,7 +72,6 @@ int fscc_stream_add_data(struct fscc_stream *stream, const char *data,
                           unsigned length)
 {
     unsigned old_length = 0;
-	int status = TRUE;
 
     return_val_if_untrue(stream, FALSE);
 

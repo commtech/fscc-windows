@@ -11,7 +11,7 @@ pushd src\
 build -cfeg
 popd
 
-pushd src\serial\
+pushd src\classinstaller\
 build -cfeg
 popd
 
@@ -23,12 +23,11 @@ mkdir %TOP%\
 :copy_sys_files
 echo Copying Driver Files...
 copy src\%2\%3\fscc.sys %TOP%\ > nul
-copy src\serial\%2\%3\wdfserial.sys %TOP%\ > nul
 
 :copy_inf_files
 echo Copying Installation Files...
 copy src\%2\%3\fscc.inf %TOP%\ > nul
-copy src\serial\%2\%3\serial.inf %TOP%\ > nul
+copy src\%2\%3\filter.inf %TOP%\ > nul
 
 :copy_pdb_files
 echo Copying Debugging Files...
@@ -37,6 +36,11 @@ copy src\%2\%3\fscc.pdb %TOP%\ > nul
 :copy_coinstaller_files
 echo Copying Coinstaller Files...
 copy redist\%4\%3\WdfCoInstaller* %TOP%\ > nul
+copy src\classinstaller\%2\%3\fscc.dll %TOP%\ > nul
+
+:copy_serial_files
+echo Copying Serial Files...
+copy redist\%4\%3\serial\* %TOP%\ > nul
 
 :create_catalogs
 echo Creating Driver Catalogs...
@@ -44,6 +48,6 @@ Inf2cat.exe /driver:%TOP%\ /os:%5 > nul
 
 :sign_files
 echo Signing Files...
-signtool sign /v /ac MSCV-VSClass3.cer /s my /n "Commtech, Inc." /t http://timestamp.verisign.com/scripts/timestamp.dll %TOP%\fscc.cat
+signtool sign /v /ac MSCV-VSClass3.cer /s my /n "Commtech, Inc." /t http://timestamp.verisign.com/scripts/timestamp.dll %TOP%\fastcom.cat
 
 exit

@@ -24,7 +24,7 @@
 #include <ntddk.h>
 #include <wdf.h>
 
-#include "trace.h"
+#include "Trace.h"
 
 EVT_WDF_INTERRUPT_ISR fscc_isr;
 

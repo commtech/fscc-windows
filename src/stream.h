@@ -24,7 +24,7 @@
 #include <ntddk.h>
 #include <wdf.h>
 
-#include "trace.h"
+#include "Trace.h"
 
 struct fscc_stream {
     char *data;

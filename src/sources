@@ -5,8 +5,10 @@ TARGETTYPE=DRIVER
 KMDF_VERSION_MAJOR=1
 
 INF_NAME=fscc
-NTTARGETFILE1=$(OBJ_PATH)\$(O)\$(INF_NAME).inf
-PASS1_BINPLACE=$(NTTARGETFILE1)
+INF_NAME2=filter
+NTTARGETFILE0=$(OBJ_PATH)\$(O)\$(INF_NAME).inf
+NTTARGETFILE1=$(OBJ_PATH)\$(O)\$(INF_NAME2).inf
+PASS0_BINPLACE=$(NTTARGETFILE0)
          
                
 
@@ -19,8 +21,7 @@ SOURCES=card.c \
         port.c \
         stream.c \
         utils.c \
-		debug.c \
-		com.c \
+        debug.c \
         fscc.rc
 
 #

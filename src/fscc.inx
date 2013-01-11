@@ -1,19 +1,39 @@
+; fastdev.inf
 ;
-; FSCC.inf
+; Installation file (.inf) for the Fastcom 422-PCIe devices.
+;
+; (c) Copyright 2003 Commtech, Inc. 
+;
+; Instead of specifying a hardware id of *PNP0501, a vendor-specific
+; hardware id is used to trigger the install of a filter driver that
+; filters the resources of the children so that they are acceptable to
+; serial/serenum
 ;
 
 [Version]
 Signature="$WINDOWS NT$"
-Class=MultiportSerial
-;Class=FSCC
-ClassGuid={50906cb8-ba12-11d1-bf5d-0000f805f530}
-;ClassGuid={0b99e9a4-1460-4856-9c13-72fca9fa92a4}
+Class = FSCC
+ClassGuid = {4d36e878-e325-11ce-bfc1-08002be11319}
 Provider=%ManufacturerName%
-CatalogFile=fscc.cat
+CatalogFile=fastcom.cat
 DriverVer=
+
+[ClassInstall32]
+Addreg=FsccClass_AddReg
+CopyFiles=FsccClassInstallerCopyFiles
+ 
+[FsccClass_AddReg]
+HKR,,,0,%DeviceClassName%
+HKR,,Icon,,-10
+HKR,,Installer32,,"fscc.dll,FsccClassInstaller"
+
+[FsccClassInstallerCopyFiles]
+fscc.dll
 
 [DestinationDirs]
 DefaultDestDir = 12
+FSCC_Device_CoInstaller_CopyFiles = 11
+FsccClassInstallerCopyFiles = 11
 
 ; ================= Class section =====================
 
@@ -21,14 +41,9 @@ DefaultDestDir = 12
 1 = %DiskName%,,,""
 
 [SourceDisksFiles]
-FSCC.sys  = 1,,
-
-[ClassInstall32]
-Addreg=FSCC
-
-[FSCC]
-HKR,,,,%ClassName%
-HKR,,Icon,,"-10"
+fscc.sys  = 1,,
+fscc.dll = 1,,
+WdfCoInstaller$KMDFCOINSTALLERVERSION$.dll = 1 ; make sure the number matches with SourceDisksNames
 
 ;*****************************************
 ; Install Section
@@ -38,17 +53,8 @@ HKR,,Icon,,"-10"
 %ManufacturerName%=Standard,NT$ARCH$
 
 [Standard.NT$ARCH$]
-%FSCC.DeviceDesc%=FSCC_Device, PCI\VEN_18F7&DEV_000F
-%SuperFSCC.DeviceDesc%=FSCC_Device, PCI\VEN_18F7&DEV_0014
-%FSCC232.DeviceDesc%=FSCC_Device, PCI\VEN_18F7&DEV_0016
-%SuperFSCC.DeviceDesc%=FSCC_Device, PCI\VEN_18F7&DEV_0017
-%SuperFSCC4.DeviceDesc%=FSCC_Device, PCI\VEN_18F7&DEV_0018
-%SuperFSCC.DeviceDesc%=FSCC_Device, PCI\VEN_18F7&DEV_0019
-%SuperFSCCLVDS.DeviceDesc%=FSCC_Device, PCI\VEN_18F7&DEV_001A
-%FSCC4.DeviceDesc%=FSCC_Device, PCI\VEN_18F7&DEV_001B
-%SuperFSCC4LVDS.DeviceDesc%=FSCC_Device, PCI\VEN_18F7&DEV_001C
-%FSCC.DeviceDesc%=FSCC_Device, PCI\VEN_18F7&DEV_001D
-%SuperFSCC4PCIe.DeviceDesc%=FSCC_Device, PCI\VEN_18F7&DEV_001E
+%SyncPort.DeviceDesc%=FSCC_Device, Fscc\Port1, Fscc\Port2
+
 
 [FSCC_Device.NT]
 CopyFiles=Drivers_Dir
@@ -58,7 +64,7 @@ fscc.sys
 
 ;-------------- Service installation
 [FSCC_Device.NT.Services]
-AddService = FSCC,%SPSVCINST_ASSOCSERVICE%, FSCC_Service_Inst
+AddService = FSCC,0x00000002, FSCC_Service_Inst
 
 ; -------------- FSCC driver install sections
 [FSCC_Service_Inst]
@@ -69,16 +75,10 @@ ErrorControl   = 1               ; SERVICE_ERROR_NORMAL
 ServiceBinary  = %12%\fscc.sys
 LoadOrderGroup = Multiple Port
 
-[FSCC_Device.NT.HW]
-; Add the device upper filter
-AddReg = FSCC_Device.HW.AddReg
-
 ;
 ;--- FSCC_Device Coinstaller installation ------
 ;
 
-[DestinationDirs]
-FSCC_Device_CoInstaller_CopyFiles = 11
 
 [FSCC_Device.NT.CoInstallers]
 AddReg=FSCC_Device_CoInstaller_AddReg
@@ -86,12 +86,15 @@ CopyFiles=FSCC_Device_CoInstaller_CopyFiles
 
 [FSCC_Device_CoInstaller_AddReg]
 HKR,,CoInstallers32,0x00010000, "WdfCoInstaller$KMDFCOINSTALLERVERSION$.dll,WdfCoInstaller"
+;HKLM,System\CurrentControlSet\Control\CoDeviceInstallers, {4d36e878-e325-11ce-bfc1-08002be11318},0x00010008, ;"fscc.dll,FsccClassInstaller"
 
 [FSCC_Device_CoInstaller_CopyFiles]
 WdfCoInstaller$KMDFCOINSTALLERVERSION$.dll
+;fscc.dll
 
-[SourceDisksFiles]
-WdfCoInstaller$KMDFCOINSTALLERVERSION$.dll=1 ; make sure the number matches with SourceDisksNames
+;[SourceDisksFiles]
+;WdfCoInstaller$KMDFCOINSTALLERVERSION$.dll=1 ; make sure the number matches with SourceDisksNames
+;fscc.dll=1
 
 [FSCC_Device.NT.Wdf]
 KmdfService =  FSCC, FSCC_wdfsect
@@ -99,17 +102,9 @@ KmdfService =  FSCC, FSCC_wdfsect
 KmdfLibraryVersion = $KMDFVERSION$
 
 [Strings]
-SPSVCINST_ASSOCSERVICE= 0x00000002
-ManufacturerName="Commtech, Inc."
+ManufacturerName = "Commtech, Inc."
 DiskName = "FSCC Installation Disk"
-FSCC.SVCDESC = "FSCC Service"
-ClassName = "Ports (FSCC)"
+FSCC.SVCDESC = "Commtech FSCC driver"
+DeviceClassName = "Ports (FSCC)"
 
-FSCC.DeviceDesc = "Commtech FSCC Controller"
-FSCC4.DeviceDesc = "Commtech FSCC/4 Controller"
-FSCC232.DeviceDesc = "Commtech FSCC-232 Controller"
-SuperFSCC.DeviceDesc = "Commtech SuperFSCC Controller"
-SuperFSCCLVDS.DeviceDesc = "Commtech SuperFSCC-LVDS Controller"
-SuperFSCC4.DeviceDesc = "Commtech SuperFSCC/4 Controller"
-SuperFSCC4LVDS.DeviceDesc = "Commtech SuperFSCC/4-LVDS Controller"
-SuperFSCC4PCIe.DeviceDesc = "Commtech SuperFSCC/4-PCIe Controller"
+SyncPort.DeviceDesc = "FSCC Port"
