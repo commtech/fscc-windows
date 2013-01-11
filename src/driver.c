@@ -17,7 +17,7 @@ Environment:
 #include "driver.h"
 #include "driver.tmh"
 
-#include "card.h"
+#include "port.h"
 #include "utils.h"
 
 #ifdef ALLOC_PRAGMA
@@ -112,13 +112,13 @@ Return Value:
 
 --*/
 {
-	struct fscc_card *card = 0;
+	struct fscc_port *port = 0;
 
     PAGED_CODE();
 	
-	card = fscc_card_new(Driver, DeviceInit);
+	port = fscc_port_new(Driver, DeviceInit);
 
-	if (!card)
+	if (!port)
 		return STATUS_INTERNAL_ERROR;
 	
 	return STATUS_SUCCESS;
@@ -151,61 +151,61 @@ Return Value:
     WPP_CLEANUP(WdfDriverWdmGetDriverObject(DriverObject));
 }
 
-NTSTATUS fscc_driver_registry_get_portnum(WDFDRIVER driver, unsigned *port_num)
+NTSTATUS fscc_driver_get_last_port_num(WDFDRIVER driver, int *port_num)
 {
-	NTSTATUS status;
-	WDFKEY driver_key;
-	ULONG value = *port_num;
-	UNICODE_STRING key_str;
+    NTSTATUS status;
+    WDFKEY driverkey;
+    UNICODE_STRING key_str;
+	ULONG port_num_long;
 
-	RtlInitUnicodeString(&key_str, L"StartingPortNumber");
+    RtlInitUnicodeString(&key_str, L"LastPortNumber");
+    
+    status = WdfDriverOpenParametersRegistryKey(driver, STANDARD_RIGHTS_ALL, 
+                                    WDF_NO_OBJECT_ATTRIBUTES, &driverkey);
+    if (!NT_SUCCESS(status)) {
+        TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE, 
+            "WdfDeviceOpenRegistryKey failed %!STATUS!", status);
+        return status;
+    }
 
-	status = WdfDriverOpenParametersRegistryKey(driver, STANDARD_RIGHTS_ALL, WDF_NO_OBJECT_ATTRIBUTES, &driver_key);
-	if (!NT_SUCCESS(status)) {
-		TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE, 
-			"WdfDriverOpenParametersRegistryKey failed %!STATUS!", status);
-		WdfRegistryClose(driver_key);
-		return status;
-	}
-	
-	/* Start by getting the driver's next available port number. */
-	status = registry_get_or_create_ulong(driver_key, &key_str, &value, 0);
-	if (!NT_SUCCESS(status)) {
-		TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE, 
-			"WdfRegistryQueryULong failed %!STATUS!", status);
-	}
+    status = WdfRegistryQueryULong(driverkey, &key_str, &port_num_long);
+    if (!NT_SUCCESS(status)) {
+        TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE, 
+            "WdfRegistryQueryULong failed %!STATUS!", status);
+        return status;
+    }
 
-	WdfRegistryClose(driver_key);
+	*port_num = (int)port_num_long;
 
-	*port_num = (unsigned)value;
+    WdfRegistryClose(driverkey);
 
-	return status;
+    return status;
 }
 
-NTSTATUS fscc_driver_registry_set_portnum(WDFDRIVER driver, unsigned port_num)
-{	
-	NTSTATUS status;
-	WDFKEY key;
-	UNICODE_STRING key_str;
+NTSTATUS fscc_driver_set_last_port_num(WDFDRIVER driver, int value)
+{
+    NTSTATUS status;
+    WDFKEY driverkey;
+    UNICODE_STRING key_str;
 
-	RtlInitUnicodeString(&key_str, L"StartingPortNumber");
+    RtlInitUnicodeString(&key_str, L"LastPortNumber");
+    
+    status = WdfDriverOpenParametersRegistryKey(driver, STANDARD_RIGHTS_ALL, 
+                                    WDF_NO_OBJECT_ATTRIBUTES, &driverkey);
+    if (!NT_SUCCESS(status)) {
+        TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE, 
+            "WdfDeviceOpenRegistryKey failed %!STATUS!", status);
+        return status;
+    }
 
-	status = WdfDriverOpenParametersRegistryKey(driver, STANDARD_RIGHTS_ALL, WDF_NO_OBJECT_ATTRIBUTES, &key);
-	if (!NT_SUCCESS(status)) {
-		TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE, 
-			"WdfDriverOpenParametersRegistryKey failed %!STATUS!", status);
-		WdfRegistryClose(key);
-		return status;
-	}
-	
-	/* Start by getting the driver's next available port number. */
-	status = registry_set_ulong(key, &key_str, (ULONG)port_num);
-	if (!NT_SUCCESS(status)) {
-		TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE, 
-			"WdfRegistryQueryULong failed %!STATUS!", status);
-	}
+    status = WdfRegistryAssignULong(driverkey, &key_str, value);
+    if (!NT_SUCCESS(status)) {
+        TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE, 
+            "WdfRegistryAssignULong failed %!STATUS!", status);
+        return status;
+    }
 
-	WdfRegistryClose(key);
+    WdfRegistryClose(driverkey);
 
-	return status;
+    return status;
 }

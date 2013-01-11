@@ -24,8 +24,8 @@
 #include <ntddk.h>
 #include <wdf.h>
 
-#include "trace.h"
+#include "Trace.h"
 
-void print_worker(WDFDPC Dpc);
+EVT_WDF_DPC print_worker;
 
 #endif

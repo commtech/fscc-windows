@@ -12,7 +12,8 @@ unsigned port_offset(struct fscc_port *port, unsigned bar, unsigned offset)
 {
 	switch (bar) {
 	case 0:
-		return (port->channel == 0) ? offset : offset + 0x80;
+		return offset;
+		//return (port->channel == 0) ? offset : offset + 0x80;
 
 	case 2:
 		switch (offset) {

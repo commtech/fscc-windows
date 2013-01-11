@@ -32,31 +32,14 @@
 struct BAR {
 	void *address;
 	BOOLEAN memory_mapped;
-	PCM_PARTIAL_RESOURCE_DESCRIPTOR raw_descriptor;
-	PCM_PARTIAL_RESOURCE_DESCRIPTOR tr_descriptor;
 };
 
-typedef struct fscc_card {
-	WDFDRIVER driver;
-	WDFDEVICE device;
-	
+
+typedef struct fscc_card {	
 	struct BAR bar[3];
-	
-	WCHAR name_buffer[200];
-	UNICODE_STRING name;
-
-    unsigned dma;
-
-	WDFINTERRUPT interrupt;
-	PCM_PARTIAL_RESOURCE_DESCRIPTOR interrupt_tr_descriptor;
-	PCM_PARTIAL_RESOURCE_DESCRIPTOR interrupt_raw_descriptor;
-
-	struct fscc_port *ports[2];
 } FSCC_CARD;
 
-WDF_DECLARE_CONTEXT_TYPE(FSCC_CARD);
-
-struct fscc_card *fscc_card_new(WDFDRIVER Driver, IN PWDFDEVICE_INIT DeviceInit);
+struct fscc_card *fscc_card_new(void);
 
 void *fscc_card_get_BAR(struct fscc_card *card, unsigned number);
 
@@ -74,8 +57,10 @@ void fscc_card_set_register_rep(struct fscc_card *card, unsigned bar,
                                 unsigned offset, const char *data,
                                 unsigned byte_count);
 
-char *fscc_card_get_name(struct fscc_card *card);
-
+#if 0
 NTSTATUS fscc_card_registry_open(struct fscc_card *card, WDFKEY *key);
+#endif
+
+char *fscc_card_get_name(struct fscc_card *card);
 
 #endif

@@ -32,70 +32,56 @@
 //TODO: Not sure if I should delay some of this to the ISR DPC
 BOOLEAN fscc_isr(WDFINTERRUPT Interrupt, ULONG MessageID)
 {
-	struct fscc_card *card = 0;
-	//WDFDEVICE hChild = NULL;
+    struct fscc_port *port = 0;
 	BOOLEAN handled = FALSE;
-	unsigned i = 0;
+    unsigned isr_value = 0;
+    unsigned streaming = 0;
 
 	UNREFERENCED_PARAMETER(MessageID);
 	
-	card = WdfObjectGet_FSCC_CARD(WdfInterruptGetDevice(Interrupt));
-	
-	//WdfFdoLockStaticChildListForIteration(card->device);
-	
-	//while ((hChild = WdfFdoRetrieveNextStaticChild(card->device, hChild, WdfRetrieveAddedChildren)) != NULL) {
-	for (i = 0; i < 2; i++) {
-		struct fscc_port *port = 0;
-		unsigned isr_value = 0;
-		unsigned streaming = 0;
+	port = WdfObjectGet_FSCC_PORT(WdfInterruptGetDevice(Interrupt));
 
-		//port = WdfObjectGet_FSCC_PORT(hChild);
-		port = card->ports[i];
+	//WdfTimerStop(port->timer, FALSE);
+	
+	isr_value = fscc_port_get_register(port, 0, ISR_OFFSET);
 
-		//WdfTimerStop(port->timer, FALSE);
+	if (!isr_value)
+		return handled;
+
+	handled = TRUE;
+
+	port->last_isr_value |= isr_value;
+	streaming = fscc_port_is_streaming(port);
+
+	if (streaming) {
+		if (isr_value & (RFT | RFS))
+			WdfDpcEnqueue(port->istream_dpc);
+	}
+	else {
+		if (isr_value & (RFE | RFT | RFS))
+			WdfDpcEnqueue(port->iframe_dpc);
+	}
+
+	if (isr_value & TFT && !fscc_port_has_dma(port))
+		WdfDpcEnqueue(port->oframe_dpc);
+
+	/* We have to wait until an ALLS to delete a DMA frame because if we
+		delete the frame right away the DMA engine will lose the data to
+		transfer. */
+	if (fscc_port_has_dma(port) && isr_value & ALLS) {
+		if (port->pending_oframe) {
+			fscc_frame_delete(port->pending_oframe);
+			port->pending_oframe = 0;
+		}
 		
-		isr_value = fscc_port_get_register(port, 0, ISR_OFFSET);
-
-		if (!isr_value)
-			continue;
-
-		handled = TRUE;
-
-		port->last_isr_value |= isr_value;
-		streaming = fscc_port_is_streaming(port);
-
-		if (streaming) {
-			if (isr_value & (RFT | RFS))
-				WdfDpcEnqueue(port->istream_dpc);
-		}
-		else {
-			if (isr_value & (RFE | RFT | RFS))
-				WdfDpcEnqueue(port->iframe_dpc);
-		}
-
-		if (isr_value & TFT && !fscc_port_has_dma(port))
-			WdfDpcEnqueue(port->oframe_dpc);
-
-		/* We have to wait until an ALLS to delete a DMA frame because if we
-			delete the frame right away the DMA engine will lose the data to
-			transfer. */
-		if (fscc_port_has_dma(port) && isr_value & ALLS) {
-			if (port->pending_oframe) {
-				fscc_frame_delete(port->pending_oframe);
-				port->pending_oframe = 0;
-			}
-			
-			WdfDpcEnqueue(port->oframe_dpc);
-		}
+		WdfDpcEnqueue(port->oframe_dpc);
+	}
 
 #ifdef DEBUG
-		WdfDpcEnqueue(port->print_dpc);
-		//fscc_port_increment_interrupt_counts(port, isr_value);
+	WdfDpcEnqueue(port->print_dpc);
+	//fscc_port_increment_interrupt_counts(port, isr_value);
 #endif
-		//fscc_port_reset_timer(port);
-	}
-	
-	//WdfFdoUnlockStaticChildListFromIteration(card->device);
+	//fscc_port_reset_timer(port);
 
 	return handled;
 }
