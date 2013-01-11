@@ -40,7 +40,8 @@ copy src\classinstaller\%2\%3\fscc.dll %TOP%\ > nul
 
 :copy_serial_files
 echo Copying Serial Files...
-copy redist\%4\%3\serial\* %TOP%\ > nul
+copy redist\%4\%3\serial\serialfc.inf %TOP%\ > nul
+copy redist\%4\%3\serial\serialfc.sys %TOP%\ > nul
 
 :create_catalogs
 echo Creating Driver Catalogs...
