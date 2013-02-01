@@ -1,29 +1,29 @@
 version 2.1.0 (1/11/2013)
 --------------------------------------------------------------------------------
-        * Add asynchronous support
+    * Add asynchronous support
 
 version 2.0.2 (11/16/2012)
 --------------------------------------------------------------------------------
-        * Improve port location naming in the Device Manager
-        * Fix a bug in fscc_read_with_timeout where a frame wasn't cancelled 
-          upon timeout
-        * Fix a bug where X-Sync mode wasn't considered stream data if there
-          wasn't any framing
-        * Improved debug prints
-        * IRQ and memory optimizations
-        * Fix a data loss bug in transparent mode
+    * Improve port location naming in the Device Manager
+    * Fix a bug in fscc_read_with_timeout where a frame wasn't cancelled upon 
+      timeout
+    * Fix a bug where X-Sync mode wasn't considered stream data if there wasn't 
+    any framing
+    * Improved debug prints
+    * IRQ and memory optimizations
+    * Fix a data loss bug in transparent mode
 
 version 2.0.1 (11/05/2012)
 --------------------------------------------------------------------------------
-        * Bug fix that prevented initiating a read before data had arrived
-        * Improve debug prints
-        * Changed each port's priority level to SERIAL_PORT
-        * Miscellaneous BSOD bug fixes
-        * Miscellaneous data loss bug fixes
-        * Change SDDL permissions to not require administrator privileges
-        * Add more explicit exceptions to the C++ library
-        * Fix a C++ library connection bug 
-        * Fix a generic library bug preventing setting the clock frequency
+    * Bug fix that prevented initiating a read before data had arrived
+    * Improve debug prints
+    * Changed each port's priority level to SERIAL_PORT
+    * Miscellaneous BSOD bug fixes
+    * Miscellaneous data loss bug fixes
+    * Change SDDL permissions to not require administrator privileges
+    * Add more explicit exceptions to the C++ library
+    * Fix a C++ library connection bug 
+    * Fix a generic library bug preventing setting the clock frequency
         
 version 2.0.0 (10/08/2012)
 --------------------------------------------------------------------------------
