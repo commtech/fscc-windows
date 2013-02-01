@@ -1,3 +1,8 @@
+version 2.2.0 (2/1/2013)
+--------------------------------------------------------------------------------
+    * Update SerialFC to v2.1.0 
+      (https://github.com/commtech/serialfc-windows/blob/master/ChangeLog.txt)
+
 version 2.1.0 (1/11/2013)
 --------------------------------------------------------------------------------
     * Add asynchronous support
@@ -8,7 +13,7 @@ version 2.0.2 (11/16/2012)
     * Fix a bug in fscc_read_with_timeout where a frame wasn't cancelled upon 
       timeout
     * Fix a bug where X-Sync mode wasn't considered stream data if there wasn't 
-    any framing
+      any framing
     * Improved debug prints
     * IRQ and memory optimizations
     * Fix a data loss bug in transparent mode
