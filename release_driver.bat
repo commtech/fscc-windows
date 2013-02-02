@@ -53,9 +53,9 @@ copy tmp\production\i386\* %TOP%\32\ > nul
 copy tmp\production\amd64\* %TOP%\64\ > nul
 
 :copy_setup_files
-echo Copying Setup Files...
-copy redist\production\i386\dpinst.exe %TOP%\32\setup.exe > nul
-copy redist\production\amd64\dpinst.exe %TOP%\64\setup.exe > nul
+:echo Copying Setup Files...
+:copy redist\production\i386\dpinst.exe %TOP%\32\setup.exe > nul
+:copy redist\production\amd64\dpinst.exe %TOP%\64\setup.exe > nul
 
 :copy_docs
 echo Copying Docs...
