@@ -24,7 +24,7 @@ doxygen > nul
 
 :create_directories
 echo Creating Directories...
-for %%A in (32, 64, lib) do mkdir %TOP%\%%A\
+for %%A in (32, 64, lib, test) do mkdir %TOP%\%%A\
 for %%A in (fscc, serialfc) do mkdir %TOP%\lib\%%A\
 for %%A in (c, c++, net) do mkdir %TOP%\lib\fscc\%%A\
 
@@ -46,6 +46,10 @@ copy lib\c\cfscc*.dll %TOP%\lib\fscc\net\ > nul
 copy lib\net\src\*.cs %TOP%\lib\fscc\net\ > nul
 copy lib\net\makefile %TOP%\lib\fscc\net\ > nul
 xcopy redist\production\serial\lib\* %TOP%\lib\serialfc\ /e /i > nul
+
+:copy_test_files
+copy lib\c\test\test.exe %TOP%\test\ > nul
+copy lib\c\cfscc.dll %TOP%\test\ > nul
 
 :copy_sys_files
 echo Copying Driver Files...
