@@ -619,6 +619,19 @@ int fscc_read(HANDLE h, char *buf, unsigned size, unsigned *bytes_read, OVERLAPP
 	return (result == TRUE) ? ERROR_SUCCESS : GetLastError();
 }
 
+
+/******************************************************************************/
+/*!
+
+  \note
+    Due to supporting Windows XP we have to use CancelIo() instead of 
+    CancelIoEx(). As a biproduct if there is a WAIT_TIMEOUT both pending
+    transmit and receive IO will be cancelled instead of just receiving. If you
+    are using Vista or newer you can change this to use CancelIoEx and you will
+    only cancel the receiving IO.
+
+*/
+/******************************************************************************/
 int fscc_read_with_timeout(HANDLE h, char *buf, unsigned size, 
                              unsigned *bytes_read, unsigned timeout)
 {
@@ -651,7 +664,10 @@ int fscc_read_with_timeout(HANDLE h, char *buf, unsigned size,
                 switch (status) {
                 case WAIT_TIMEOUT:
                         *bytes_read = 0;
-                        CancelIoEx(h, &o);
+                        /* Switch to CancelIoEx if using Vista or higher and prefer the
+                           way CancelIoEx operates. */
+                        /* CancelIoEx(h, &o); */
+                        CancelIo(h);
                         CloseHandle(o.hEvent);
                         return ERROR_SUCCESS;
 

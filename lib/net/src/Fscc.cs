@@ -45,7 +45,7 @@ namespace Fscc
         /* BAR 2 */
         public Int64 FCR;
 
-        public Registers(bool init = true) 
+        public Registers(bool init) 
         {
             const int FSCC_UPDATE_VALUE = -2;
 

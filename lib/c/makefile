@@ -7,10 +7,10 @@ all: $(TARGET).dll
 debug: $(TARGET)d.dll
 
 $(TARGET).dll:$(SOURCES) $(HEADERS)
-  cl $(SOURCES) /Fe$@ /LD
+  cl /D_WIN32_WINNT=0x0502 $(SOURCES) /Fe$@ /LD
 
 $(TARGET)d.dll:$(SOURCES) $(HEADERS)
-  cl $(SOURCES) /Fe$@ /LDd /Zi
+  cl /D_WIN32_WINNT=0x0502 $(SOURCES) /Fe$@ /LDd /Zi
   
 clean:
   del cfscc* *.obj
