@@ -2,6 +2,9 @@ version 2.2.0 (2/1/2013)
 --------------------------------------------------------------------------------
     * Update SerialFC to v2.1.0 
       (https://github.com/commtech/serialfc-windows/blob/master/ChangeLog.txt)
+    * Libraries are now built for XP support
+    * fscc_read_with_timeout now uses CancelIo instead of CancelIoEx to support
+      XP.
 
 version 2.1.0 (1/11/2013)
 --------------------------------------------------------------------------------
