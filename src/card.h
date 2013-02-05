@@ -39,7 +39,7 @@ typedef struct fscc_card {
 	struct BAR bar[3];
 } FSCC_CARD;
 
-struct fscc_card *fscc_card_new(void);
+void fscc_card_init(struct fscc_card *card);
 
 void *fscc_card_get_BAR(struct fscc_card *card, unsigned number);
 

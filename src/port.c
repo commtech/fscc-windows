@@ -162,7 +162,7 @@ struct fscc_port *fscc_port_new(WDFDRIVER Driver, IN PWDFDEVICE_INIT DeviceInit)
 	port = WdfObjectGet_FSCC_PORT(device);
 
 	port->device = device;
-	port->card = fscc_card_new();
+	fscc_card_init(&port->card);
 	fscc_stream_init(&port->istream);
 	port->open_counter = 0;
 	port->dma = FALSE;
@@ -429,7 +429,6 @@ NTSTATUS fscc_port_prepare_hardware(WDFDEVICE Device, WDFCMRESLIST ResourcesRaw,
 	WDF_OBJECT_ATTRIBUTES  timerAttributes;
 	NTSTATUS  status;
 
-	struct fscc_card *card = 0;
 	struct fscc_port *port = 0;
 	unsigned i = 0;
 	unsigned bar_num = 0;
@@ -437,7 +436,6 @@ NTSTATUS fscc_port_prepare_hardware(WDFDEVICE Device, WDFCMRESLIST ResourcesRaw,
 	UNREFERENCED_PARAMETER(ResourcesRaw);
 	
 	port = WdfObjectGet_FSCC_PORT(Device);
-	card = port->card;
 
 	for (i = 0; i < WdfCmResourceListGetCount(ResourcesTranslated); i++) {
 		PCM_PARTIAL_RESOURCE_DESCRIPTOR descriptor;
@@ -459,8 +457,8 @@ NTSTATUS fscc_port_prepare_hardware(WDFDEVICE Device, WDFCMRESLIST ResourcesRaw,
 				break;
 			}
 
-			card->bar[bar_num].address = ULongToPtr(descriptor->u.Port.Start.LowPart);
-			card->bar[bar_num].memory_mapped = FALSE;
+			port->card.bar[bar_num].address = ULongToPtr(descriptor->u.Port.Start.LowPart);
+			port->card.bar[bar_num].memory_mapped = FALSE;
 
 KdPrint(("%i %0x %i", i, descriptor->u.Port.Start.LowPart, descriptor->u.Port.Length));
 			break;
@@ -531,7 +529,7 @@ KdPrint(("%i %0x %i", i, descriptor->u.Port.Start.LowPart, descriptor->u.Port.Le
 	WdfTimerStart(port->timer, WDF_ABS_TIMEOUT_IN_MS(TIMER_DELAY_MS));
 
     TraceEvents(TRACE_LEVEL_INFORMATION, TRACE_DEVICE, "%s (%x.%02x)",
-		        fscc_card_get_name(port->card), fscc_port_get_PREV(port), fscc_port_get_FREV(port));
+		        fscc_card_get_name(&port->card), fscc_port_get_PREV(port), fscc_port_get_FREV(port));
 
 	return STATUS_SUCCESS;
 }
@@ -541,10 +539,8 @@ NTSTATUS fscc_port_release_hardware(WDFDEVICE Device, WDFCMRESLIST ResourcesTran
 	unsigned bar_counter = 0;
 	unsigned i = 0;
 	struct fscc_port *port = 0;
-	struct fscc_card *card = 0;
 	
 	port = WdfObjectGet_FSCC_PORT(Device);
-	card = port->card;
 
 	//WdfTimerStop(port->timer, FALSE);
 
@@ -585,7 +581,7 @@ NTSTATUS fscc_port_release_hardware(WDFDEVICE Device, WDFCMRESLIST ResourcesTran
 			break;
 			
 		case CmResourceTypeMemory:
-			MmUnmapIoSpace(card->bar[bar_counter].address, descriptor->u.Memory.Length);
+			MmUnmapIoSpace(port->card.bar[bar_counter].address, descriptor->u.Memory.Length);
 			bar_counter++;
 			break;
 		}
@@ -1097,7 +1093,7 @@ UINT32 fscc_port_get_register(struct fscc_port *port, unsigned bar,
 	UINT32 value = 0;
 
 	offset = port_offset(port, bar, register_offset);
-	value = fscc_card_get_register(port->card, bar, offset);
+	value = fscc_card_get_register(&port->card, bar, offset);
 
 	return value;
 }
@@ -1133,7 +1129,7 @@ NTSTATUS fscc_port_set_register(struct fscc_port *port, unsigned bar,
 		return STATUS_IO_TIMEOUT;
 	}
 
-	fscc_card_set_register(port->card, bar, offset, value);
+	fscc_card_set_register(&port->card, bar, offset, value);
 
 	if (bar == 0)
 		((fscc_register *)&port->register_storage)[register_offset / 4] = value;
@@ -1160,7 +1156,7 @@ void fscc_port_get_register_rep(struct fscc_port *port, unsigned bar,
 
     offset = port_offset(port, bar, register_offset);
 
-    fscc_card_get_register_rep(port->card, bar, offset, buf, byte_count);
+    fscc_card_get_register_rep(&port->card, bar, offset, buf, byte_count);
 }
 
 /* 
@@ -1180,7 +1176,7 @@ void fscc_port_set_register_rep(struct fscc_port *port, unsigned bar,
 
     offset = port_offset(port, bar, register_offset);
 
-    fscc_card_set_register_rep(port->card, bar, offset, data, byte_count);
+    fscc_card_set_register_rep(&port->card, bar, offset, data, byte_count);
 }
 
 NTSTATUS fscc_port_set_registers(struct fscc_port *port,
@@ -1509,7 +1505,7 @@ void fscc_port_set_clock_bits(struct fscc_port *port,
         clk_value <<= 0x08;
     }
 
-    orig_fcr_value = fscc_card_get_register(port->card, 2, FCR_OFFSET);
+    orig_fcr_value = fscc_card_get_register(&port->card, 2, FCR_OFFSET);
 
     data[data_index++] = new_fcr_value = orig_fcr_value & 0xfffff0f0;
 

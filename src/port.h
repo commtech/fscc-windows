@@ -87,7 +87,7 @@
 typedef struct fscc_port {
 	WDFDEVICE device;
 	
-	struct fscc_card *card;	
+	struct fscc_card card;	
 
 	WDFQUEUE write_queue;
 	WDFQUEUE read_queue;

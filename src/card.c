@@ -38,18 +38,9 @@ NTSTATUS fscc_card_registry_open(struct fscc_card *card, WDFKEY *key)
 #endif
 
 
-struct fscc_card *fscc_card_new(void)
+void fscc_card_init(struct fscc_card *card)
 {
-    struct fscc_card *card = 0;
-	
-	card = ExAllocatePoolWithTag(NonPagedPool, sizeof(*card), 'draC');
-
-    if (card == NULL) {
-		TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE, "Not enough memory to allocate card");
-        return 0;
-    }
-
-    return card;
+	//TODO
 }
 
 void *fscc_card_get_BAR(struct fscc_card *card, unsigned number)
