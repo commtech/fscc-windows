@@ -406,16 +406,7 @@ struct fscc_port *fscc_port_new(WDFDRIVER Driver, IN PWDFDEVICE_INIT DeviceInit)
         TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE, 
 			"WdfDpcCreate failed %!STATUS!", status);
 		return 0;
-	}
-
-    TraceEvents(TRACE_LEVEL_VERBOSE, TRACE_DEVICE, "%!FUNC! Exit");
-	
-	//status = com_port_init(port);
-	if (!NT_SUCCESS(status)) {
-		TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE, 
-			"com_port_init failed %!STATUS!", status);
-	}
-	
+	}	
 
 	return port;
 }
@@ -423,6 +414,7 @@ struct fscc_port *fscc_port_new(WDFDRIVER Driver, IN PWDFDEVICE_INIT DeviceInit)
 NTSTATUS fscc_port_prepare_hardware(WDFDEVICE Device, WDFCMRESLIST ResourcesRaw, WDFCMRESLIST ResourcesTranslated)
 {
     unsigned char clock_bits[20] = DEFAULT_CLOCK_BITS;
+	struct fscc_memory_cap memory_cap;
 
 	WDF_TIMER_CONFIG  timerConfig;
 	WDF_OBJECT_ATTRIBUTES  timerAttributes;
@@ -441,12 +433,17 @@ NTSTATUS fscc_port_prepare_hardware(WDFDEVICE Device, WDFCMRESLIST ResourcesRaw,
 		return status;
 	}
 
+    TraceEvents(TRACE_LEVEL_INFORMATION, TRACE_DEVICE, "%s (%x.%02x)",
+		        fscc_card_get_name(&port->card), fscc_port_get_PREV(port), fscc_port_get_FREV(port));
+
     fscc_port_set_append_status(port, DEFAULT_APPEND_STATUS_VALUE);
     fscc_port_set_ignore_timeout(port, DEFAULT_IGNORE_TIMEOUT_VALUE);
     fscc_port_set_tx_modifiers(port, DEFAULT_TX_MODIFIERS_VALUE);
 
-    port->memory_cap.input = DEFAULT_INPUT_MEMORY_CAP_VALUE;
-    port->memory_cap.output = DEFAULT_OUTPUT_MEMORY_CAP_VALUE;
+    memory_cap.input = DEFAULT_INPUT_MEMORY_CAP_VALUE;
+    memory_cap.output = DEFAULT_OUTPUT_MEMORY_CAP_VALUE;
+
+    fscc_port_set_memory_cap(port, &memory_cap);
 
 	port->pending_oframe = 0;
 	port->pending_iframe = 0;
@@ -496,9 +493,6 @@ NTSTATUS fscc_port_prepare_hardware(WDFDEVICE Device, WDFCMRESLIST ResourcesRaw,
 	}
 
 	WdfTimerStart(port->timer, WDF_ABS_TIMEOUT_IN_MS(TIMER_DELAY_MS));
-
-    TraceEvents(TRACE_LEVEL_INFORMATION, TRACE_DEVICE, "%s (%x.%02x)",
-		        fscc_card_get_name(&port->card), fscc_port_get_PREV(port), fscc_port_get_FREV(port));
 
 	return STATUS_SUCCESS;
 }
@@ -561,6 +555,7 @@ VOID MyEvtDeviceFileCreate(
 	
 	port->open_counter++;
 
+	/* Mark the port as open in synchronous mode (so async won't open) */
 	if (port->open_counter == 1)
 		fscc_port_set_register(port, 2, FCR_OFFSET, 0x40000000 << port->channel);
 
@@ -587,7 +582,6 @@ VOID MyEvtFileClose(
 	}
 }
 	
-/******************************************************************************/
 VOID fscc_port_ioctl(IN WDFQUEUE Queue, IN WDFREQUEST Request, 
 	IN size_t OutputBufferLength, IN size_t InputBufferLength, 
 	IN ULONG IoControlCode)
@@ -595,10 +589,6 @@ VOID fscc_port_ioctl(IN WDFQUEUE Queue, IN WDFREQUEST Request,
 	NTSTATUS status = STATUS_SUCCESS;
 	struct fscc_port *port = 0;
 	size_t bytes_returned = 0;
-
-    TraceEvents(TRACE_LEVEL_INFORMATION, TRACE_DEVICE, 
-                "%!FUNC! Queue 0x%p, Request 0x%p, OutputBufferLength %d, InputBufferLength %d, IoControlCode %d", 
-                Queue, Request, (int)OutputBufferLength, (int)InputBufferLength, IoControlCode);
 	
 	port = WdfObjectGet_FSCC_PORT(WdfIoQueueGetDevice(Queue));
 
@@ -606,8 +596,6 @@ VOID fscc_port_ioctl(IN WDFQUEUE Queue, IN WDFREQUEST Request,
 	case FSCC_GET_REGISTERS: {
 			struct fscc_registers *input_regs = 0;
 			struct fscc_registers *output_regs = 0;
-
-			TraceEvents(TRACE_LEVEL_INFORMATION, TRACE_DEVICE, "FSCC_GET_REGISTERS");
 			
 			status = WdfRequestRetrieveInputBuffer(Request, sizeof(*input_regs), (PVOID *)&input_regs, NULL);
 			if (!NT_SUCCESS(status)) {
@@ -653,8 +641,6 @@ VOID fscc_port_ioctl(IN WDFQUEUE Queue, IN WDFREQUEST Request,
 		break;
 
 	case FSCC_PURGE_TX:
-		TraceEvents(TRACE_LEVEL_INFORMATION, TRACE_DEVICE, "FSCC_PURGE_TX");
-
 		status = fscc_port_purge_tx(port);
 		if (!NT_SUCCESS(status)) {
 			TraceEvents(TRACE_LEVEL_WARNING, TRACE_DEVICE, 
@@ -665,8 +651,6 @@ VOID fscc_port_ioctl(IN WDFQUEUE Queue, IN WDFREQUEST Request,
 		break;
 
 	case FSCC_PURGE_RX:
-		TraceEvents(TRACE_LEVEL_INFORMATION, TRACE_DEVICE, "FSCC_PURGE_RX");
-
 		status = fscc_port_purge_rx(port);
 		if (!NT_SUCCESS(status)) {
 			TraceEvents(TRACE_LEVEL_WARNING, TRACE_DEVICE, 
@@ -677,15 +661,15 @@ VOID fscc_port_ioctl(IN WDFQUEUE Queue, IN WDFREQUEST Request,
 		break;
 
 	case FSCC_ENABLE_APPEND_STATUS:
-		fscc_port_set_append_status(port, 1);
+		fscc_port_set_append_status(port, TRUE);
 		break;
 
 	case FSCC_DISABLE_APPEND_STATUS:
-		fscc_port_set_append_status(port, 0);
+		fscc_port_set_append_status(port, FALSE);
 		break;
 
     case FSCC_GET_APPEND_STATUS: {
-			unsigned *append_status = 0;
+			BOOLEAN *append_status = 0;
 
 			status = WdfRequestRetrieveOutputBuffer(Request, sizeof(*append_status), (PVOID *)&append_status, NULL);
 			if (!NT_SUCCESS(status)) {
@@ -750,15 +734,15 @@ VOID fscc_port_ioctl(IN WDFQUEUE Queue, IN WDFREQUEST Request,
         break;
 
     case FSCC_ENABLE_IGNORE_TIMEOUT:
-        fscc_port_set_ignore_timeout(port, 1);
+        fscc_port_set_ignore_timeout(port, TRUE);
         break;
 
     case FSCC_DISABLE_IGNORE_TIMEOUT:
-        fscc_port_set_ignore_timeout(port, 0);
+        fscc_port_set_ignore_timeout(port, FALSE);
         break;
 
     case FSCC_GET_IGNORE_TIMEOUT: {
-			unsigned *ignore_timeout = 0;
+			BOOLEAN *ignore_timeout = 0;
 
 			status = WdfRequestRetrieveOutputBuffer(Request, sizeof(*ignore_timeout), (PVOID *)&ignore_timeout, NULL);
 			if (!NT_SUCCESS(status)) {
@@ -949,9 +933,6 @@ void user_read_worker(WDFDPC Dpc)
 
 void EvtRequestCancel (IN WDFREQUEST Request)
 {
-    TraceEvents(TRACE_LEVEL_INFORMATION, TRACE_DEVICE, 
-                "%!FUNC! Request 0x%p", Request);
-
 	WdfRequestComplete(Request, STATUS_CANCELLED);
 }
 
@@ -1001,7 +982,7 @@ int fscc_port_write(struct fscc_port *port, const char *data, unsigned length)
     return_val_if_untrue(port, 0);
 
     /* Checks to make sure there is a clock present. */
-    if (port->ignore_timeout == 0 && fscc_port_timed_out(port)) {
+    if (port->ignore_timeout == FALSE && fscc_port_timed_out(port)) {
 		TraceEvents(TRACE_LEVEL_WARNING, TRACE_DEVICE, 
 					"device stalled (wrong clock mode?)");
 		return STATUS_IO_TIMEOUT;
@@ -1070,17 +1051,27 @@ NTSTATUS fscc_port_set_register(struct fscc_port *port, unsigned bar,
 	offset = port_offset(port, bar, register_offset);
 
 	/* Checks to make sure there is a clock present. */
-	if (register_offset == CMDR_OFFSET && port->ignore_timeout == 0
+	if (register_offset == CMDR_OFFSET && port->ignore_timeout == FALSE
 		&& fscc_port_timed_out(port)) {
 		return STATUS_IO_TIMEOUT;
 	}
 
 	fscc_card_set_register(&port->card, bar, offset, value);
 
-	if (bar == 0)
+	if (bar == 0) {
+		display_register(bar, register_offset, 
+			             (UINT32)((fscc_register *)&port->register_storage)[register_offset / 4],
+		                 value);
+
 		((fscc_register *)&port->register_storage)[register_offset / 4] = value;
-	else if (register_offset == FCR_OFFSET)
+	}
+	else if (register_offset == FCR_OFFSET) {
+		display_register(bar, register_offset, 
+			             (UINT32)port->register_storage.FCR,
+		                 value);
+
 		port->register_storage.FCR = value;
+	}
 
 	return STATUS_SUCCESS;
 }
@@ -1238,6 +1229,9 @@ NTSTATUS fscc_port_purge_rx(struct fscc_port *port)
 
     return_val_if_untrue(port, 0);
 
+	TraceEvents(TRACE_LEVEL_INFORMATION, TRACE_DEVICE, 
+				"Purging receive data");
+
     /* Locks iframe_spinlock. */
 	status = fscc_port_execute_RRES(port);
 	if (!NT_SUCCESS(status)) {
@@ -1264,6 +1258,9 @@ NTSTATUS fscc_port_purge_tx(struct fscc_port *port)
 
     return_val_if_untrue(port, 0);
 
+	TraceEvents(TRACE_LEVEL_INFORMATION, TRACE_DEVICE, 
+				"Purging transmit data");
+
     /* Locks oframe_spinlock. */
     if ((error_code = fscc_port_execute_TRES(port)) < 0)
         return error_code;
@@ -1277,14 +1274,24 @@ NTSTATUS fscc_port_purge_tx(struct fscc_port *port)
     return STATUS_SUCCESS;
 }
 
-void fscc_port_set_append_status(struct fscc_port *port, unsigned value)
+void fscc_port_set_append_status(struct fscc_port *port, BOOLEAN value)
 {
     return_if_untrue(port);
+
+    if (port->append_status != value) {
+		TraceEvents(TRACE_LEVEL_INFORMATION, TRACE_DEVICE, 
+					"Append status %i => %i", 
+					port->append_status, value);
+    }
+    else {
+		TraceEvents(TRACE_LEVEL_VERBOSE, TRACE_DEVICE, 
+					"Append status = %i", value);
+    }
 
     port->append_status = (value) ? 1 : 0;
 }
 
-unsigned fscc_port_get_append_status(struct fscc_port *port)
+BOOLEAN fscc_port_get_append_status(struct fscc_port *port)
 {
     return_val_if_untrue(port, 0);
 
@@ -1292,14 +1299,24 @@ unsigned fscc_port_get_append_status(struct fscc_port *port)
 }
 
 void fscc_port_set_ignore_timeout(struct fscc_port *port,
-                                  unsigned ignore_timeout)
+                                  BOOLEAN value)
 {
     return_if_untrue(port);
 
-    port->ignore_timeout = (ignore_timeout) ? 1 : 0;
+    if (port->ignore_timeout != value) {
+		TraceEvents(TRACE_LEVEL_INFORMATION, TRACE_DEVICE, 
+					"Ignore timeout %i => %i", 
+					port->append_status, value);
+    }
+    else {
+		TraceEvents(TRACE_LEVEL_VERBOSE, TRACE_DEVICE, 
+					"Ignore timeout = %i", value);
+    }
+
+    port->ignore_timeout = (value) ? TRUE : FALSE;
 }
 
-unsigned fscc_port_get_ignore_timeout(struct fscc_port *port)
+BOOLEAN fscc_port_get_ignore_timeout(struct fscc_port *port)
 {
     return_val_if_untrue(port, 0);
 
@@ -1320,12 +1337,12 @@ NTSTATUS fscc_port_set_tx_modifiers(struct fscc_port *port, int value)
         case XREP|TXEXT:
             if (port->tx_modifiers != value) {
 				TraceEvents(TRACE_LEVEL_INFORMATION, TRACE_DEVICE, 
-							"tx modifiers 0x%x => 0x%x", 
+							"Transmit modifiers 0x%x => 0x%x", 
 							port->tx_modifiers, value);
             }
             else {
-				TraceEvents(TRACE_LEVEL_INFORMATION, TRACE_DEVICE, 
-							"tx modifiers 0x%x", value);
+				TraceEvents(TRACE_LEVEL_VERBOSE, TRACE_DEVICE, 
+							"Transmit modifiers = 0x%x", value);
             }
             
             port->tx_modifiers = value;
@@ -1334,7 +1351,7 @@ NTSTATUS fscc_port_set_tx_modifiers(struct fscc_port *port, int value)
             
         default:
 			TraceEvents(TRACE_LEVEL_WARNING, TRACE_DEVICE, 
-						"tx modifiers (invalid value 0x%x)", value);
+						"Transmit modifiers (invalid value 0x%x)", value);
             
             return STATUS_INVALID_PARAMETER;
     }
@@ -1372,12 +1389,12 @@ void fscc_port_set_memory_cap(struct fscc_port *port,
     if (value->input >= 0) {
         if (port->memory_cap.input != value->input) {
 			TraceEvents(TRACE_LEVEL_INFORMATION, TRACE_DEVICE, 
-						"memory cap (input) %i => %i", 
+						"Memory cap (input) %i => %i", 
 						port->memory_cap.input, value->input);
         }
         else {
-			TraceEvents(TRACE_LEVEL_INFORMATION, TRACE_DEVICE, 
-						"memory cap (input) %i", 
+			TraceEvents(TRACE_LEVEL_VERBOSE, TRACE_DEVICE, 
+						"Memory cap (input) = %i", 
 						value->input);
         }
         
@@ -1387,12 +1404,12 @@ void fscc_port_set_memory_cap(struct fscc_port *port,
     if (value->output >= 0) {
         if (port->memory_cap.output != value->output) {
 			TraceEvents(TRACE_LEVEL_INFORMATION, TRACE_DEVICE, 
-						"memory cap (output) %i => %i", 
+						"Memory cap (output) %i => %i", 
 						port->memory_cap.output, value->output);
         }
         else {
-			TraceEvents(TRACE_LEVEL_INFORMATION, TRACE_DEVICE, 
-						"memory cap (output) %i", 
+			TraceEvents(TRACE_LEVEL_VERBOSE, TRACE_DEVICE, 
+						"Memory cap (output) = %i", 
 						value->output);
         }
         
@@ -1416,10 +1433,6 @@ void fscc_port_set_clock_bits(struct fscc_port *port,
     unsigned clk_value = CLK_BASE;
     UINT32 *data = 0;
     unsigned data_index = 0;
-
-    TraceEvents(TRACE_LEVEL_INFORMATION, TRACE_DEVICE, 
-                "%!FUNC! port 0x%p, clock_data 0x%p", 
-                port, clock_data);
 
     return_if_untrue(port);
 

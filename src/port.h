@@ -98,8 +98,8 @@ typedef struct fscc_port {
 	unsigned channel;
 	struct fscc_registers register_storage; /* Only valid on suspend/resume */
 
-    unsigned append_status;
-    unsigned ignore_timeout;
+    BOOLEAN append_status;
+    BOOLEAN ignore_timeout;
     int tx_modifiers;
 
     struct fscc_memory_cap memory_cap;
@@ -166,12 +166,12 @@ UINT16 fscc_port_get_PDEV(struct fscc_port *port);
 NTSTATUS fscc_port_purge_tx(struct fscc_port *port);
 NTSTATUS fscc_port_purge_rx(struct fscc_port *port);
 
-void fscc_port_set_append_status(struct fscc_port *port, unsigned value);
-unsigned fscc_port_get_append_status(struct fscc_port *port);
+void fscc_port_set_append_status(struct fscc_port *port, BOOLEAN value);
+BOOLEAN fscc_port_get_append_status(struct fscc_port *port);
 
 void fscc_port_set_ignore_timeout(struct fscc_port *port,
-                                  unsigned ignore_timeout);
-unsigned fscc_port_get_ignore_timeout(struct fscc_port *port);
+                                  BOOLEAN ignore_timeout);
+BOOLEAN fscc_port_get_ignore_timeout(struct fscc_port *port);
 NTSTATUS fscc_port_set_tx_modifiers(struct fscc_port *port, int value);
 unsigned fscc_port_get_tx_modifiers(struct fscc_port *port);
 

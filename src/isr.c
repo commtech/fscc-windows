@@ -167,7 +167,7 @@ void iframe_worker(WDFDPC Dpc)
         }
 #endif
 
-		TraceEvents(TRACE_LEVEL_INFORMATION, TRACE_DEVICE, 
+		TraceEvents(TRACE_LEVEL_VERBOSE, TRACE_DEVICE, 
 			"F#%i <= %i byte%s (%sfinished)",
             port->pending_iframe->number, receive_length,
             (receive_length == 1) ? "" : "s",
@@ -260,7 +260,7 @@ void istream_worker(WDFDPC Dpc)
 		return;
 	}
 
-	TraceEvents(TRACE_LEVEL_INFORMATION, TRACE_DEVICE, 
+	TraceEvents(TRACE_LEVEL_VERBOSE, TRACE_DEVICE, 
 		"Stream <= %i byte%s", receive_length,
             (receive_length == 1) ? "" : "s");
 
@@ -350,7 +350,7 @@ void oframe_worker(WDFDPC Dpc)
 	
     fscc_frame_remove_data(port->pending_oframe, transmit_length);
 
-	TraceEvents(TRACE_LEVEL_INFORMATION, TRACE_DEVICE, 
+	TraceEvents(TRACE_LEVEL_VERBOSE, TRACE_DEVICE, 
 			"F#%i => %i byte%s%s",
             port->pending_oframe->number, transmit_length,
             (transmit_length == 1) ? "" : "s",

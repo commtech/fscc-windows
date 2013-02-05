@@ -64,10 +64,6 @@ Return Value:
     // Initialize WPP Tracing
     //
     WPP_INIT_TRACING(DriverObject, RegistryPath);
-	
-    TraceEvents(TRACE_LEVEL_INFORMATION, TRACE_DRIVER, 
-                "%!FUNC! DriverObject 0x%p, RegistryPath 0x%p", 
-				DriverObject, RegistryPath);
 
     //
     // Register a cleanup callback so that we can call WPP_CLEANUP when

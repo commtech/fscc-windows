@@ -23,6 +23,30 @@
 
 #include "utils.h" /* return_{val_}if_true */
 
+void display_register(unsigned bar, unsigned offset, UINT32 old_val, UINT32 new_val)
+{       
+    TRACEHANDLE SessionHandle = TRACE_LEVEL_INFORMATION;
+
+    switch (offset) {
+    case FIFO_OFFSET:
+    case BC_FIFO_L_OFFSET:
+    case FIFO_BC_OFFSET:
+    case FIFO_FC_OFFSET:
+    case CMDR_OFFSET:
+        SessionHandle = TRACE_LEVEL_VERBOSE;
+        break;
+    }
+
+    if (old_val != new_val) {
+        TraceEvents(SessionHandle, TRACE_DEVICE, 
+                    "Register (%i:0x%02i) 0x%08x => 0x%08x", bar, offset, old_val, new_val);
+    }
+    else {
+        TraceEvents(TRACE_LEVEL_VERBOSE, TRACE_DEVICE, 
+                    "Register (%i:0x%02i) = 0x%08x", bar, offset, new_val);
+    }
+}
+
 void print_worker(WDFDPC Dpc)
 {
 	struct fscc_port *port = 0;
@@ -34,7 +58,7 @@ void print_worker(WDFDPC Dpc)
     port->last_isr_value = 0;
 	
 	TraceEvents(TRACE_LEVEL_INFORMATION, TRACE_DEVICE, 
-				"interrupt: 0x%08x\n", isr_value);
+				"Interrupt: 0x%08x\n", isr_value);
 
     if (isr_value & RFE)
 		TraceEvents(TRACE_LEVEL_INFORMATION, TRACE_DEVICE, "RFE (Receive Frame End Interrupt)");
