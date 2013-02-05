@@ -435,7 +435,12 @@ NTSTATUS fscc_port_prepare_hardware(WDFDEVICE Device, WDFCMRESLIST ResourcesRaw,
 	port = WdfObjectGet_FSCC_PORT(Device);
 
 	//TODO: Check for error code
-	fscc_card_init(&port->card, ResourcesTranslated);
+	status = fscc_card_init(&port->card, ResourcesTranslated);
+	if (!NT_SUCCESS(status)) {
+		TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE, 
+			"fscc_card_init failed %!STATUS!", status);
+		return status;
+	}
 
     fscc_port_set_append_status(port, DEFAULT_APPEND_STATUS_VALUE);
     fscc_port_set_ignore_timeout(port, DEFAULT_IGNORE_TIMEOUT_VALUE);
@@ -507,6 +512,7 @@ NTSTATUS fscc_port_prepare_hardware(WDFDEVICE Device, WDFCMRESLIST ResourcesRaw,
 
 NTSTATUS fscc_port_release_hardware(WDFDEVICE Device, WDFCMRESLIST ResourcesTranslated)
 {
+	NTSTATUS status = STATUS_SUCCESS;
 	struct fscc_port *port = 0;
 	
 	port = WdfObjectGet_FSCC_PORT(Device);
@@ -536,10 +542,9 @@ NTSTATUS fscc_port_release_hardware(WDFDEVICE Device, WDFCMRESLIST ResourcesTran
     //debug_interrupt_tracker_delete(port->interrupt_tracker);
 #endif
 
-    //TODO: Check error code
-    fscc_card_delete(&port->card, ResourcesTranslated);
+    status = fscc_card_delete(&port->card, ResourcesTranslated);
 
-	return STATUS_SUCCESS;
+	return status;
 }
 
 VOID MyEvtDeviceFileCreate(
