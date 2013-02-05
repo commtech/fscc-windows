@@ -434,7 +434,7 @@ NTSTATUS fscc_port_prepare_hardware(WDFDEVICE Device, WDFCMRESLIST ResourcesRaw,
 	
 	port = WdfObjectGet_FSCC_PORT(Device);
 
-	status = fscc_card_init(&port->card, ResourcesTranslated);
+	status = fscc_card_init(&port->card, ResourcesTranslated, Device);
 	if (!NT_SUCCESS(status)) {
 		TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE, 
 			"fscc_card_init failed %!STATUS!", status);

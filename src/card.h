@@ -36,10 +36,11 @@ struct BAR {
 
 
 typedef struct fscc_card {	
+	UINT32 device_id;
 	struct BAR bar[3];
 } FSCC_CARD;
 
-NTSTATUS fscc_card_init(struct fscc_card *card, WDFCMRESLIST ResourcesTranslated);
+NTSTATUS fscc_card_init(struct fscc_card *card, WDFCMRESLIST ResourcesTranslated, WDFDEVICE port_device);
 NTSTATUS fscc_card_delete(struct fscc_card *card, WDFCMRESLIST ResourcesTranslated);
 
 void *fscc_card_get_BAR(struct fscc_card *card, unsigned number);

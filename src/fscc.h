@@ -111,11 +111,17 @@ struct fscc_memory_cap {
 
 #define FSCC_ID 0x000f
 #define SFSCC_ID 0x0014
+#define SFSCC104_ID 0x0015
 #define FSCC_232_ID 0x0016
+#define SFSCC104_UA_ID 0x0017
 #define SFSCC_4_ID 0x0018
+#define SFSCC_UA_ID 0x0019
+#define SFSCC104_LVDS_ID 0x001a
 #define FSCC_4_ID 0x001b
 #define SFSCC_4_LVDS_ID 0x001c
+#define FSCC_UA_ID 0x001d
 #define SFSCCe_4_ID 0x001e
+#define SFSCC_4_CPCI_ID 0x001f
 
 #define STATUS_LENGTH 2
 

@@ -29,11 +29,20 @@
 #include <ntddser.h>
 #include <ntstrsafe.h>
 
+INT
+PCIReadConfigWord(
+    IN PDEVICE_OBJECT DeviceObject,
+    IN ULONG          Offset,
+    IN PVOID          Value
+    );
 
-NTSTATUS fscc_card_init(struct fscc_card *card, WDFCMRESLIST ResourcesTranslated)
+NTSTATUS fscc_card_init(struct fscc_card *card, WDFCMRESLIST ResourcesTranslated, WDFDEVICE port_device)
 {	
 	unsigned bar_num = 0;
 	unsigned i = 0;
+	PDEVICE_OBJECT pdo;
+
+	card->device_id = 0;
 
 	for (i = 0; i < WdfCmResourceListGetCount(ResourcesTranslated); i++) {
 		PCM_PARTIAL_RESOURCE_DESCRIPTOR descriptor;
@@ -60,6 +69,10 @@ NTSTATUS fscc_card_init(struct fscc_card *card, WDFCMRESLIST ResourcesTranslated
 			break;
 		}
 	}
+
+	pdo = WdfDeviceWdmGetDeviceObject(port_device);
+
+	PCIReadConfigWord(pdo, 0x02, &card->device_id);
 
 	return STATUS_SUCCESS;
 }
@@ -232,27 +245,80 @@ void fscc_card_set_register_rep(struct fscc_card *card, unsigned bar,
 char *fscc_card_get_name(struct fscc_card *card)
 {
 	UNREFERENCED_PARAMETER(card);
-
-	return "TODO2";
 	
-	/*
-	switch (card->pci_dev->device) {
+	switch (card->device_id) {
 	case FSCC_ID:
+	case FSCC_UA_ID:
 		return "FSCC PCI";
 	case SFSCC_ID:
+	case SFSCC_UA_ID:
 		return "SuperFSCC PCI";
+	case SFSCC104_ID:
+	case SFSCC104_UA_ID:
+		return "SuperFSCC-104 PC/104+";
 	case FSCC_232_ID:
 		return "FSCC-232 PCI";
 	case SFSCC_4_ID:
 		return "SuperFSCC/4 PCI";
+	case SFSCC104_LVDS_ID:
+		return "SuperFSCC-104-LVDS PC/104+";
 	case FSCC_4_ID:
 		return "FSCC/4 PCI";
 	case SFSCC_4_LVDS_ID:
-		return "SuperFSCC/4 LVDS PCI";
+		return "SuperFSCC/4-LVDS PCI";
 	case SFSCCe_4_ID:
 		return "SuperFSCC/4 PCIe";
+	case SFSCC_4_CPCI_ID:
+		return "SuperFSCC/4 cPCI";
 	}
 
 	return "Unknown Device";
-	*/
+}
+
+
+/*****************************************************************************
+ * Direct R/W from config space.
+ *****************************************************************************/
+INT
+PCIReadConfigWord(
+    IN PDEVICE_OBJECT DeviceObject,
+    IN ULONG          Offset,
+    IN PVOID          Value
+    )
+{
+    PDEVICE_OBJECT TargetObject;
+    PIRP pIrp;
+    IO_STATUS_BLOCK IoStatusBlock;
+    PIO_STACK_LOCATION IrpStack;
+    KEVENT ConfigReadWordEvent;
+    INT error = 0;
+
+    TargetObject = IoGetAttachedDeviceReference(DeviceObject);
+    KeInitializeEvent(&ConfigReadWordEvent, NotificationEvent, FALSE);
+    
+    pIrp = IoBuildSynchronousFsdRequest(IRP_MJ_PNP, TargetObject, NULL,
+        0, NULL, &ConfigReadWordEvent, &IoStatusBlock );
+
+    if (pIrp) {
+        /* Create the config space read IRP */
+        IrpStack = IoGetNextIrpStackLocation(pIrp);
+        IrpStack->MinorFunction = IRP_MN_READ_CONFIG;
+        IrpStack->Parameters.ReadWriteConfig.WhichSpace = \
+            PCI_WHICHSPACE_CONFIG;
+        IrpStack->Parameters.ReadWriteConfig.Offset = Offset;
+        IrpStack->Parameters.ReadWriteConfig.Length = 0x2;
+        IrpStack->Parameters.ReadWriteConfig.Buffer = Value;
+        pIrp->IoStatus.Status = STATUS_NOT_SUPPORTED ;
+     
+        /* Send the IRP */
+        if (IoCallDriver(TargetObject, pIrp)==STATUS_PENDING) {
+            KeWaitForSingleObject(&ConfigReadWordEvent, Executive, \
+                KernelMode, FALSE, NULL);
+        }
+    } else {
+        error = -1;
+    }
+
+    ObDereferenceObject(TargetObject);
+    return error;
 }
