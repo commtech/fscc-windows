@@ -38,9 +38,66 @@ NTSTATUS fscc_card_registry_open(struct fscc_card *card, WDFKEY *key)
 #endif
 
 
-void fscc_card_init(struct fscc_card *card)
-{
-	//TODO
+NTSTATUS fscc_card_init(struct fscc_card *card, WDFCMRESLIST ResourcesTranslated)
+{	
+	unsigned bar_num = 0;
+	unsigned i = 0;
+
+	for (i = 0; i < WdfCmResourceListGetCount(ResourcesTranslated); i++) {
+		PCM_PARTIAL_RESOURCE_DESCRIPTOR descriptor;
+		
+		descriptor = WdfCmResourceListGetDescriptor(ResourcesTranslated, i);
+		
+		if (!descriptor)
+			return STATUS_DEVICE_CONFIGURATION_ERROR;
+			
+		switch (descriptor->Type) {
+		case CmResourceTypePort:
+			switch (i) {
+			case 0:
+				bar_num = 2;
+				break;
+
+			case 2:
+				bar_num = 0;
+				break;
+			}
+
+			card->bar[bar_num].address = ULongToPtr(descriptor->u.Port.Start.LowPart);
+			card->bar[bar_num].memory_mapped = FALSE;
+			break;
+		}
+	}
+
+	return STATUS_SUCCESS;
+}
+
+NTSTATUS fscc_card_delete(struct fscc_card *card, WDFCMRESLIST ResourcesTranslated)
+{	
+	unsigned bar_counter = 0;
+	unsigned i = 0;
+
+    for (i = 0; i < WdfCmResourceListGetCount(ResourcesTranslated); i++) {		
+		PCM_PARTIAL_RESOURCE_DESCRIPTOR descriptor;
+		
+		descriptor = WdfCmResourceListGetDescriptor(ResourcesTranslated, i);
+		
+		if (!descriptor)
+			return STATUS_DEVICE_CONFIGURATION_ERROR;
+		
+		switch (descriptor->Type) {
+		case CmResourceTypePort:
+			bar_counter++;
+			break;
+			
+		case CmResourceTypeMemory:
+			MmUnmapIoSpace(card->bar[bar_counter].address, descriptor->u.Memory.Length);
+			bar_counter++;
+			break;
+		}
+	}
+
+	return STATUS_SUCCESS;
 }
 
 void *fscc_card_get_BAR(struct fscc_card *card, unsigned number)

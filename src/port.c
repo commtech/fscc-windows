@@ -162,7 +162,6 @@ struct fscc_port *fscc_port_new(WDFDRIVER Driver, IN PWDFDEVICE_INIT DeviceInit)
 	port = WdfObjectGet_FSCC_PORT(device);
 
 	port->device = device;
-	fscc_card_init(&port->card);
 	fscc_stream_init(&port->istream);
 	port->open_counter = 0;
 	port->dma = FALSE;
@@ -430,41 +429,13 @@ NTSTATUS fscc_port_prepare_hardware(WDFDEVICE Device, WDFCMRESLIST ResourcesRaw,
 	NTSTATUS  status;
 
 	struct fscc_port *port = 0;
-	unsigned i = 0;
-	unsigned bar_num = 0;
 
 	UNREFERENCED_PARAMETER(ResourcesRaw);
 	
 	port = WdfObjectGet_FSCC_PORT(Device);
 
-	for (i = 0; i < WdfCmResourceListGetCount(ResourcesTranslated); i++) {
-		PCM_PARTIAL_RESOURCE_DESCRIPTOR descriptor;
-		
-		descriptor = WdfCmResourceListGetDescriptor(ResourcesTranslated, i);
-		
-		if (!descriptor)
-			return STATUS_DEVICE_CONFIGURATION_ERROR;
-			
-		switch (descriptor->Type) {
-		case CmResourceTypePort:
-			switch (i) {
-			case 0:
-				bar_num = 2;
-				break;
-
-			case 2:
-				bar_num = 0;
-				break;
-			}
-
-			port->card.bar[bar_num].address = ULongToPtr(descriptor->u.Port.Start.LowPart);
-			port->card.bar[bar_num].memory_mapped = FALSE;
-
-KdPrint(("%i %0x %i", i, descriptor->u.Port.Start.LowPart, descriptor->u.Port.Length));
-			break;
-		}
-
-	}
+	//TODO: Check for error code
+	fscc_card_init(&port->card, ResourcesTranslated);
 
     fscc_port_set_append_status(port, DEFAULT_APPEND_STATUS_VALUE);
     fscc_port_set_ignore_timeout(port, DEFAULT_IGNORE_TIMEOUT_VALUE);
@@ -536,8 +507,6 @@ KdPrint(("%i %0x %i", i, descriptor->u.Port.Start.LowPart, descriptor->u.Port.Le
 
 NTSTATUS fscc_port_release_hardware(WDFDEVICE Device, WDFCMRESLIST ResourcesTranslated)
 {
-	unsigned bar_counter = 0;
-	unsigned i = 0;
 	struct fscc_port *port = 0;
 	
 	port = WdfObjectGet_FSCC_PORT(Device);
@@ -567,25 +536,8 @@ NTSTATUS fscc_port_release_hardware(WDFDEVICE Device, WDFCMRESLIST ResourcesTran
     //debug_interrupt_tracker_delete(port->interrupt_tracker);
 #endif
 
-    for (i = 0; i < WdfCmResourceListGetCount(ResourcesTranslated); i++) {		
-		PCM_PARTIAL_RESOURCE_DESCRIPTOR descriptor;
-		
-		descriptor = WdfCmResourceListGetDescriptor(ResourcesTranslated, i);
-		
-		if (!descriptor)
-			return STATUS_DEVICE_CONFIGURATION_ERROR;
-		
-		switch (descriptor->Type) {
-		case CmResourceTypePort:
-			bar_counter++;
-			break;
-			
-		case CmResourceTypeMemory:
-			MmUnmapIoSpace(port->card.bar[bar_counter].address, descriptor->u.Memory.Length);
-			bar_counter++;
-			break;
-		}
-	}
+    //TODO: Check error code
+    fscc_card_delete(&port->card, ResourcesTranslated);
 
 	return STATUS_SUCCESS;
 }
