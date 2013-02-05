@@ -25,31 +25,20 @@
 #include "utils.h" /* return_{val_}if_true */
 
 int fscc_stream_update_buffer_size(struct fscc_stream *stream,
-                                    unsigned length);
+                                   unsigned length);
 
-struct fscc_stream *fscc_stream_new(void)
+void fscc_stream_init(struct fscc_stream *stream)
 {
-    struct fscc_stream *stream = 0;
-	
-	stream = (struct fscc_stream *)ExAllocatePoolWithTag(NonPagedPool, sizeof(*stream), 'ertS');
-
-    if (stream == NULL) {
-		TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE, "Not enough memory to allocate stream");
-        return 0;
-    }
-
-    stream->length = 0;
-    stream->data = 0;
-
-    return stream;
+    stream->data_length = 0;
+    stream->buffer_size = 0;
+    stream->buffer = 0;
 }
 
 void fscc_stream_delete(struct fscc_stream *stream)
 {
     return_if_untrue(stream);
 
-    if (stream->data)
-		ExFreePoolWithTag(stream->data, 'ataD');
+    fscc_stream_update_buffer_size(stream, 0);
 	
 	ExFreePoolWithTag(stream, 'ertS');
 }
@@ -58,99 +47,104 @@ unsigned fscc_stream_get_length(struct fscc_stream *stream)
 {
     return_val_if_untrue(stream, 0);
 
-    return stream->length;
+    return stream->data_length;
 }
 
 unsigned fscc_stream_is_empty(struct fscc_stream *stream)
 {
     return_val_if_untrue(stream, 0);
 
-    return !fscc_stream_get_length(stream);
+    return fscc_stream_get_length(stream) == 0;
 }
 
+//TODO
 int fscc_stream_add_data(struct fscc_stream *stream, const char *data,
-                          unsigned length)
+                         unsigned length)
 {
-    unsigned old_length = 0;
-
     return_val_if_untrue(stream, FALSE);
 
-    old_length = stream->length;
+    /* Only update buffer size if there isn't enough space already */
+    if (stream->data_length + length > stream->buffer_size) {
+        if (fscc_stream_update_buffer_size(stream, stream->data_length + length) == FALSE)
+    		return FALSE;
+    }
 
-    if (fscc_stream_update_buffer_size(stream, stream->length + length) == FALSE)
-		return FALSE;
+    /* Copy the new data to the end of the stream */
+    memmove(stream->buffer + stream->data_length, data, length);
 
-    memmove(stream->data + old_length, data, length);
+    stream->data_length += length;
 
 	return TRUE;
 }
 
 int fscc_stream_remove_data(struct fscc_stream *stream, unsigned length)
 {
-    unsigned new_length = 0;
-
     return_val_if_untrue(stream, FALSE);
 
 	if (length == 0)
 		return TRUE;
 
-	if (stream->length == 0) {
+	if (stream->data_length == 0) {
 		TraceEvents(TRACE_LEVEL_WARNING, TRACE_DEVICE, "Attempting data removal from empty stream");
 		return TRUE;
 	}
 
-    new_length = stream->length - length;
+    stream->data_length -= length;
 
-    memmove(stream->data, stream->data + length, new_length);
+    memmove(stream->buffer, stream->buffer + length, stream->data_length);
 
-    return fscc_stream_update_buffer_size(stream, new_length);
+    return TRUE;
 }
 
 char *fscc_stream_get_data(struct fscc_stream *stream)
 {
     return_val_if_untrue(stream, 0);
 
-    return stream->data;
+    return stream->buffer;
 }
 
 int fscc_stream_update_buffer_size(struct fscc_stream *stream,
-                                    unsigned length)
+                                   unsigned size)
 {
-    char *new_data = 0;
-    //int malloc_flags = 0;
+    char *new_buffer = 0;
 
     return_val_if_untrue(stream, FALSE);
 
-    if (length == 0) {
-        if (stream->data) {
-			ExFreePoolWithTag(stream->data, 'ataD');
-            stream->data = 0;
+    if (size == 0) {
+        if (stream->buffer) {
+			ExFreePoolWithTag(stream->buffer, 'ataD');
+            stream->buffer = 0;
         }
 
-        stream->length = 0;
+        stream->buffer_size = 0;
+        stream->data_length = 0;
+
         return TRUE;
     }
-
-    //malloc_flags |= GFP_ATOMIC;
 	
-	new_data = (char *)ExAllocatePoolWithTag(NonPagedPool, length, 'ataD');
+	new_buffer = (char *)ExAllocatePoolWithTag(NonPagedPool, size, 'ataD');
 
-    if (new_data == NULL) {
+    if (new_buffer == NULL) {
 		TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE, "Not enough memory to update stream buffer size");
         return FALSE;
     }
 
-    memset(new_data, 0, length);
+    memset(new_buffer, 0, size);
 
-    if (stream->data) {
-        if (stream->length)
-            memmove(new_data, stream->data, min(stream->length, length));
-		
-		ExFreePoolWithTag(stream->data, 'ataD');
+    if (stream->buffer) {
+        if (stream->data_length) {
+            /* Truncate data length if the new buffer size is less than the data length */
+            stream->data_length = min(stream->data_length, size);
+
+            /* Copy over the old buffer data to the new buffer */
+            memmove(new_buffer, stream->buffer, stream->data_length);
+        }
+
+		ExFreePoolWithTag(stream->buffer, 'ataD');
     }
 
-    stream->data = new_data;
-    stream->length = length;
+    stream->buffer = new_buffer;
+    stream->buffer_size = size;
 
 	return TRUE;
 }

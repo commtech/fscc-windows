@@ -163,7 +163,7 @@ struct fscc_port *fscc_port_new(WDFDRIVER Driver, IN PWDFDEVICE_INIT DeviceInit)
 
 	port->device = device;
 	port->card = fscc_card_new();
-	port->istream = fscc_stream_new();
+	fscc_stream_init(&port->istream);
 	port->open_counter = 0;
 	port->dma = FALSE;
 
@@ -916,11 +916,11 @@ int fscc_port_stream_read(struct fscc_port *port, char *buf, size_t buf_length, 
 {
     return_val_if_untrue(port, 0);
 
-    *out_length = min(buf_length, (size_t)fscc_stream_get_length(port->istream));
+    *out_length = min(buf_length, (size_t)fscc_stream_get_length(&port->istream));
 	
-	memcpy(buf, fscc_stream_get_data(port->istream), *out_length);
+	memcpy(buf, fscc_stream_get_data(&port->istream), *out_length);
 
-    fscc_stream_remove_data(port->istream, (unsigned)(*out_length));
+    fscc_stream_remove_data(&port->istream, (unsigned)(*out_length));
 
     return STATUS_SUCCESS;
 }
@@ -1308,8 +1308,8 @@ NTSTATUS fscc_port_purge_rx(struct fscc_port *port)
     fscc_port_clear_iframes(port, 1);
 	
 	WdfSpinLockAcquire(port->iframe_spinlock);
-    fscc_stream_remove_data(port->istream,
-                            fscc_stream_get_length(port->istream));
+    fscc_stream_remove_data(&port->istream,
+                            fscc_stream_get_length(&port->istream));
 	WdfSpinLockRelease(port->iframe_spinlock);
 
     return STATUS_SUCCESS;
@@ -1675,7 +1675,7 @@ unsigned fscc_port_get_input_memory_usage(struct fscc_port *port,
     memory = calculate_memory_usage(port->pending_iframe, &port->iframes,
                                     spinlock);
 
-    memory += fscc_stream_get_length(port->istream);
+    memory += fscc_stream_get_length(&port->istream);
 
     return memory;
 }
@@ -1856,7 +1856,7 @@ unsigned fscc_port_has_incoming_data(struct fscc_port *port)
 	WdfSpinLockAcquire(port->iframe_spinlock);
 
     if (fscc_port_is_streaming(port))
-        status = (fscc_stream_is_empty(port->istream)) ? 0 : 1;
+        status = (fscc_stream_is_empty(&port->istream)) ? 0 : 1;
     else if (fscc_port_has_iframes(port, 0))
         status = 1;
 

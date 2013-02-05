@@ -251,7 +251,7 @@ void istream_worker(WDFDPC Dpc)
     fscc_port_get_register_rep(port, 0, FIFO_OFFSET, buffer,
                                receive_length);
 
-    status = fscc_stream_add_data(port->istream, buffer, receive_length);
+    status = fscc_stream_add_data(&port->istream, buffer, receive_length);
 
 	if (status == FALSE) {
 		TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE, 
