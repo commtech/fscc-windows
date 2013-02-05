@@ -74,7 +74,23 @@ int main(int argc, char *argv[])
 int init(HANDLE h)
 {
 	struct fscc_registers r;
+	struct fscc_memory_cap m;
 	int e = 0;
+
+	m.input = 1000000;
+	m.output = 1000000;
+
+	e = fscc_set_memory_cap(h, &m);
+	if (e != 0) {
+		fprintf(stderr, "fscc_disable_append_status failed with %d\n", e);
+		return EXIT_FAILURE;
+	}
+
+	e = fscc_disable_ignore_timeout(h);
+	if (e != 0) {
+		fprintf(stderr, "fscc_disable_append_status failed with %d\n", e);
+		return EXIT_FAILURE;
+	}
 
 	e = fscc_disable_append_status(h);
 	if (e != 0) {
