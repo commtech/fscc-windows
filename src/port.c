@@ -551,13 +551,10 @@ VOID MyEvtDeviceFileCreate(
 	UNREFERENCED_PARAMETER(FileObject);
 
 	port = WdfObjectGet_FSCC_PORT(Device);
-	
-	KdPrint(("A %i", port->channel));
 
 	if (fscc_port_using_async(port)) {
 		TraceEvents(TRACE_LEVEL_WARNING, TRACE_DEVICE, 
 					"use COMx nodes while in async mode");
-	KdPrint(("B"));
 		WdfRequestComplete(Request, STATUS_NOT_SUPPORTED);
 		return;
     }
@@ -577,7 +574,6 @@ VOID MyEvtFileClose(
 	struct fscc_port *port = 0;
 
 	port = WdfObjectGet_FSCC_PORT(WdfFileObjectGetDevice(FileObject));
-	KdPrint(("C"));
 
 	port->open_counter--;
 
