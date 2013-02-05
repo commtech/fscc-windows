@@ -57,7 +57,6 @@ unsigned fscc_stream_is_empty(struct fscc_stream *stream)
     return fscc_stream_get_length(stream) == 0;
 }
 
-//TODO
 int fscc_stream_add_data(struct fscc_stream *stream, const char *data,
                          unsigned length)
 {

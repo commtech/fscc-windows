@@ -130,6 +130,8 @@ typedef struct fscc_port {
 
 	WDFINTERRUPT interrupt;
 	BOOLEAN dma;
+
+	unsigned force_fifo;
 	
 } FSCC_PORT;
 
@@ -195,7 +197,7 @@ struct fscc_frame *fscc_port_peek_front_frame(struct fscc_port *port,
 BOOLEAN fscc_port_has_iframes(struct fscc_port *port, unsigned lock);
 BOOLEAN fscc_port_has_oframes(struct fscc_port *port, unsigned lock);
 
-unsigned fscc_port_has_dma(struct fscc_port *port);
+BOOLEAN fscc_port_has_dma(struct fscc_port *port);
 
 UINT32 fscc_port_get_TXCNT(struct fscc_port *port);
 

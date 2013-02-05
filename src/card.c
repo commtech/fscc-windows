@@ -29,14 +29,6 @@
 #include <ntddser.h>
 #include <ntstrsafe.h>
 
-#if 0
-NTSTATUS fscc_card_registry_open(struct fscc_card *card, WDFKEY *key)
-{
-	return WdfDeviceOpenRegistryKey(card->device, PLUGPLAY_REGKEY_DEVICE, STANDARD_RIGHTS_ALL, 
-		                            WDF_NO_OBJECT_ATTRIBUTES, key);
-}
-#endif
-
 
 NTSTATUS fscc_card_init(struct fscc_card *card, WDFCMRESLIST ResourcesTranslated)
 {	

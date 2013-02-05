@@ -164,7 +164,7 @@ struct fscc_port *fscc_port_new(WDFDRIVER Driver, IN PWDFDEVICE_INIT DeviceInit)
 	port->device = device;
 	fscc_stream_init(&port->istream);
 	port->open_counter = 0;
-	port->dma = FALSE;
+	port->force_fifo = DEFAULT_FORCE_FIFO_VALUE;
 
 
 	WDF_INTERRUPT_CONFIG_INIT(&interruptConfig, fscc_isr, NULL);
@@ -434,7 +434,6 @@ NTSTATUS fscc_port_prepare_hardware(WDFDEVICE Device, WDFCMRESLIST ResourcesRaw,
 	
 	port = WdfObjectGet_FSCC_PORT(Device);
 
-	//TODO: Check for error code
 	status = fscc_card_init(&port->card, ResourcesTranslated);
 	if (!NT_SUCCESS(status)) {
 		TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE, 
@@ -453,12 +452,6 @@ NTSTATUS fscc_port_prepare_hardware(WDFDEVICE Device, WDFCMRESLIST ResourcesRaw,
 	port->pending_iframe = 0;
 	
     port->last_isr_value = 0;
-
-	//status = fscc_port_registry_registers_create(port, NULL);
-	//if (!NT_SUCCESS(status)) {
-	//	TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE, 
-	//		"fscc_port_registry_registers_create failed %!STATUS!", status);
-	//}
 
 	FSCC_REGISTERS_INIT(port->register_storage);
 
@@ -1707,12 +1700,12 @@ BOOLEAN fscc_port_has_oframes(struct fscc_port *port, unsigned lock)
     return has_frames(&port->oframes, spinlock);
 }
 
-unsigned fscc_port_has_dma(struct fscc_port *port)
+BOOLEAN fscc_port_has_dma(struct fscc_port *port)
 {
     return_val_if_untrue(port, 0);
     
-    //if (force_fifo)
-    //   return 0;
+    if (port->force_fifo)
+       return FALSE;
         
     return port->dma;
 }
