@@ -187,7 +187,7 @@ void iframe_worker(WDFDPC Dpc)
     rejected_last_frame = 0; /* Track that we received a frame to reset the
                             memory constraint warning print message. */
 
-	WdfDpcEnqueue(port->user_read_dpc);
+	WdfDpcEnqueue(port->process_read_dpc);
 
     port->pending_iframe = 0;
 
@@ -268,7 +268,7 @@ void istream_worker(WDFDPC Dpc)
                                 the memory constraint warning print message.
                             */
 	
-	WdfDpcEnqueue(port->user_read_dpc);
+	WdfDpcEnqueue(port->process_read_dpc);
 	
 	WdfSpinLockRelease(port->iframe_spinlock);
 }

@@ -120,7 +120,7 @@ typedef struct fscc_port {
     WDFDPC istream_dpc;
     WDFDPC print_dpc;
 
-    WDFDPC user_read_dpc;
+    WDFDPC process_read_dpc;
 
     unsigned last_isr_value;
 

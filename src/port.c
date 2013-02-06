@@ -38,9 +38,9 @@
 
 EVT_WDF_IO_QUEUE_IO_DEVICE_CONTROL fscc_port_ioctl;
 EVT_WDF_IO_QUEUE_IO_WRITE port_write_handler;
-EVT_WDF_IO_QUEUE_IO_READ read_event_handler;
+EVT_WDF_IO_QUEUE_IO_READ FsccEvtIoRead;
 EVT_WDF_IO_QUEUE_IO_DEFAULT create_event_handler;
-EVT_WDF_DPC user_read_worker;
+EVT_WDF_DPC FsccProcessRead;
 EVT_WDF_REQUEST_CANCEL EvtRequestCancel;
 EVT_WDF_DEVICE_FILE_CREATE MyEvtDeviceFileCreate;
 EVT_WDF_FILE_CLOSE MyEvtFileClose;
@@ -217,7 +217,7 @@ struct fscc_port *fscc_port_new(WDFDRIVER Driver, IN PWDFDEVICE_INIT DeviceInit)
 	}
 	
 	WDF_IO_QUEUE_CONFIG_INIT(&queue_config, WdfIoQueueDispatchSequential);
-	queue_config.EvtIoRead = read_event_handler;
+	queue_config.EvtIoRead = FsccEvtIoRead;
 		
 	status = WdfIoQueueCreate(port->device, &queue_config, 
 		                      WDF_NO_OBJECT_ATTRIBUTES, &port->read_queue);
@@ -380,13 +380,13 @@ struct fscc_port *fscc_port_new(WDFDRIVER Driver, IN PWDFDEVICE_INIT DeviceInit)
 		return 0;
 	}
 
-	WDF_DPC_CONFIG_INIT(&dpcConfig, &user_read_worker);
+	WDF_DPC_CONFIG_INIT(&dpcConfig, &FsccProcessRead);
 	dpcConfig.AutomaticSerialization = TRUE;
 
 	WDF_OBJECT_ATTRIBUTES_INIT(&dpcAttributes);
 	dpcAttributes.ParentObject = port->device;
 
-	status = WdfDpcCreate(&dpcConfig, &dpcAttributes, &port->user_read_dpc);
+	status = WdfDpcCreate(&dpcConfig, &dpcAttributes, &port->process_read_dpc);
 	if (!NT_SUCCESS(status)) {
 		WdfObjectDelete(port->device);
         TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE, 
@@ -851,28 +851,31 @@ int fscc_port_stream_read(struct fscc_port *port, char *buf, size_t buf_length, 
     return STATUS_SUCCESS;
 }
 
-VOID read_event_handler(IN WDFQUEUE Queue, IN WDFREQUEST Request, IN size_t Length)
+VOID FsccEvtIoRead(IN WDFQUEUE Queue, IN WDFREQUEST Request, IN size_t Length)
 {
 	NTSTATUS status = STATUS_SUCCESS;
 	struct fscc_port *port = 0;
 
 	port = WdfObjectGet_FSCC_PORT(WdfIoQueueGetDevice(Queue));
 	
+	/* The user is requsting 0 bytes so return immediately */
 	if (Length == 0) {
 		WdfRequestCompleteWithInformation(Request, STATUS_SUCCESS, Length);
 		return;
 	}
-	//TODO: What to do in this situation?
+
 	status = WdfRequestForwardToIoQueue(Request, port->read_queue2);
 	if (!NT_SUCCESS(status)) {
 		TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE, 
 					"WdfRequestForwardToIoQueue failed %!STATUS!", status);
+		WdfRequestComplete(Request, status);
+		return;
 	}
 
-	WdfDpcEnqueue(port->user_read_dpc);
+	WdfDpcEnqueue(port->process_read_dpc);
 }
 
-void user_read_worker(WDFDPC Dpc)
+void FsccProcessRead(WDFDPC Dpc)
 {
 	struct fscc_port *port = 0;
 	NTSTATUS status = STATUS_SUCCESS;
