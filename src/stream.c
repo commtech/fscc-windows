@@ -80,13 +80,19 @@ int fscc_stream_remove_data(struct fscc_stream *stream, unsigned length)
 {
     return_val_if_untrue(stream, FALSE);
 
-	if (length == 0)
-		return TRUE;
+    if (length == 0)
+        return TRUE;
 
-	if (stream->data_length == 0) {
-		TraceEvents(TRACE_LEVEL_WARNING, TRACE_DEVICE, "Attempting data removal from empty stream");
-		return TRUE;
-	}
+    if (stream->data_length == 0) {
+        TraceEvents(TRACE_LEVEL_WARNING, TRACE_DEVICE, "Attempting data removal from empty stream");
+        return TRUE;
+    }
+
+    /* Make sure we don't remove remove data than we have */
+    if (length > stream->data_length) {
+        TraceEvents(TRACE_LEVEL_WARNING, TRACE_DEVICE, "Attempting removal of more data than available");
+        return FALSE;
+    }
 
     stream->data_length -= length;
 
