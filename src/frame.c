@@ -2,6 +2,10 @@
 #include "utils.h" /* return_{val_}if_true */
 #include "port.h" /* struct fscc_port */
 
+#if defined(EVENT_TRACING)
+#include "frame.tmh"
+#endif
+
 static unsigned frame_counter = 1;
 
 void fscc_frame_update_buffer_size(struct fscc_frame *frame, unsigned length);
@@ -25,14 +29,6 @@ struct fscc_frame *fscc_frame_new(unsigned target_length, unsigned dma,
     frame->number = frame_counter;
     frame_counter += 1;
 
-#if 0
-    if (frame->dma) {
-        /* Switch to FIFO based transmission as a fall back. */
-        if (!fscc_frame_setup_descriptors(frame, port->card->pci_dev))
-            frame->dma = 0;
-    }
-#endif
-
     fscc_frame_update_buffer_size(frame, target_length);
 
     frame->handled = 0;
@@ -40,99 +36,9 @@ struct fscc_frame *fscc_frame_new(unsigned target_length, unsigned dma,
     return frame;
 }
 
-//Returns 0 on failure. 1 on success
-#if 0
-int fscc_frame_setup_descriptors(struct fscc_frame *frame,
-                                 struct pci_dev *pci_dev)
-{
-	//TODO, DMA modifier?
-	frame->d1 = (struct fscc_frame *)ExAllocatePoolWithTag(NonPagedPool, sizeof(*frame->d1), 'marF');
-
-	if (frame->d1 == NULL)
-		return 0;
-
-    frame->d2 = kmalloc(sizeof(*frame->d2), GFP_ATOMIC | GFP_DMA);
-
-    if (!frame->d2) {
-		ExFreePoolWithTag(frame->d1, 'marF'); 
-        return 0;
-    }
-
-    memset(frame->d1, 0, sizeof(*frame->d1));
-    memset(frame->d2, 0, sizeof(*frame->d2));
-
-    frame->d1_handle = pci_map_single(pci_dev, frame->d1, sizeof(*frame->d1),
-                                      DMA_TO_DEVICE);
-
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 27)
-    if (dma_mapping_error(&pci_dev->dev, frame->d1_handle)) {
-#else
-    if (dma_mapping_error(frame->d1_handle)) {
-#endif
-        dev_err(frame->port->device, "dma_mapping_error failed\n");
-
-        kfree(frame->d1);
-        kfree(frame->d2);
-
-        frame->d1 = 0;
-        frame->d2 = 0;
-
-        return 0;
-    }
-
-    frame->d2_handle = pci_map_single(pci_dev, frame->d2, sizeof(*frame->d2),
-                                      DMA_TO_DEVICE);
-
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 27)
-    if (dma_mapping_error(&pci_dev->dev, frame->d2_handle)) {
-#else
-    if (dma_mapping_error(frame->d2_handle)) {
-#endif
-        dev_err(frame->port->device, "dma_mapping_error failed\n");
-
-        pci_unmap_single(frame->port->card->pci_dev, frame->d1_handle,
-                         sizeof(*frame->d1), DMA_TO_DEVICE);
-
-        kfree(frame->d1);
-        kfree(frame->d2);
-
-        frame->d1 = 0;
-        frame->d2 = 0;
-
-        return 0;
-    }
-
-    frame->d2->control = 0x40000000;
-    frame->d1->next_descriptor = cpu_to_le32(frame->d2_handle);
-
-    return 1;
-}
-#endif
-
 void fscc_frame_delete(struct fscc_frame *frame)
 {
     return_if_untrue(frame);
-
-#if 0
-    if (frame->dma) {
-        pci_unmap_single(frame->port->card->pci_dev, frame->d1_handle,
-                         sizeof(*frame->d1), DMA_TO_DEVICE);
-
-        pci_unmap_single(frame->port->card->pci_dev, frame->d2_handle,
-                         sizeof(*frame->d2), DMA_TO_DEVICE);
-
-        if (frame->data_handle && frame->current_length) {
-            pci_unmap_single(frame->port->card->pci_dev, frame->data_handle,
-                             frame->current_length, DMA_TO_DEVICE);
-        }
-
-        if (frame->d1)
-            kfree(frame->d1);
-
-        if (frame->d2)
-            kfree(frame->d2);
-    }
-#endif
 
     if (frame->data)
 		ExFreePoolWithTag(frame->data, 'ataD');
@@ -181,31 +87,11 @@ void fscc_frame_add_data(struct fscc_frame *frame, const char *data,
     return_if_untrue(frame);
     return_if_untrue(length > 0);
 
-#if 0
-    if (frame->dma && frame->data) {
-        pci_unmap_single(frame->port->card->pci_dev, frame->data_handle,
-                         frame->current_length, DMA_TO_DEVICE);
-    }
-#endif
-
     if (frame->current_length + length > frame->target_length)
         fscc_frame_update_buffer_size(frame, frame->current_length + length);
 
     memmove(frame->data + frame->current_length, data, length);
     frame->current_length += length;
-
-#if 0
-    if (frame->dma && frame->data) {
-        frame->data_handle = pci_map_single(frame->port->card->pci_dev,
-                                            frame->data,
-                                            frame->current_length,
-                                            DMA_TO_DEVICE);
-
-        frame->d1->control = 0xA0000000 | frame->current_length;
-        frame->d1->data_address = cpu_to_le32(frame->data_handle);
-        frame->d1->data_count = frame->current_length;
-    }
-#endif
 }
 
 void fscc_frame_remove_data(struct fscc_frame *frame, unsigned length)

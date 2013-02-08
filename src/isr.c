@@ -19,12 +19,15 @@
 */
 
 #include "isr.h"
-#include "isr.tmh"
-
 #include "port.h" /* struct fscc_port */
 #include "utils.h" /* port_exists */
 #include "frame.h" /* struct fscc_frame */
 #include "stream.h"
+#include "debug.h"
+
+#if defined(EVENT_TRACING)
+#include "isr.tmh"
+#endif
 
 #define TX_FIFO_SIZE 4096
 #define MAX_LEFTOVER_BYTES 3
@@ -79,7 +82,6 @@ BOOLEAN fscc_isr(WDFINTERRUPT Interrupt, ULONG MessageID)
 
 #ifdef DEBUG
 	WdfDpcEnqueue(port->print_dpc);
-	//fscc_port_increment_interrupt_counts(port, isr_value);
 #endif
 	//fscc_port_reset_timer(port);
 
@@ -97,7 +99,7 @@ void iframe_worker(WDFDPC Dpc)
 
     return_if_untrue(port);
 	
-	WdfSpinLockAcquire(port->iframe_spinlock);
+	WdfSpinLockAcquire(port->board_rx_spinlock);
 
     finished_frame = (fscc_port_get_RFCNT(port) > 0) ? 1 : 0;
 
@@ -131,7 +133,7 @@ void iframe_worker(WDFDPC Dpc)
             port->pending_iframe = fscc_frame_new(0, fscc_port_has_dma(port), port);
 
             if (!port->pending_iframe) {
-				WdfSpinLockRelease(port->iframe_spinlock);
+				WdfSpinLockRelease(port->board_rx_spinlock);
                 return;
             }
         }
@@ -149,7 +151,7 @@ void iframe_worker(WDFDPC Dpc)
 			rejected_last_frame = 1; /* Track that we dropped a frame so we
                                         don't have to warn the user again. */
 
-			WdfSpinLockRelease(port->iframe_spinlock);
+			WdfSpinLockRelease(port->board_rx_spinlock);
             return;
         }
 
@@ -175,25 +177,26 @@ void iframe_worker(WDFDPC Dpc)
     }
 
     if (!finished_frame) {
-		WdfSpinLockRelease(port->iframe_spinlock);
+		WdfSpinLockRelease(port->board_rx_spinlock);
         return;
     }
 
     fscc_frame_trim(port->pending_iframe);
 
 	if (port->pending_iframe)
-		InsertTailList(&port->iframes, &port->pending_iframe->list);
+        fscc_flist_add_frame(&port->iframes, port->pending_iframe);
 	
     rejected_last_frame = 0; /* Track that we received a frame to reset the
                             memory constraint warning print message. */
 
-	WdfDpcEnqueue(port->process_read_dpc);
-
     port->pending_iframe = 0;
 
-	WdfSpinLockRelease(port->iframe_spinlock);
+    WdfDpcEnqueue(port->process_read_dpc);
+
+	WdfSpinLockRelease(port->board_rx_spinlock);
 }
 
+/* This function is syncronized so we don't have to worry about it being ran in parallel */
 void istream_worker(WDFDPC Dpc)
 {
     struct fscc_port *port = 0;
@@ -208,11 +211,10 @@ void istream_worker(WDFDPC Dpc)
 	port = WdfObjectGet_FSCC_PORT(WdfDpcGetParentObject(Dpc));
 
     return_if_untrue(port);
-	
-	WdfSpinLockAcquire(port->iframe_spinlock);
 
+    //TODO: This needs a spinlock for the iframe stuff I think. Skip it for now.
     current_memory = fscc_port_get_input_memory_usage(port, 0);
-    memory_cap = fscc_port_get_input_memory_cap(port);
+    memory_cap = fscc_port_get_input_memory_cap(port); //TODO: Doesn't need spinlock
 
     /* Leave the interrupt handler if we are at our memory cap. */
     if (current_memory == memory_cap) {
@@ -225,10 +227,10 @@ void istream_worker(WDFDPC Dpc)
 
         rejected_last_stream = 1; /* Track that we dropped stream data so we
                                 don't have to warn the user again. */
-		
-		WdfSpinLockRelease(port->iframe_spinlock);
         return;
     }
+    
+    WdfSpinLockAcquire(port->board_rx_spinlock);
 
     rxcnt = fscc_port_get_RXCNT(port);
 
@@ -239,7 +241,7 @@ void istream_worker(WDFDPC Dpc)
 
     /* Leave the interrupt handler if there is no data to read. */
     if (receive_length == 0) {
-		WdfSpinLockRelease(port->iframe_spinlock);
+		WdfSpinLockRelease(port->board_rx_spinlock);
         return;
     }
 
@@ -250,27 +252,26 @@ void istream_worker(WDFDPC Dpc)
 
     fscc_port_get_register_rep(port, 0, FIFO_OFFSET, buffer,
                                receive_length);
+    
+    WdfSpinLockRelease(port->board_rx_spinlock);
 
     status = fscc_stream_add_data(&port->istream, buffer, receive_length);
 
 	if (status == FALSE) {
 		TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE, 
 			"Error adding stream data");
-		WdfSpinLockRelease(port->iframe_spinlock);
 		return;
 	}
-
-	TraceEvents(TRACE_LEVEL_VERBOSE, TRACE_DEVICE, 
-		"Stream <= %i byte%s", receive_length,
-            (receive_length == 1) ? "" : "s");
 
     rejected_last_stream = 0; /* Track that we received stream data to reset
                                 the memory constraint warning print message.
                             */
+
+	TraceEvents(TRACE_LEVEL_VERBOSE, TRACE_DEVICE, 
+		"Stream <= %i byte%s", receive_length,
+            (receive_length == 1) ? "" : "s");
 	
 	WdfDpcEnqueue(port->process_read_dpc);
-	
-	WdfSpinLockRelease(port->iframe_spinlock);
 }
 
 void oframe_worker(WDFDPC Dpc)
@@ -291,42 +292,14 @@ void oframe_worker(WDFDPC Dpc)
 	 
     /* Check if exists and if so, grabs the frame to transmit. */
     if (!port->pending_oframe) {
-        if (fscc_port_has_oframes(port, 0)) {
-            port->pending_oframe = fscc_port_peek_front_frame(port, &port->oframes);
-			RemoveHeadList(&port->oframes);
-        } else {
-			WdfSpinLockRelease(port->oframe_spinlock);
+        port->pending_oframe = fscc_flist_remove_frame(&port->oframes);
+
+        /* No frames in queue to transmit */
+        if (!port->pending_oframe) {
+            WdfSpinLockRelease(port->oframe_spinlock);
             return;
         }
     }
-
-#if 0
-    if (fscc_port_has_dma(port)) {
-        dma_addr_t *d1_handle = 0;
-
-        if (port->pending_oframe->handled) {
-			WdfSpinLockRelease(port->oframe_spinlock);
-            return;
-        }
-
-        dev_dbg(port->device, "F#%i => %i byte%s%s\n",
-                port->pending_oframe->number, fscc_frame_get_current_length(port->pending_oframe),
-                (fscc_frame_get_current_length(port->pending_oframe) == 1) ? "" : "s",
-                (fscc_frame_is_empty(port->pending_oframe)) ? " (starting)" : "");
-
-        d1_handle = &port->pending_oframe->d1_handle;
-
-        fscc_port_set_register(port, 2, DMA_TX_BASE_OFFSET, *d1_handle);
-        fscc_port_execute_transmit(port);
-
-        /* TODO: Add a prettier way of doing this than manually editing the
-           frame structure. */
-        port->pending_oframe->handled = 1;
-		
-		WdfSpinLockRelease(port->oframe_spinlock);
-        return;
-    }
-#endif
 
     current_length = fscc_frame_get_current_length(port->pending_oframe);
     target_length = fscc_frame_get_target_length(port->pending_oframe);

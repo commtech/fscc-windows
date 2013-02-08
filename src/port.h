@@ -29,6 +29,7 @@
 #include "card.h"
 #include "fscc.h"
 #include "stream.h"
+#include "flist.h"
 
 #define FIFO_OFFSET 0x00
 #define BC_FIFO_L_OFFSET 0x04
@@ -105,10 +106,12 @@ typedef struct fscc_port {
     struct fscc_memory_cap memory_cap;
 
     WDFSPINLOCK oframe_spinlock;
-    WDFSPINLOCK iframe_spinlock;
+    WDFSPINLOCK board_settings_spinlock; /* Anything that will alter the settings at a board level */
+    WDFSPINLOCK board_rx_spinlock; /* Anything that will alter the state of rx at a board level */
+    WDFSPINLOCK board_tx_spinlock; /* Anything that will alter the state of rx at a board level */
 
-    LIST_ENTRY iframes; /* Frames already retrieved from the FIFO */
-    LIST_ENTRY oframes; /* Frames not yet in the FIFO yet */
+    struct fscc_flist iframes; /* Frames already retrieved from the FIFO */
+    struct fscc_flist oframes; /* Frames not yet in the FIFO yet */
 
     struct fscc_stream istream; /* Transparent stream */
 	
@@ -189,10 +192,7 @@ NTSTATUS fscc_port_execute_TRES(struct fscc_port *port);
 
 unsigned fscc_port_using_async(struct fscc_port *port);
 
-unsigned fscc_port_get_output_memory_usage(struct fscc_port *port,
-                                           unsigned lock);
-struct fscc_frame *fscc_port_peek_front_frame(struct fscc_port *port,
-                                              LIST_ENTRY *frames);
+unsigned fscc_port_get_output_memory_usage(struct fscc_port *port);
 
 BOOLEAN fscc_port_has_iframes(struct fscc_port *port, unsigned lock);
 BOOLEAN fscc_port_has_oframes(struct fscc_port *port, unsigned lock);

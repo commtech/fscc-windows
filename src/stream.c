@@ -20,27 +20,46 @@
 
 
 #include "stream.h"
-#include "stream.tmh"
-
 #include "utils.h" /* return_{val_}if_true */
+#include "stream.h"
+#include "debug.h"
+
+#if defined(EVENT_TRACING)
+#include "stream.tmh"
+#endif
 
 int fscc_stream_update_buffer_size(struct fscc_stream *stream,
                                    unsigned length);
 
 void fscc_stream_init(struct fscc_stream *stream)
 {
+    NTSTATUS status = STATUS_SUCCESS;
+
+    status = WdfSpinLockCreate(WDF_NO_OBJECT_ATTRIBUTES, &stream->spinlock);
+    if (!NT_SUCCESS(status)) {
+        TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE, 
+            "WdfSpinLockCreate failed %!STATUS!", status);
+        return;
+    }
+
+    WdfSpinLockAcquire(stream->spinlock);
+
     stream->data_length = 0;
     stream->buffer_size = 0;
     stream->buffer = 0;
+
+    WdfSpinLockRelease(stream->spinlock);
 }
 
 void fscc_stream_delete(struct fscc_stream *stream)
 {
     return_if_untrue(stream);
 
+    WdfSpinLockAcquire(stream->spinlock);
+
     fscc_stream_update_buffer_size(stream, 0);
-	
-	ExFreePoolWithTag(stream, 'ertS');
+
+    WdfSpinLockRelease(stream->spinlock);
 }
 
 unsigned fscc_stream_get_length(struct fscc_stream *stream)
@@ -50,11 +69,17 @@ unsigned fscc_stream_get_length(struct fscc_stream *stream)
     return stream->data_length;
 }
 
+//TODO: This could cause an issue w here data_length is less before it makes it into remove_Data
+void fscc_stream_clear(struct fscc_stream *stream)
+{
+    fscc_stream_remove_data(stream, NULL, stream->data_length);
+}
+
 unsigned fscc_stream_is_empty(struct fscc_stream *stream)
 {
     return_val_if_untrue(stream, 0);
 
-    return fscc_stream_get_length(stream) == 0;
+    return stream->data_length == 0;
 }
 
 int fscc_stream_add_data(struct fscc_stream *stream, const char *data,
@@ -62,10 +87,14 @@ int fscc_stream_add_data(struct fscc_stream *stream, const char *data,
 {
     return_val_if_untrue(stream, FALSE);
 
+    WdfSpinLockAcquire(stream->spinlock);
+
     /* Only update buffer size if there isn't enough space already */
     if (stream->data_length + length > stream->buffer_size) {
-        if (fscc_stream_update_buffer_size(stream, stream->data_length + length) == FALSE)
+        if (fscc_stream_update_buffer_size(stream, stream->data_length + length) == FALSE) {
+            WdfSpinLockRelease(stream->spinlock);
     		return FALSE;
+        }
     }
 
     /* Copy the new data to the end of the stream */
@@ -73,39 +102,45 @@ int fscc_stream_add_data(struct fscc_stream *stream, const char *data,
 
     stream->data_length += length;
 
+    WdfSpinLockRelease(stream->spinlock);
+
 	return TRUE;
 }
 
-int fscc_stream_remove_data(struct fscc_stream *stream, unsigned length)
+int fscc_stream_remove_data(struct fscc_stream *stream, char *destination, unsigned length)
 {
     return_val_if_untrue(stream, FALSE);
 
     if (length == 0)
         return TRUE;
 
+    WdfSpinLockAcquire(stream->spinlock);
+
     if (stream->data_length == 0) {
         TraceEvents(TRACE_LEVEL_WARNING, TRACE_DEVICE, "Attempting data removal from empty stream");
+        WdfSpinLockRelease(stream->spinlock);
         return TRUE;
     }
 
     /* Make sure we don't remove remove data than we have */
     if (length > stream->data_length) {
-        TraceEvents(TRACE_LEVEL_WARNING, TRACE_DEVICE, "Attempting removal of more data than available");
+        TraceEvents(TRACE_LEVEL_WARNING, TRACE_DEVICE, "Attempting removal of more data than available"); 
+        WdfSpinLockRelease(stream->spinlock);
         return FALSE;
     }
 
+    /* Copy the data into the outside buffer */
+    if (destination)
+        memmove(destination, stream->buffer, length);
+
     stream->data_length -= length;
 
+    /* Move the data up in the buffer (essentially removing the old data) */
     memmove(stream->buffer, stream->buffer + length, stream->data_length);
 
+    WdfSpinLockRelease(stream->spinlock);
+
     return TRUE;
-}
-
-char *fscc_stream_get_data(struct fscc_stream *stream)
-{
-    return_val_if_untrue(stream, 0);
-
-    return stream->buffer;
 }
 
 int fscc_stream_update_buffer_size(struct fscc_stream *stream,

@@ -15,10 +15,13 @@ Environment:
 --*/
 
 #include "driver.h"
-#include "driver.tmh"
-
 #include "port.h"
 #include "utils.h"
+#include "debug.h"
+
+#if defined(EVENT_TRACING)
+#include "driver.tmh"
+#endif
 
 #ifdef ALLOC_PRAGMA
 #pragma alloc_text (INIT, DriverEntry)

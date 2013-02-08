@@ -20,8 +20,6 @@
 
 
 #include "port.h"
-#include "port.tmh"
-
 #include "frame.h"
 #include "stream.h"
 #include "utils.h"
@@ -33,27 +31,24 @@
 #include <ntddser.h>
 #include <ntstrsafe.h>
 
+#if defined(EVENT_TRACING)
+#include "port.tmh"
+#endif
+
 #define NUM_CLOCK_BYTES 20
 #define TIMER_DELAY_MS 250
 
-EVT_WDF_IO_QUEUE_IO_DEVICE_CONTROL fscc_port_ioctl;
-EVT_WDF_IO_QUEUE_IO_WRITE port_write_handler;
+EVT_WDF_IO_QUEUE_IO_DEVICE_CONTROL FsccEvtIoDeviceControl;
+EVT_WDF_IO_QUEUE_IO_WRITE FsccEvtIoWrite;
 EVT_WDF_IO_QUEUE_IO_READ FsccEvtIoRead;
-EVT_WDF_IO_QUEUE_IO_DEFAULT create_event_handler;
+EVT_WDF_DEVICE_FILE_CREATE FsccDeviceFileCreate;
+EVT_WDF_FILE_CLOSE FsccFileClose;
+EVT_WDF_DEVICE_PREPARE_HARDWARE FsccEvtDevicePrepareHardware;
+EVT_WDF_DEVICE_RELEASE_HARDWARE FsccEvtDeviceReleaseHardware;
+
 EVT_WDF_DPC FsccProcessRead;
-EVT_WDF_REQUEST_CANCEL EvtRequestCancel;
-EVT_WDF_DEVICE_FILE_CREATE MyEvtDeviceFileCreate;
-EVT_WDF_FILE_CLOSE MyEvtFileClose;
 
-EVT_WDF_DEVICE_PREPARE_HARDWARE fscc_port_prepare_hardware;
-EVT_WDF_DEVICE_RELEASE_HARDWARE fscc_port_release_hardware;
-
-void empty_frame_list(LIST_ENTRY *frames);
-
-void fscc_port_clear_oframes(struct fscc_port *port, unsigned lock);
-void fscc_port_clear_iframes(struct fscc_port *port, unsigned lock);
 unsigned fscc_port_timed_out(struct fscc_port *port);
-int fscc_port_write(struct fscc_port *port, const char *data, unsigned length);
 unsigned fscc_port_is_streaming(struct fscc_port *port);
 NTSTATUS fscc_port_get_port_num(struct fscc_port *port, unsigned *port_num);
 NTSTATUS fscc_port_set_port_num(struct fscc_port *port, unsigned value);
@@ -107,8 +102,8 @@ struct fscc_port *fscc_port_new(WDFDRIVER Driver, IN PWDFDEVICE_INIT DeviceInit)
 	}
 
 	WDF_FILEOBJECT_CONFIG_INIT(&deviceConfig,
-	                           MyEvtDeviceFileCreate,
-	                           MyEvtFileClose,
+	                           FsccDeviceFileCreate,
+	                           FsccFileClose,
 	                           WDF_NO_EVENT_CALLBACK // No cleanup callback function
 	                           );
 
@@ -146,8 +141,8 @@ struct fscc_port *fscc_port_new(WDFDRIVER Driver, IN PWDFDEVICE_INIT DeviceInit)
 	WdfDeviceInitSetDeviceClass(DeviceInit, (LPGUID)&GUID_DEVCLASS_FSCC);
 	
 	WDF_PNPPOWER_EVENT_CALLBACKS_INIT(&pnpPowerCallbacks);
-	pnpPowerCallbacks.EvtDevicePrepareHardware = fscc_port_prepare_hardware;
-	pnpPowerCallbacks.EvtDeviceReleaseHardware = fscc_port_release_hardware;
+	pnpPowerCallbacks.EvtDevicePrepareHardware = FsccEvtDevicePrepareHardware;
+	pnpPowerCallbacks.EvtDeviceReleaseHardware = FsccEvtDeviceReleaseHardware;
 	WdfDeviceInitSetPnpPowerEventCallbacks(DeviceInit, &pnpPowerCallbacks);
 	
 	WDF_OBJECT_ATTRIBUTES_INIT_CONTEXT_TYPE(&attributes, FSCC_PORT);
@@ -164,7 +159,6 @@ struct fscc_port *fscc_port_new(WDFDRIVER Driver, IN PWDFDEVICE_INIT DeviceInit)
 	port->device = device;
 	fscc_stream_init(&port->istream);
 	port->open_counter = 0;
-	port->force_fifo = DEFAULT_FORCE_FIFO_VALUE;
 
 
 	WDF_INTERRUPT_CONFIG_INIT(&interruptConfig, fscc_isr, NULL);
@@ -180,7 +174,7 @@ struct fscc_port *fscc_port_new(WDFDRIVER Driver, IN PWDFDEVICE_INIT DeviceInit)
 	
 
 	WDF_IO_QUEUE_CONFIG_INIT(&queue_config, WdfIoQueueDispatchSequential);
-	queue_config.EvtIoDeviceControl = fscc_port_ioctl;
+	queue_config.EvtIoDeviceControl = FsccEvtIoDeviceControl;
 		
 	status = WdfIoQueueCreate(port->device, &queue_config, 
 		                      WDF_NO_OBJECT_ATTRIBUTES, &port->ioctl_queue);
@@ -198,7 +192,7 @@ struct fscc_port *fscc_port_new(WDFDRIVER Driver, IN PWDFDEVICE_INIT DeviceInit)
 	}
 	
 	WDF_IO_QUEUE_CONFIG_INIT(&queue_config, WdfIoQueueDispatchSequential);
-	queue_config.EvtIoWrite = port_write_handler;
+	queue_config.EvtIoWrite = FsccEvtIoWrite;
 		
 	status = WdfIoQueueCreate(port->device, &queue_config, 
 		                      WDF_NO_OBJECT_ATTRIBUTES, &port->write_queue);
@@ -327,7 +321,7 @@ struct fscc_port *fscc_port_new(WDFDRIVER Driver, IN PWDFDEVICE_INIT DeviceInit)
 		return 0;
 	}
 
-	status = WdfSpinLockCreate(&attributes, &port->iframe_spinlock);
+	status = WdfSpinLockCreate(&attributes, &port->board_settings_spinlock);
 	if (!NT_SUCCESS(status)) {
 		WdfObjectDelete(port->device);
         TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE, 
@@ -335,8 +329,24 @@ struct fscc_port *fscc_port_new(WDFDRIVER Driver, IN PWDFDEVICE_INIT DeviceInit)
 		return 0;
 	}
 
-	InitializeListHead(&port->oframes);
-	InitializeListHead(&port->iframes);
+	status = WdfSpinLockCreate(&attributes, &port->board_rx_spinlock);
+	if (!NT_SUCCESS(status)) {
+		WdfObjectDelete(port->device);
+        TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE, 
+			"WdfSpinLockCreate failed %!STATUS!", status);
+		return 0;
+	}
+
+	status = WdfSpinLockCreate(&attributes, &port->board_tx_spinlock);
+	if (!NT_SUCCESS(status)) {
+		WdfObjectDelete(port->device);
+        TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE, 
+			"WdfSpinLockCreate failed %!STATUS!", status);
+		return 0;
+	}
+
+	fscc_flist_init(&port->oframes);
+	fscc_flist_init(&port->iframes);
 
 	WDF_DPC_CONFIG_INIT(&dpcConfig, &oframe_worker);
 	dpcConfig.AutomaticSerialization = TRUE;
@@ -411,7 +421,7 @@ struct fscc_port *fscc_port_new(WDFDRIVER Driver, IN PWDFDEVICE_INIT DeviceInit)
 	return port;
 }
 
-NTSTATUS fscc_port_prepare_hardware(WDFDEVICE Device, WDFCMRESLIST ResourcesRaw, WDFCMRESLIST ResourcesTranslated)
+NTSTATUS FsccEvtDevicePrepareHardware(WDFDEVICE Device, WDFCMRESLIST ResourcesRaw, WDFCMRESLIST ResourcesTranslated)
 {
     unsigned char clock_bits[20] = DEFAULT_CLOCK_BITS;
 	struct fscc_memory_cap memory_cap;
@@ -445,6 +455,8 @@ NTSTATUS fscc_port_prepare_hardware(WDFDEVICE Device, WDFCMRESLIST ResourcesRaw,
 
     fscc_port_set_memory_cap(port, &memory_cap);
 
+	port->force_fifo = DEFAULT_FORCE_FIFO_VALUE;
+
 	port->pending_oframe = 0;
 	port->pending_iframe = 0;
 	
@@ -473,9 +485,8 @@ NTSTATUS fscc_port_prepare_hardware(WDFDEVICE Device, WDFCMRESLIST ResourcesRaw,
 
     fscc_port_set_clock_bits(port, clock_bits);
 
-    /* Locks both iframe_spinlock & oframe_spinlock. */
-    fscc_port_execute_RRES(port);
-    fscc_port_execute_TRES(port);
+    fscc_port_purge_rx(port);
+    fscc_port_purge_tx(port);
 
 	WDF_TIMER_CONFIG_INIT(&timerConfig, timer_handler);
 
@@ -497,44 +508,25 @@ NTSTATUS fscc_port_prepare_hardware(WDFDEVICE Device, WDFCMRESLIST ResourcesRaw,
 	return STATUS_SUCCESS;
 }
 
-NTSTATUS fscc_port_release_hardware(WDFDEVICE Device, WDFCMRESLIST ResourcesTranslated)
+NTSTATUS FsccEvtDeviceReleaseHardware(WDFDEVICE Device, WDFCMRESLIST ResourcesTranslated)
 {
 	NTSTATUS status = STATUS_SUCCESS;
 	struct fscc_port *port = 0;
 	
 	port = WdfObjectGet_FSCC_PORT(Device);
 
+	fscc_stream_delete(&port->istream);
+	fscc_flist_delete(&port->iframes);
+	fscc_flist_delete(&port->oframes);
+
 	//WdfTimerStop(port->timer, FALSE);
-
-#if 0
-    if (fscc_port_has_dma(port)) {
-        fscc_port_execute_STOP_T(port);
-        fscc_port_execute_STOP_R(port);
-        fscc_port_execute_RST_T(port);
-        fscc_port_execute_RST_R(port);
-
-        fscc_port_set_register(port, 2, DMACCR_OFFSET, 0x00000000);
-        fscc_port_set_register(port, 2, DMA_TX_BASE_OFFSET, 0x00000000);
-    }
-#endif
-	
-	//WdfSpinLockAcquire(port->iframe_spinlock);
-    //fscc_stream_delete(port->istream);
-	//WdfSpinLockRelease(port->iframe_spinlock);
-
-    //fscc_port_clear_iframes(port, 1);
-    //fscc_port_clear_oframes(port, 1);
-
-#ifdef DEBUG
-    //debug_interrupt_tracker_delete(port->interrupt_tracker);
-#endif
 
     status = fscc_card_delete(&port->card, ResourcesTranslated);
 
 	return status;
 }
 
-VOID MyEvtDeviceFileCreate(
+VOID FsccDeviceFileCreate(
   IN  WDFDEVICE Device,
   IN  WDFREQUEST Request,
   IN  WDFFILEOBJECT FileObject
@@ -546,23 +538,30 @@ VOID MyEvtDeviceFileCreate(
 
 	port = WdfObjectGet_FSCC_PORT(Device);
 
+	WdfSpinLockAcquire(port->board_settings_spinlock);
+
 	if (fscc_port_using_async(port)) {
 		TraceEvents(TRACE_LEVEL_WARNING, TRACE_DEVICE, 
 					"use COMx nodes while in async mode");
 		WdfRequestComplete(Request, STATUS_NOT_SUPPORTED);
+		WdfSpinLockRelease(port->board_settings_spinlock);
 		return;
     }
 	
 	port->open_counter++;
 
 	/* Mark the port as open in synchronous mode (so async won't open) */
-	if (port->open_counter == 1)
+	if (port->open_counter == 1) {
 		fscc_port_set_register(port, 2, FCR_OFFSET, 0x40000000 << port->channel);
+		WdfSpinLockRelease(port->board_settings_spinlock);
+	}
+	
+	WdfSpinLockRelease(port->board_settings_spinlock);
 
 	WdfRequestComplete(Request, STATUS_SUCCESS);
 }
 
-VOID MyEvtFileClose(
+VOID FsccFileClose(
   IN  WDFFILEOBJECT FileObject
 )
 {
@@ -575,14 +574,18 @@ VOID MyEvtFileClose(
 	if (port->open_counter == 0) {
 		UINT32 orig_fcr, new_fcr;
 
+		WdfSpinLockAcquire(port->board_settings_spinlock);
+
 		orig_fcr = fscc_port_get_register(port, 2, FCR_OFFSET);
 		new_fcr = orig_fcr & ~(0x40000000 << port->channel);
 
 		fscc_port_set_register(port, 2, FCR_OFFSET, new_fcr);
+	
+		WdfSpinLockRelease(port->board_settings_spinlock);
 	}
 }
 	
-VOID fscc_port_ioctl(IN WDFQUEUE Queue, IN WDFREQUEST Request, 
+VOID FsccEvtIoDeviceControl(IN WDFQUEUE Queue, IN WDFREQUEST Request, 
 	IN size_t OutputBufferLength, IN size_t InputBufferLength, 
 	IN ULONG IoControlCode)
 {
@@ -613,8 +616,10 @@ VOID fscc_port_ioctl(IN WDFQUEUE Queue, IN WDFREQUEST Request,
 
 			memcpy(output_regs, input_regs, sizeof(struct fscc_registers));
 			
+			WdfSpinLockAcquire(port->board_settings_spinlock);
 			fscc_port_get_registers(port, output_regs);
-			
+			WdfSpinLockRelease(port->board_settings_spinlock);
+
 			bytes_returned = sizeof(*output_regs);
 		}
 
@@ -630,7 +635,11 @@ VOID fscc_port_ioctl(IN WDFQUEUE Queue, IN WDFREQUEST Request,
 				break;
 			}
 			
+
+			WdfSpinLockAcquire(port->board_settings_spinlock);
 			status = fscc_port_set_registers(port, input_regs);
+			WdfSpinLockRelease(port->board_settings_spinlock);
+
 			if (!NT_SUCCESS(status)) {
 				TraceEvents(TRACE_LEVEL_WARNING, TRACE_DEVICE, 
 					"fscc_port_set_registers failed %!STATUS!", status);
@@ -811,23 +820,25 @@ VOID fscc_port_ioctl(IN WDFQUEUE Queue, IN WDFREQUEST Request,
 int fscc_port_frame_read(struct fscc_port *port, char *buf, size_t buf_length, size_t *out_length)
 {
     struct fscc_frame *frame = 0;
+    unsigned max_data_length = 0;
 
     return_val_if_untrue(port, 0);
 
-    frame = fscc_port_peek_front_frame(port, &port->iframes);
+    max_data_length = buf_length;
+    max_data_length -= (port->append_status) ? 2 : 0;
+
+	frame = fscc_flist_remove_frame_if_lte(&port->iframes, max_data_length);
+
+	//TODO: This should never occur but it would be nice to have it in there
+    //if (!frame)
+    //    return 0;
 
     if (!frame)
-        return 0;
+        return STATUS_BUFFER_TOO_SMALL;
 	
     *out_length = fscc_frame_get_target_length(frame);
-    *out_length -= (port->append_status) ? 0 : STATUS_LENGTH;
-
-    if (buf_length < *out_length)
-        return STATUS_BUFFER_TOO_SMALL;
 
 	memcpy(buf, fscc_frame_get_remaining_data(frame), *out_length);
-	
-	RemoveHeadList(&port->iframes);
 
     fscc_frame_delete(frame);
 
@@ -843,10 +854,8 @@ int fscc_port_stream_read(struct fscc_port *port, char *buf, size_t buf_length, 
     return_val_if_untrue(port, 0);
 
     *out_length = min(buf_length, (size_t)fscc_stream_get_length(&port->istream));
-	
-	memcpy(buf, fscc_stream_get_data(&port->istream), *out_length);
 
-    fscc_stream_remove_data(&port->istream, (unsigned)(*out_length));
+    fscc_stream_remove_data(&port->istream, buf, (unsigned)(*out_length));
 
     return STATUS_SUCCESS;
 }
@@ -892,15 +901,13 @@ void FsccProcessRead(WDFDPC Dpc)
 	if (!fscc_port_has_incoming_data(port))
 		return;
 
-	WdfSpinLockAcquire(port->iframe_spinlock);
-
 	status = WdfIoQueueRetrieveNextRequest(port->read_queue2, &request);
-	if (!NT_SUCCESS(status) && status != STATUS_NO_MORE_ENTRIES) {
-		TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE, 
-					"WdfIoQueueRetrieveNextRequest failed %!STATUS!", status);
-	}
-	else if (status == STATUS_NO_MORE_ENTRIES) {
-		WdfSpinLockRelease(port->iframe_spinlock);
+	if (!NT_SUCCESS(status)) {
+		if (status != STATUS_NO_MORE_ENTRIES) {
+			TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE, 
+						"WdfIoQueueRetrieveNextRequest failed %!STATUS!", status);
+		}
+
 		return;
 	}
 	
@@ -913,7 +920,6 @@ void FsccProcessRead(WDFDPC Dpc)
 		TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE, 
 					"WdfRequestRetrieveOutputBuffer failed %!STATUS!", status);
 		WdfRequestComplete(request, status);
-		WdfSpinLockRelease(port->iframe_spinlock);
 		return;
 	}
 
@@ -926,24 +932,18 @@ void FsccProcessRead(WDFDPC Dpc)
 		TraceEvents(TRACE_LEVEL_WARNING, TRACE_DEVICE, 
 					"fscc_port_{frame,stream}_read failed %!STATUS!", status);
 		WdfRequestComplete(request, status);
-		WdfSpinLockRelease(port->iframe_spinlock);
 		return;
 	}
 
 	WdfRequestCompleteWithInformation(request, status, read_count);
-	WdfSpinLockRelease(port->iframe_spinlock);
 }
 
-void EvtRequestCancel (IN WDFREQUEST Request)
-{
-	WdfRequestComplete(Request, STATUS_CANCELLED);
-}
-
-VOID port_write_handler(IN WDFQUEUE Queue, IN WDFREQUEST Request, IN size_t Length)
+VOID FsccEvtIoWrite(IN WDFQUEUE Queue, IN WDFREQUEST Request, IN size_t Length)
 {
 	NTSTATUS status;
 	char *data_buffer = NULL;
 	struct fscc_port *port = 0;
+    struct fscc_frame *frame = 0;
 	
 	port = WdfObjectGet_FSCC_PORT(WdfIoQueueGetDevice(Queue));
 
@@ -956,6 +956,14 @@ VOID port_write_handler(IN WDFQUEUE Queue, IN WDFREQUEST Request, IN size_t Leng
         WdfRequestComplete(Request, STATUS_BUFFER_TOO_SMALL);
 		return;
 	}
+
+    /* Checks to make sure there is a clock present. */
+    if (port->ignore_timeout == FALSE && fscc_port_timed_out(port)) {
+		TraceEvents(TRACE_LEVEL_WARNING, TRACE_DEVICE, 
+					"device stalled (wrong clock mode?)");
+		WdfRequestComplete(Request, STATUS_IO_TIMEOUT);
+		return;
+    }
 	
 	status = WdfRequestRetrieveInputBuffer(Request, Length, (PVOID *)&data_buffer, NULL);
 	if (!NT_SUCCESS(status)) {
@@ -964,56 +972,22 @@ VOID port_write_handler(IN WDFQUEUE Queue, IN WDFREQUEST Request, IN size_t Leng
 		WdfRequestComplete(Request, status);
 		return;
 	}
-	
-	status = fscc_port_write(port, data_buffer, (unsigned)Length);
-	if (!NT_SUCCESS(status)) {
-		TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE, 
-			"fscc_port_write failed %!STATUS!", status);
-		WdfRequestComplete(Request, status);
-		return;
-	}
-	
-	WdfRequestCompleteWithInformation(Request, STATUS_SUCCESS, Length);
-}
 
-/* Create the data structures the work horse functions use to send data. */
-int fscc_port_write(struct fscc_port *port, const char *data, unsigned length)
-{
-    struct fscc_frame *frame = 0;
-    char *temp_storage = 0;
-
-    return_val_if_untrue(port, 0);
-
-    /* Checks to make sure there is a clock present. */
-    if (port->ignore_timeout == FALSE && fscc_port_timed_out(port)) {
-		TraceEvents(TRACE_LEVEL_WARNING, TRACE_DEVICE, 
-					"device stalled (wrong clock mode?)");
-		return STATUS_IO_TIMEOUT;
-    }
-	
-	temp_storage = (char *)ExAllocatePoolWithTag(NonPagedPool, length, 'pmeT');
-    return_val_if_untrue(temp_storage != NULL, 0);
-
-	memcpy(temp_storage, data, length);
-
-    frame = fscc_frame_new(length, fscc_port_has_dma(port), port);
+    frame = fscc_frame_new(Length, fscc_port_has_dma(port), port);
 
     if (!frame) {
-		ExFreePoolWithTag(temp_storage, 'pmeT');
-		return STATUS_INSUFFICIENT_RESOURCES;
+    	WdfRequestComplete(Request, STATUS_INSUFFICIENT_RESOURCES);
+		return;
 	}
 
-    fscc_frame_add_data(frame, temp_storage, length);
-
-	ExFreePoolWithTag(temp_storage, 'pmeT');
-	
-	WdfSpinLockAcquire(port->oframe_spinlock);
-	InsertTailList(&port->oframes, &frame->list);
-	WdfSpinLockRelease(port->oframe_spinlock);
+    fscc_frame_add_data(frame, data_buffer, Length);
+	fscc_flist_add_frame(&port->oframes, frame);
 
 	WdfDpcEnqueue(port->oframe_dpc);
-
-    return 0;
+	
+	//TODO: In a later version we need to post pone this until later
+	//so in a non overlapped mode the Write blocks until ALLS
+	WdfRequestCompleteWithInformation(Request, STATUS_SUCCESS, Length);
 }
 
 UINT32 fscc_port_get_register(struct fscc_port *port, unsigned bar,
@@ -1192,39 +1166,20 @@ UINT16 fscc_port_get_PDEV(struct fscc_port *port)
     return (UINT16)((vstr_value & 0xFFFF0000) >> 16);
 }
 
-/* Locks oframe_spinlock. */
 NTSTATUS fscc_port_execute_TRES(struct fscc_port *port)
 {
-    int status;
-
     return_val_if_untrue(port, 0);
 
-	WdfSpinLockAcquire(port->oframe_spinlock);
-
-    status = fscc_port_set_register(port, 0, CMDR_OFFSET, 0x08000000);
-	
-	WdfSpinLockRelease(port->oframe_spinlock);
-
-    return status;
+    return fscc_port_set_register(port, 0, CMDR_OFFSET, 0x08000000);
 }
 
-/* Locks iframe_spinlock. */
 NTSTATUS fscc_port_execute_RRES(struct fscc_port *port)
 {
-    NTSTATUS status;
-
     return_val_if_untrue(port, 0);
 
-	WdfSpinLockAcquire(port->iframe_spinlock);
-
-    status = fscc_port_set_register(port, 0, CMDR_OFFSET, 0x00020000);
-	
-	WdfSpinLockRelease(port->iframe_spinlock);
-
-    return status;
+    return fscc_port_set_register(port, 0, CMDR_OFFSET, 0x00020000);
 }
 
-/* Locks iframe_spinlock. */
 NTSTATUS fscc_port_purge_rx(struct fscc_port *port)
 
 {
@@ -1235,26 +1190,22 @@ NTSTATUS fscc_port_purge_rx(struct fscc_port *port)
 	TraceEvents(TRACE_LEVEL_INFORMATION, TRACE_DEVICE, 
 				"Purging receive data");
 
-    /* Locks iframe_spinlock. */
+	WdfSpinLockAcquire(port->board_rx_spinlock);
 	status = fscc_port_execute_RRES(port);
+	WdfSpinLockRelease(port->board_rx_spinlock);
+
 	if (!NT_SUCCESS(status)) {
 		TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE, 
 			"fscc_port_execute_RRES failed %!STATUS!", status);
 		return status;
 	}
 
-    /* Locks iframe_spinlock. */
-    fscc_port_clear_iframes(port, 1);
-	
-	WdfSpinLockAcquire(port->iframe_spinlock);
-    fscc_stream_remove_data(&port->istream,
-                            fscc_stream_get_length(&port->istream));
-	WdfSpinLockRelease(port->iframe_spinlock);
+	fscc_flist_clear(&port->iframes);
+	fscc_stream_clear(&port->istream);
 
     return STATUS_SUCCESS;
 }
 
-/* Locks oframe_spinlock. */
 NTSTATUS fscc_port_purge_tx(struct fscc_port *port)
 {
     int error_code = 0;
@@ -1264,12 +1215,20 @@ NTSTATUS fscc_port_purge_tx(struct fscc_port *port)
 	TraceEvents(TRACE_LEVEL_INFORMATION, TRACE_DEVICE, 
 				"Purging transmit data");
 
-    /* Locks oframe_spinlock. */
-    if ((error_code = fscc_port_execute_TRES(port)) < 0)
+	WdfSpinLockAcquire(port->board_tx_spinlock);
+	error_code = fscc_port_execute_TRES(port);
+	WdfSpinLockRelease(port->board_tx_spinlock);
+
+    if (error_code < 0)
         return error_code;
 
-    /* Locks oframe_spinlock. */
-    fscc_port_clear_oframes(port, 1);
+    fscc_flist_clear(&port->oframes);
+
+    //TODO: Should pending frames be attached to flist? What about syncronization???
+	if (port->pending_oframe) {
+        fscc_frame_delete(port->pending_oframe);
+        port->pending_oframe = 0;
+    }
 
 	//TODO
     //wake_up_interruptible(&port->output_queue);
@@ -1467,6 +1426,8 @@ void fscc_port_set_clock_bits(struct fscc_port *port,
         clk_value <<= 0x08;
     }
 
+	WdfSpinLockAcquire(port->board_settings_spinlock);
+
     orig_fcr_value = fscc_card_get_register(&port->card, 2, FCR_OFFSET);
 
     data[data_index++] = new_fcr_value = orig_fcr_value & 0xfffff0f0;
@@ -1494,64 +1455,10 @@ void fscc_port_set_clock_bits(struct fscc_port *port,
     data[data_index++] = orig_fcr_value;
 
     fscc_port_set_register_rep(port, 2, FCR_OFFSET, (char *)data, data_index * 4);
+
+	WdfSpinLockRelease(port->board_settings_spinlock);
 	
     ExFreePoolWithTag (data, 'stiB');
-}
-
-void clear_frames(struct fscc_frame **pending_frame,
-                  LIST_ENTRY *frame_list, WDFSPINLOCK *spinlock)
-{
-    if (spinlock)
-		WdfSpinLockAcquire(*spinlock);
-	
-    if (*pending_frame) {
-		fscc_frame_delete(*pending_frame);
-        *pending_frame = 0;
-    }
-	
-	empty_frame_list(frame_list);
-
-    if (spinlock)
-		WdfSpinLockRelease(*spinlock);
-}
-
-void fscc_port_clear_iframes(struct fscc_port *port, unsigned lock)
-{
-    WDFSPINLOCK *spinlock = 0;
-
-    return_if_untrue(port);
-
-    spinlock = (lock) ? &port->iframe_spinlock : 0;
-
-    clear_frames(&port->pending_iframe, &port->iframes,
-                 spinlock);
-}
-
-void fscc_port_clear_oframes(struct fscc_port *port, unsigned lock)
-{
-    WDFSPINLOCK *spinlock = 0;
-
-    return_if_untrue(port);
-
-    spinlock = (lock) ? &port->oframe_spinlock : 0;
-
-    clear_frames(&port->pending_oframe, &port->oframes,
-                 spinlock);
-}
-
-void empty_frame_list(LIST_ENTRY *frames)
-{
-    return_if_untrue(frames);
-	
-	while (!IsListEmpty(frames)) {	
-		LIST_ENTRY *frame_iter = 0;
-		struct fscc_frame *frame = 0;	
-
-		frame_iter = RemoveHeadList(frames);
-		frame = CONTAINING_RECORD(frame_iter, FSCC_FRAME, list);	
-
-		fscc_frame_delete(frame);
-	}
 }
 
 unsigned fscc_port_using_async(struct fscc_port *port)
@@ -1574,48 +1481,16 @@ unsigned fscc_port_using_async(struct fscc_port *port)
     return 0;
 }
 
-unsigned calculate_memory_usage(struct fscc_frame *pending_frame,
-                                LIST_ENTRY *frame_list,
-                                WDFSPINLOCK *spinlock)
+unsigned fscc_port_get_output_memory_usage(struct fscc_port *port)
 {
-	LIST_ENTRY *frame_iter = 0;
-    unsigned memory = 0;
-
-    return_val_if_untrue(frame_list, 0);
-
-    if (spinlock)
-		WdfSpinLockAcquire(*spinlock);
-	
-	frame_iter = frame_list->Flink;
-	while (frame_iter != frame_list->Blink) {
-		struct fscc_frame *current_frame = 0;
-
-		current_frame = CONTAINING_RECORD(frame_iter, FSCC_FRAME, list);	
-		memory += fscc_frame_get_current_length(current_frame);
-
-		frame_iter = frame_iter->Flink;
-	}
-
-    if (pending_frame)
-        memory += fscc_frame_get_current_length(pending_frame);
-
-    if (spinlock)
-		WdfSpinLockRelease(*spinlock);
-
-    return memory;
-}
-
-unsigned fscc_port_get_output_memory_usage(struct fscc_port *port,
-                                           unsigned lock)
-{
-    WDFSPINLOCK *spinlock = 0;
 	unsigned value = 0;
 
     return_val_if_untrue(port, 0);
 
-    spinlock = (lock) ? &port->oframe_spinlock : 0;
-	value = calculate_memory_usage(port->pending_oframe, &port->oframes,
-                                   spinlock);
+	value = fscc_flist_calculate_memory_usage(&port->oframes);
+
+    if (port->pending_oframe)
+        value += fscc_frame_get_current_length(port->pending_oframe);
 
     return value;
 }
@@ -1623,33 +1498,16 @@ unsigned fscc_port_get_output_memory_usage(struct fscc_port *port,
 unsigned fscc_port_get_input_memory_usage(struct fscc_port *port,
                                           unsigned lock)
 {
-    WDFSPINLOCK *spinlock = 0;
-    unsigned memory = 0;
+	unsigned value = 0;
 
     return_val_if_untrue(port, 0);
 
-    spinlock = (lock) ? &port->iframe_spinlock : 0;
+	value = fscc_flist_calculate_memory_usage(&port->iframes);
 
-    memory = calculate_memory_usage(port->pending_iframe, &port->iframes,
-                                    spinlock);
+    if (port->pending_oframe)
+        value += fscc_frame_get_current_length(port->pending_iframe);
 
-    memory += fscc_stream_get_length(&port->istream);
-
-    return memory;
-}
-
-//TODO: Should spinlock
-struct fscc_frame *fscc_port_peek_front_frame(struct fscc_port *port,
-                                              LIST_ENTRY *frames)
-{
-    return_val_if_untrue(port, 0);
-    return_val_if_untrue(frames, 0);
-
-
-	if (IsListEmpty(frames))
-		return 0;
-	
-	return CONTAINING_RECORD(frames->Flink, FSCC_FRAME, list);
+    return value;
 }
 
 /* TODO: Test whether termination bytes will frame data. If so add the
@@ -1669,47 +1527,6 @@ unsigned fscc_port_is_streaming(struct fscc_port *port)
     fsc_mode = (port->register_storage.CCR0 & 0x700) ? 1 : 0;
     
     return ((transparent_mode || xsync_mode) && !(rlc_mode || fsc_mode)) ? 1 : 0;
-}
-
-BOOLEAN has_frames(LIST_ENTRY *frames, WDFSPINLOCK *spinlock)
-{
-    BOOLEAN empty = 0;
-
-    return_val_if_untrue(frames, 0);
-
-    if (spinlock)
-		WdfSpinLockAcquire(*spinlock);
-
-	empty = IsListEmpty(frames);
-	
-	if (empty) {} // Silences PREfast warning 28193
-
-    if (spinlock)
-		WdfSpinLockRelease(*spinlock);
-
-    return !empty;
-}
-
-BOOLEAN fscc_port_has_iframes(struct fscc_port *port, unsigned lock)
-{
-    WDFSPINLOCK *spinlock = 0;
-
-    return_val_if_untrue(port, 0);
-
-    spinlock = (lock) ? &port->iframe_spinlock : 0;
-
-    return has_frames(&port->iframes, spinlock);
-}
-
-BOOLEAN fscc_port_has_oframes(struct fscc_port *port, unsigned lock)
-{
-    WDFSPINLOCK *spinlock = 0;
-
-    return_val_if_untrue(port, 0);
-
-    spinlock = (lock) ? &port->oframe_spinlock : 0;
-
-    return has_frames(&port->oframes, spinlock);
 }
 
 BOOLEAN fscc_port_has_dma(struct fscc_port *port)
@@ -1802,23 +1619,17 @@ void fscc_port_reset_timer(struct fscc_port *port)
 
 /* Count is for streaming mode where we need to check there is enough
    streaming data.
-
-   Locks iframe_spinlock.
 */
 unsigned fscc_port_has_incoming_data(struct fscc_port *port)
 {
 	unsigned status = 0;
 
     return_val_if_untrue(port, 0);
-	
-	WdfSpinLockAcquire(port->iframe_spinlock);
 
     if (fscc_port_is_streaming(port))
         status = (fscc_stream_is_empty(&port->istream)) ? 0 : 1;
-    else if (fscc_port_has_iframes(port, 0))
+    else if (fscc_flist_is_empty(&port->iframes) == FALSE)
         status = 1;
-
-	WdfSpinLockRelease(port->iframe_spinlock);
 
     return status;
 }

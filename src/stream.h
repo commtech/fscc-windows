@@ -30,6 +30,7 @@ struct fscc_stream {
     char *buffer;
     unsigned data_length;
     unsigned buffer_size;
+    WDFSPINLOCK spinlock;
 };
 
 void fscc_stream_init(struct fscc_stream *stream);
@@ -37,9 +38,9 @@ void fscc_stream_delete(struct fscc_stream *stream);
 
 int fscc_stream_add_data(struct fscc_stream *stream, const char *data,
                           unsigned length);
-char *fscc_stream_get_data(struct fscc_stream *stream);
 unsigned fscc_stream_get_length(struct fscc_stream *stream);
-int fscc_stream_remove_data(struct fscc_stream *stream, unsigned length);
+int fscc_stream_remove_data(struct fscc_stream *stream, char *destination, unsigned length);
+void fscc_stream_clear(struct fscc_stream *stream);
 unsigned fscc_stream_is_empty(struct fscc_stream *stream);
 
 #endif

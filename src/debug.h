@@ -30,4 +30,14 @@ void display_register(unsigned bar, unsigned offset, UINT32 old_val, UINT32 new_
 
 EVT_WDF_DPC print_worker;
 
+#if !defined(EVENT_TRACING)
+VOID
+TraceEvents    (
+    IN TRACEHANDLE   TraceEventsLevel,
+    IN ULONG   TraceEventsFlag,
+    IN PCCHAR  DebugMessage,
+    ...
+    );
+#endif
+
 #endif
