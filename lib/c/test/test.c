@@ -40,7 +40,7 @@ int main(int argc, char *argv[])
 	fprintf(stdout, "2) Press any key to start the test.\n\n");
 
 
-	getch();
+	_getch();
 
 	e = init(h);
 	if (e != 0) {
