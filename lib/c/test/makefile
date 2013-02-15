@@ -8,7 +8,7 @@ LIBS = $(CFC_DIR)\cfscc.lib
 all: $(TARGET).exe
 
 $(TARGET).exe:$(SOURCES) $(HEADERS) $(LIBS)
-  cl /D_WIN32_WINNT=0x0502 /MT $(SOURCES) $(LIBS) /Fe$@
+  cl /D_WIN32_WINNT=0x0502 /W4 /MT $(SOURCES) $(LIBS) /Fe$@
   
 clean:
   del *.exe
