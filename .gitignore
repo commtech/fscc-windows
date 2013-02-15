@@ -7,6 +7,9 @@ src/buildfre*
 src/buildchk*
 src/classinstaller/buildfre*
 src/classinstaller/buildchk*
+redist/production/serial/
+redist/production/amd64/serial/
+redist/production/i386/serial/
 bin/
 lib/c/docs
 *.exp
@@ -16,3 +19,5 @@ lib/c/docs
 *.bak
 *.ilk
 *.orig
+*.hex
+*.allow
