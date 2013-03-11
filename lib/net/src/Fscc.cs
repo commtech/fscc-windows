@@ -301,7 +301,7 @@ namespace Fscc
             uint bytes_read;
 
             int e = fscc_read(this.Handle, buf, size, out bytes_read, IntPtr.Zero);
-            Console.WriteLine(bytes_read);
+
             if (e >= 1)
                 throw new Exception(e.ToString());
 
