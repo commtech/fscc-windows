@@ -225,7 +225,7 @@ namespace Fscc
         [DllImport(DLL_PATH, CallingConvention = CallingConvention.Cdecl)]
         private static extern int fscc_purge(IntPtr h, bool tx, bool rx);
 
-		public void Purge(bool tx, bool rx)
+        public void Purge(bool tx, bool rx)
         {
             fscc_purge(this.Handle, tx, rx);
         }
@@ -362,7 +362,7 @@ namespace Fscc
         {
             set
             {
-                Registers r = new Registers();
+                Registers r = new Registers(true);
 
                 r.FIFOT = value;
 
@@ -379,7 +379,7 @@ namespace Fscc
         {
             set
             {
-                Registers r = new Registers();
+                Registers r = new Registers(true);
 
                 r.CMDR = value;
 
@@ -404,7 +404,7 @@ namespace Fscc
         {
             set
             {
-                Registers r = new Registers();
+                Registers r = new Registers(true);
 
                 r.CCR0 = value;
 
@@ -421,7 +421,7 @@ namespace Fscc
         {
             set
             {
-                Registers r = new Registers();
+                Registers r = new Registers(true);
 
                 r.CCR1 = value;
 
@@ -438,7 +438,7 @@ namespace Fscc
         {
             set
             {
-                Registers r = new Registers();
+                Registers r = new Registers(true);
 
                 r.CCR2 = value;
 
@@ -455,7 +455,7 @@ namespace Fscc
         {
             set
             {
-                Registers r = new Registers();
+                Registers r = new Registers(true);
 
                 r.BGR = value;
 
@@ -472,7 +472,7 @@ namespace Fscc
         {
             set
             {
-                Registers r = new Registers();
+                Registers r = new Registers(true);
 
                 r.SSR = value;
 
@@ -489,7 +489,7 @@ namespace Fscc
         {
             set
             {
-                Registers r = new Registers();
+                Registers r = new Registers(true);
 
                 r.SMR = value;
 
@@ -506,7 +506,7 @@ namespace Fscc
         {
             set
             {
-                Registers r = new Registers();
+                Registers r = new Registers(true);
 
                 r.TSR = value;
 
@@ -523,7 +523,7 @@ namespace Fscc
         {
             set
             {
-                Registers r = new Registers();
+                Registers r = new Registers(true);
 
                 r.TMR = value;
 
@@ -540,7 +540,7 @@ namespace Fscc
         {
             set
             {
-                Registers r = new Registers();
+                Registers r = new Registers(true);
 
                 r.RAR = value;
 
@@ -557,7 +557,7 @@ namespace Fscc
         {
             set
             {
-                Registers r = new Registers();
+                Registers r = new Registers(true);
 
                 r.RAMR = value;
 
@@ -574,7 +574,7 @@ namespace Fscc
         {
             set
             {
-                Registers r = new Registers();
+                Registers r = new Registers(true);
 
                 r.PPR = value;
 
@@ -593,7 +593,7 @@ namespace Fscc
         {
             set
             {
-                Registers r = new Registers();
+                Registers r = new Registers(true);
 
                 r.TCR = value;
 
@@ -620,7 +620,7 @@ namespace Fscc
         {
             set
             {
-                Registers r = new Registers();
+                Registers r = new Registers(true);
 
                 r.IMR = value;
 
@@ -637,7 +637,7 @@ namespace Fscc
         {
             set
             {
-                Registers r = new Registers();
+                Registers r = new Registers(true);
 
                 r.DPLLR = value;
 
@@ -654,7 +654,7 @@ namespace Fscc
         {
             set
             {
-                Registers r = new Registers();
+                Registers r = new Registers(true);
 
                 r.FCR = value;
 
