@@ -45,7 +45,7 @@ copy lib\net\netfscc*.dll %TOP%\lib\fscc\net\ > nul
 copy lib\c\cfscc*.dll %TOP%\lib\fscc\net\ > nul
 copy lib\net\src\*.cs %TOP%\lib\fscc\net\ > nul
 copy lib\net\makefile %TOP%\lib\fscc\net\ > nul
-copy lib\python\fscc.py %TOP%\lib\python\ > nul
+copy lib\python\fscc.py %TOP%\lib\fscc\python\ > nul
 xcopy redist\production\serial\lib\* %TOP%\lib\serialfc\ /e /i > nul
 
 :copy_test_files
