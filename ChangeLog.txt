@@ -1,3 +1,12 @@
+version 2.2.2 (3/13/2013)
+--------------------------------------------------------------------------------
+    * Bug fix in .NET library where extra data was being returned from the 
+      Read function
+    * Bug fix in driver where 'append status' was being ignored
+    * Bug fix in .NET library where registers weren't being set correctly
+    * Update SerialFC to v2.1.2 
+      (https://github.com/commtech/serialfc-windows/blob/master/ChangeLog.txt)
+
 version 2.2.1 (2/25/2013)
 --------------------------------------------------------------------------------
     * Performance improvements
