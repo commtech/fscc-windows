@@ -167,16 +167,10 @@ int GetICS30703Data(unsigned long desired, unsigned long ppm, struct ResultStruc
     
     requestedppm=ppm;
     
-    if( inputfreq == 18432000.0) 
-    {
-        maxR = 921;
-        minR = 1;
-    }
-    else if( inputfreq == 24000000.0) 
-    {
-        maxR = 1200;
-        minR = 1;
-    }
+    maxR = 1200;
+    minR = 1;
+
+    memset(&IRStruct, 0, sizeof(IRStruct));
     
     ppm=0;
 increaseppm:
