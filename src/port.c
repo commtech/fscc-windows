@@ -894,8 +894,6 @@ void FsccProcessRead(WDFDPC Dpc)
 	WDFREQUEST request;
 	unsigned length = 0;
 	WDF_REQUEST_PARAMETERS params;
-
-    TraceEvents(TRACE_LEVEL_INFORMATION, TRACE_DEVICE, "%!FUNC! Dpc 0x%p", Dpc);
 	
 	port = WdfObjectGet_FSCC_PORT(WdfDpcGetParentObject(Dpc));
 
