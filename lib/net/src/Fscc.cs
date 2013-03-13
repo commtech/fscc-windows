@@ -312,10 +312,11 @@ namespace Fscc
         {
             System.Text.ASCIIEncoding encoder = new System.Text.ASCIIEncoding();
             byte[] input_bytes = new byte[count];
+            uint bytes_read = 0;
 
-            Read(input_bytes, (uint)input_bytes.Length);
+            bytes_read = Read(input_bytes, (uint)input_bytes.Length);
 
-            return encoder.GetString(input_bytes);
+            return encoder.GetString(input_bytes, 0, (int)bytes_read);
         }
 
         [DllImport(DLL_PATH, CallingConvention = CallingConvention.Cdecl)]
