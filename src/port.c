@@ -825,7 +825,7 @@ int fscc_port_frame_read(struct fscc_port *port, char *buf, size_t buf_length, s
     return_val_if_untrue(port, 0);
 
     max_data_length = buf_length;
-    max_data_length -= (port->append_status) ? 2 : 0;
+    max_data_length -= (!port->append_status) ? 2 : 0;
 
 	frame = fscc_flist_remove_frame_if_lte(&port->iframes, max_data_length);
 
@@ -837,6 +837,7 @@ int fscc_port_frame_read(struct fscc_port *port, char *buf, size_t buf_length, s
         return STATUS_BUFFER_TOO_SMALL;
 	
     *out_length = fscc_frame_get_target_length(frame);
+    *out_length -= (!port->append_status) ? 2 : 0;
 
 	memcpy(buf, fscc_frame_get_remaining_data(frame), *out_length);
 
