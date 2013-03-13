@@ -26,7 +26,7 @@ doxygen > nul
 echo Creating Directories...
 for %%A in (32, 64, lib, test) do mkdir %TOP%\%%A\
 for %%A in (fscc, serialfc) do mkdir %TOP%\lib\%%A\
-for %%A in (c, c++, net) do mkdir %TOP%\lib\fscc\%%A\
+for %%A in (c, c++, net, python) do mkdir %TOP%\lib\fscc\%%A\
 
 :copy_dll_files
 echo Copying DLL Files...
@@ -45,6 +45,7 @@ copy lib\net\netfscc*.dll %TOP%\lib\fscc\net\ > nul
 copy lib\c\cfscc*.dll %TOP%\lib\fscc\net\ > nul
 copy lib\net\src\*.cs %TOP%\lib\fscc\net\ > nul
 copy lib\net\makefile %TOP%\lib\fscc\net\ > nul
+copy lib\python\fscc.py %TOP%\lib\python\ > nul
 xcopy redist\production\serial\lib\* %TOP%\lib\serialfc\ /e /i > nul
 
 :copy_test_files
