@@ -27,8 +27,9 @@ ExcludeFromSelect=*
 [Standard.NT$ARCH$]
 %FSCC.DeviceDesc%=FSCC_Device, PCI\VEN_18F7&DEV_000F
 %SuperFSCC.DeviceDesc%=FSCC_Device, PCI\VEN_18F7&DEV_0014
+%SuperFSCC104LVDS.DeviceDesc%=FSCC_Device, PCI\VEN_18F7&DEV_0015
 %FSCC232.DeviceDesc%=FSCC_Device, PCI\VEN_18F7&DEV_0016
-%SuperFSCC.DeviceDesc%=FSCC_Device, PCI\VEN_18F7&DEV_0017
+%SuperFSCC104.DeviceDesc%=FSCC_Device, PCI\VEN_18F7&DEV_0017
 %SuperFSCC4.DeviceDesc%=FSCC_Device, PCI\VEN_18F7&DEV_0018
 %SuperFSCC.DeviceDesc%=FSCC_Device, PCI\VEN_18F7&DEV_0019
 %SuperFSCCLVDS.DeviceDesc%=FSCC_Device, PCI\VEN_18F7&DEV_001A
@@ -36,6 +37,7 @@ ExcludeFromSelect=*
 %SuperFSCC4LVDS.DeviceDesc%=FSCC_Device, PCI\VEN_18F7&DEV_001C
 %FSCC.DeviceDesc%=FSCC_Device, PCI\VEN_18F7&DEV_001D
 %SuperFSCC4PCIe.DeviceDesc%=FSCC_Device, PCI\VEN_18F7&DEV_001E
+%SuperFSCC4cPCI.DeviceDesc%=FSCC_Device, PCI\VEN_18F7&DEV_001F
 
 
 
@@ -73,7 +75,10 @@ FSCC.DeviceDesc = "Commtech FSCC Controller"
 FSCC4.DeviceDesc = "Commtech FSCC/4 Controller"
 FSCC232.DeviceDesc = "Commtech FSCC-232 Controller"
 SuperFSCC.DeviceDesc = "Commtech SuperFSCC Controller"
+SuperFSCC104.DeviceDesc = "Commtech SuperFSCC-104 Controller"
+SuperFSCC104LVDS.DeviceDesc = "Commtech SuperFSCC-104-LVDS Controller"
 SuperFSCCLVDS.DeviceDesc = "Commtech SuperFSCC-LVDS Controller"
 SuperFSCC4.DeviceDesc = "Commtech SuperFSCC/4 Controller"
 SuperFSCC4LVDS.DeviceDesc = "Commtech SuperFSCC/4-LVDS Controller"
 SuperFSCC4PCIe.DeviceDesc = "Commtech SuperFSCC/4-PCIe Controller"
+SuperFSCC4cPCI.DeviceDesc = "Commtech SuperFSCC/4 cPCI Controller"
