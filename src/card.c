@@ -246,8 +246,6 @@ void fscc_card_set_register_rep(struct fscc_card *card, unsigned bar,
 
 char *fscc_card_get_name(struct fscc_card *card)
 {
-	UNREFERENCED_PARAMETER(card);
-	
 	switch (card->device_id) {
 	case FSCC_ID:
 	case FSCC_UA_ID:
@@ -255,19 +253,20 @@ char *fscc_card_get_name(struct fscc_card *card)
 	case SFSCC_ID:
 	case SFSCC_UA_ID:
 		return "SuperFSCC PCI";
-	case SFSCC104_ID:
-	case SFSCC104_UA_ID:
+	case SFSCC_104_LVDS_ID:
+		return "SuperFSCC-104-LVDS PC/104+";
+	case SFSCC_104_UA_ID:
 		return "SuperFSCC-104 PC/104+";
 	case FSCC_232_ID:
 		return "FSCC-232 PCI";
-	case SFSCC_4_ID:
+	case SFSCC_4_UA_ID:
 		return "SuperFSCC/4 PCI";
-	case SFSCC104_LVDS_ID:
-		return "SuperFSCC-104-LVDS PC/104+";
-	case FSCC_4_ID:
+	case FSCC_4_UA_ID:
 		return "FSCC/4 PCI";
 	case SFSCC_4_LVDS_ID:
 		return "SuperFSCC/4-LVDS PCI";
+	case SFSCC_LVDS_ID:
+		return "SuperFSCC-LVDS PCI";
 	case SFSCCe_4_ID:
 		return "SuperFSCC/4 PCIe";
 	case SFSCC_4_CPCI_ID:
