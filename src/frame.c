@@ -76,7 +76,6 @@ unsigned fscc_frame_is_empty(struct fscc_frame *frame)
 
     return frame->data_length == 0;
 }
-
 int fscc_frame_add_data(struct fscc_frame *frame, const char *data,
                          unsigned length)
 {
@@ -103,7 +102,7 @@ int fscc_frame_add_data(struct fscc_frame *frame, const char *data,
     return TRUE;
 }
 
-int fscc_frame_remove_data(struct fscc_frame *frame, unsigned length)
+int fscc_frame_remove_data(struct fscc_frame *frame, char *destination, unsigned length)
 {
     return_val_if_untrue(frame, FALSE);
 
@@ -125,20 +124,26 @@ int fscc_frame_remove_data(struct fscc_frame *frame, unsigned length)
         return FALSE;
     }
 
+    /* Copy the data into the outside buffer */
+    if (destination)
+        memmove(destination, frame->buffer, length);
+
     frame->data_length -= length;
+
+    /* Move the data up in the buffer (essentially removing the old data) */
+    memmove(frame->buffer, frame->buffer + length, frame->data_length);
 
     WdfSpinLockRelease(frame->spinlock);
 
     return TRUE;
 }
 
-//TODO: Remove?
-char *fscc_frame_get_remaining_data(struct fscc_frame *frame)
+//TODO: This could cause an issue w here data_length is less before it makes it into remove_Data
+void fscc_frame_clear(struct fscc_frame *frame)
 {
-    return_val_if_untrue(frame, 0);
-
-    return frame->buffer + (frame->buffer_size - frame->data_length);
+    fscc_frame_remove_data(frame, NULL, frame->data_length);
 }
+
 
 void fscc_frame_trim(struct fscc_frame *frame)
 {

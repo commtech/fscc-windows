@@ -22,7 +22,6 @@
 #include "port.h" /* struct fscc_port */
 #include "utils.h" /* port_exists */
 #include "frame.h" /* struct fscc_frame */
-#include "stream.h"
 #include "debug.h"
 
 #if defined(EVENT_TRACING)
@@ -255,7 +254,7 @@ void istream_worker(WDFDPC Dpc)
     
     WdfSpinLockRelease(port->board_rx_spinlock);
 
-    status = fscc_stream_add_data(&port->istream, buffer, receive_length);
+    status = fscc_frame_add_data(port->istream, buffer, receive_length);
 
 	if (status == FALSE) {
 		TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE, 
@@ -322,7 +321,7 @@ void oframe_worker(WDFDPC Dpc)
                                port->pending_oframe->buffer,
                                transmit_length);
 	
-    fscc_frame_remove_data(port->pending_oframe, transmit_length);
+    fscc_frame_remove_data(port->pending_oframe, NULL, transmit_length);
 
 	TraceEvents(TRACE_LEVEL_VERBOSE, TRACE_DEVICE, 
 			"F#%i => %i byte%s%s",

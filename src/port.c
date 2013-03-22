@@ -21,7 +21,6 @@
 
 #include "port.h"
 #include "frame.h"
-#include "stream.h"
 #include "utils.h"
 #include "isr.h"
 #include "public.h"
@@ -157,7 +156,7 @@ struct fscc_port *fscc_port_new(WDFDRIVER Driver, IN PWDFDEVICE_INIT DeviceInit)
 	port = WdfObjectGet_FSCC_PORT(device);
 
 	port->device = device;
-	fscc_stream_init(&port->istream);
+	port->istream = fscc_frame_new(0); //TODO: DMA
 	port->open_counter = 0;
 
 
@@ -515,7 +514,7 @@ NTSTATUS FsccEvtDeviceReleaseHardware(WDFDEVICE Device, WDFCMRESLIST ResourcesTr
 	
 	port = WdfObjectGet_FSCC_PORT(Device);
 
-	fscc_stream_delete(&port->istream);
+	fscc_frame_delete(port->istream);
 	fscc_flist_delete(&port->iframes);
 	fscc_flist_delete(&port->oframes);
 
@@ -839,7 +838,7 @@ int fscc_port_frame_read(struct fscc_port *port, char *buf, size_t buf_length, s
     *out_length = fscc_frame_get_length(frame);
     *out_length -= (!port->append_status) ? 2 : 0;
 
-	memcpy(buf, fscc_frame_get_remaining_data(frame), *out_length);
+    fscc_frame_remove_data(frame, buf, (unsigned)(*out_length));
 
     fscc_frame_delete(frame);
 
@@ -854,9 +853,9 @@ int fscc_port_stream_read(struct fscc_port *port, char *buf, size_t buf_length, 
 {
     return_val_if_untrue(port, 0);
 
-    *out_length = min(buf_length, (size_t)fscc_stream_get_length(&port->istream));
+    *out_length = min(buf_length, (size_t)fscc_frame_get_length(port->istream));
 
-    fscc_stream_remove_data(&port->istream, buf, (unsigned)(*out_length));
+    fscc_frame_remove_data(port->istream, buf, (unsigned)(*out_length));
 
     return STATUS_SUCCESS;
 }
@@ -1200,7 +1199,7 @@ NTSTATUS fscc_port_purge_rx(struct fscc_port *port)
 	}
 
 	fscc_flist_clear(&port->iframes);
-	fscc_stream_clear(&port->istream);
+	fscc_frame_clear(port->istream);
 
     return STATUS_SUCCESS;
 }
@@ -1626,7 +1625,7 @@ unsigned fscc_port_has_incoming_data(struct fscc_port *port)
     return_val_if_untrue(port, 0);
 
     if (fscc_port_is_streaming(port))
-        status = (fscc_stream_is_empty(&port->istream)) ? 0 : 1;
+        status = (fscc_frame_is_empty(port->istream)) ? 0 : 1;
     else if (fscc_flist_is_empty(&port->iframes) == FALSE)
         status = 1;
 

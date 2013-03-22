@@ -28,7 +28,6 @@
 
 #include "card.h"
 #include "fscc.h"
-#include "stream.h"
 #include "flist.h"
 
 #define FIFO_OFFSET 0x00
@@ -113,7 +112,7 @@ typedef struct fscc_port {
     struct fscc_flist iframes; /* Frames already retrieved from the FIFO */
     struct fscc_flist oframes; /* Frames not yet in the FIFO yet */
 
-    struct fscc_stream istream; /* Transparent stream */
+    struct fscc_frame *istream; /* Transparent stream */
 	
     struct fscc_frame *pending_iframe; /* Frame retrieving from the FIFO */
     struct fscc_frame *pending_oframe; /* Frame being put in the FIFO */

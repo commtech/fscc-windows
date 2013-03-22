@@ -19,7 +19,6 @@ SOURCES=card.c \
         frame.c \
         isr.c \
         port.c \
-        stream.c \
         utils.c \
         debug.c \
         flist.c \
