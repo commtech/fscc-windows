@@ -92,7 +92,7 @@ struct fscc_frame *fscc_flist_remove_frame_if_lte(struct fscc_flist *flist, unsi
 
     frame = CONTAINING_RECORD(flist->frames.Flink, FSCC_FRAME, list);
 
-    if (fscc_frame_get_current_length(frame) > size) {
+    if (fscc_frame_get_length(frame) > size) {
         WdfSpinLockRelease(flist->spinlock);
         return 0;
     }
@@ -138,7 +138,7 @@ unsigned fscc_flist_calculate_memory_usage(struct fscc_flist *flist)
         struct fscc_frame *current_frame = 0;
 
         current_frame = CONTAINING_RECORD(frame_iter, FSCC_FRAME, list);    
-        memory += fscc_frame_get_current_length(current_frame);
+        memory += fscc_frame_get_length(current_frame);
 
         frame_iter = frame_iter->Flink;
     }

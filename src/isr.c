@@ -110,7 +110,7 @@ void iframe_worker(WDFDPC Dpc)
         bc_fifo_l = fscc_port_get_register(port, 0, BC_FIFO_L_OFFSET);
 
         if (port->pending_iframe)
-            current_length = fscc_frame_get_current_length(port->pending_iframe);
+            current_length = fscc_frame_get_length(port->pending_iframe);
         else
             current_length = 0;
 
@@ -130,7 +130,7 @@ void iframe_worker(WDFDPC Dpc)
 		char buffer[8192];
 
         if (!port->pending_iframe) {
-            port->pending_iframe = fscc_frame_new(0, fscc_port_has_dma(port), port);
+            port->pending_iframe = fscc_frame_new(fscc_port_has_dma(port));
 
             if (!port->pending_iframe) {
 				WdfSpinLockRelease(port->board_rx_spinlock);
@@ -280,7 +280,7 @@ void oframe_worker(WDFDPC Dpc)
 
     unsigned fifo_space = 0;
     unsigned current_length = 0;
-    unsigned target_length = 0;
+    unsigned buffer_size = 0;
     unsigned transmit_length = 0;
     unsigned size_in_fifo = 0;
 	
@@ -301,8 +301,8 @@ void oframe_worker(WDFDPC Dpc)
         }
     }
 
-    current_length = fscc_frame_get_current_length(port->pending_oframe);
-    target_length = fscc_frame_get_target_length(port->pending_oframe);
+    current_length = fscc_frame_get_length(port->pending_oframe);
+    buffer_size = fscc_frame_get_buffer_size(port->pending_oframe);
     size_in_fifo = current_length + (4 - current_length % 4);
 
     /* Subtracts 1 so a TDO overflow doesn't happen on the 4096th byte. */
@@ -317,8 +317,9 @@ void oframe_worker(WDFDPC Dpc)
         return;
     }
 	
+    //TODO: Manually accessing the buffer here is not good
     fscc_port_set_register_rep(port, 0, FIFO_OFFSET,
-                               port->pending_oframe->data,
+                               port->pending_oframe->buffer,
                                transmit_length);
 	
     fscc_frame_remove_data(port->pending_oframe, transmit_length);
@@ -329,10 +330,11 @@ void oframe_worker(WDFDPC Dpc)
             (transmit_length == 1) ? "" : "s",
             (fscc_frame_is_empty(port->pending_oframe)) ? " (starting)" : "");
 
+    //TODO: There needs to be a better way of telling if this is the first time
     /* If this is the first time we add data to the FIFO for this frame we
        tell the port how much data is in this frame. */
-    if (current_length == target_length)
-        fscc_port_set_register(port, 0, BC_FIFO_L_OFFSET, target_length);
+    if (current_length == buffer_size)
+        fscc_port_set_register(port, 0, BC_FIFO_L_OFFSET, buffer_size);
 
     /* If we have sent all of the data we clean up. */
     if (fscc_frame_is_empty(port->pending_oframe)) {

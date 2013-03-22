@@ -122,7 +122,7 @@ int fscc_stream_remove_data(struct fscc_stream *stream, char *destination, unsig
         return TRUE;
     }
 
-    /* Make sure we don't remove remove data than we have */
+    /* Make sure we don't remove remove more than we have */
     if (length > stream->data_length) {
         TraceEvents(TRACE_LEVEL_WARNING, TRACE_DEVICE, "Attempting removal of more data than available"); 
         WdfSpinLockRelease(stream->spinlock);

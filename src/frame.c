@@ -8,12 +8,11 @@
 
 static unsigned frame_counter = 1;
 
-void fscc_frame_update_buffer_size(struct fscc_frame *frame, unsigned length);
-//int fscc_frame_setup_descriptors(struct fscc_frame *frame, struct pci_dev *pci_dev);
+int fscc_frame_update_buffer_size(struct fscc_frame *frame, unsigned size);
 
-struct fscc_frame *fscc_frame_new(unsigned target_length, unsigned dma,
-                                  struct fscc_port *port)
+struct fscc_frame *fscc_frame_new(unsigned dma)
 {
+    NTSTATUS status = STATUS_SUCCESS;
     struct fscc_frame *frame = 0;
 		
 	frame = (struct fscc_frame *)ExAllocatePoolWithTag(NonPagedPool, sizeof(*frame), 'marF');
@@ -21,17 +20,24 @@ struct fscc_frame *fscc_frame_new(unsigned target_length, unsigned dma,
 	if (frame == NULL)
 		return 0;
 
-    memset(frame, 0, sizeof(*frame));
+    status = WdfSpinLockCreate(WDF_NO_OBJECT_ATTRIBUTES, &frame->spinlock);
+    if (!NT_SUCCESS(status)) {
+        TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE, 
+            "WdfSpinLockCreate failed %!STATUS!", status);
+        ExFreePoolWithTag(frame, 'marF');
+        return 0;
+    }
 
-    frame->dma = dma;
-    frame->port = port;
+    WdfSpinLockAcquire(frame->spinlock);
+
+    frame->data_length = 0;
+    frame->buffer_size = 0;
+    frame->buffer = 0;
 
     frame->number = frame_counter;
     frame_counter += 1;
 
-    fscc_frame_update_buffer_size(frame, target_length);
-
-    frame->handled = 0;
+    WdfSpinLockRelease(frame->spinlock);
 
     return frame;
 }
@@ -40,118 +46,148 @@ void fscc_frame_delete(struct fscc_frame *frame)
 {
     return_if_untrue(frame);
 
-    if (frame->data)
-		ExFreePoolWithTag(frame->data, 'ataD');
+    WdfSpinLockAcquire(frame->spinlock);
+
+    fscc_frame_update_buffer_size(frame, 0);
+
+    WdfSpinLockRelease(frame->spinlock);
 	
 	ExFreePoolWithTag(frame, 'marF');
 }
 
-unsigned fscc_frame_get_target_length(struct fscc_frame *frame)
+unsigned fscc_frame_get_length(struct fscc_frame *frame)
 {
     return_val_if_untrue(frame, 0);
 
-    return frame->target_length;
+    return frame->data_length;
 }
 
-unsigned fscc_frame_get_current_length(struct fscc_frame *frame)
+//TODO: Eventually remove
+unsigned fscc_frame_get_buffer_size(struct fscc_frame *frame)
 {
     return_val_if_untrue(frame, 0);
 
-    return frame->current_length;
-}
-
-unsigned fscc_frame_get_missing_length(struct fscc_frame *frame)
-{
-    return_val_if_untrue(frame, 0);
-
-    return frame->target_length - frame->current_length;
+    return frame->buffer_size;
 }
 
 unsigned fscc_frame_is_empty(struct fscc_frame *frame)
 {
     return_val_if_untrue(frame, 0);
 
-    return !fscc_frame_get_current_length(frame);
+    return frame->data_length == 0;
 }
 
-unsigned fscc_frame_is_full(struct fscc_frame *frame)
-{
-    return_val_if_untrue(frame, 0);
-
-    return fscc_frame_get_current_length(frame) == fscc_frame_get_target_length(frame);
-}
-
-void fscc_frame_add_data(struct fscc_frame *frame, const char *data,
+int fscc_frame_add_data(struct fscc_frame *frame, const char *data,
                          unsigned length)
 {
-    return_if_untrue(frame);
-    return_if_untrue(length > 0);
+    return_val_if_untrue(frame, FALSE);
+    return_val_if_untrue(length > 0, FALSE);
 
-    if (frame->current_length + length > frame->target_length)
-        fscc_frame_update_buffer_size(frame, frame->current_length + length);
+    WdfSpinLockAcquire(frame->spinlock);
 
-    memmove(frame->data + frame->current_length, data, length);
-    frame->current_length += length;
+    /* Only update buffer size if there isn't enough space already */
+    if (frame->data_length + length > frame->buffer_size) {
+        if (fscc_frame_update_buffer_size(frame, frame->data_length + length) == FALSE) {
+            WdfSpinLockRelease(frame->spinlock);
+            return FALSE;
+        }
+    }
+
+    /* Copy the new data to the end of the frame */
+    memmove(frame->buffer + frame->data_length, data, length);
+
+    frame->data_length += length;
+
+    WdfSpinLockRelease(frame->spinlock);
+
+    return TRUE;
 }
 
-void fscc_frame_remove_data(struct fscc_frame *frame, unsigned length)
+int fscc_frame_remove_data(struct fscc_frame *frame, unsigned length)
 {
-    return_if_untrue(frame);
+    return_val_if_untrue(frame, FALSE);
 
-    frame->current_length -= length;
+    if (length == 0)
+        return TRUE;
+
+    WdfSpinLockAcquire(frame->spinlock);
+
+    if (frame->data_length == 0) {
+        TraceEvents(TRACE_LEVEL_WARNING, TRACE_DEVICE, "Attempting data removal from empty frame");
+        WdfSpinLockRelease(frame->spinlock);
+        return TRUE;
+    }
+
+    /* Make sure we don't remove more data than we have */
+    if (length > frame->data_length) {
+        TraceEvents(TRACE_LEVEL_WARNING, TRACE_DEVICE, "Attempting removal of more data than available"); 
+        WdfSpinLockRelease(frame->spinlock);
+        return FALSE;
+    }
+
+    frame->data_length -= length;
+
+    WdfSpinLockRelease(frame->spinlock);
+
+    return TRUE;
 }
 
+//TODO: Remove?
 char *fscc_frame_get_remaining_data(struct fscc_frame *frame)
 {
     return_val_if_untrue(frame, 0);
 
-    return frame->data + (frame->target_length - frame->current_length);
+    return frame->buffer + (frame->buffer_size - frame->data_length);
 }
 
 void fscc_frame_trim(struct fscc_frame *frame)
 {
     return_if_untrue(frame);
 
-    fscc_frame_update_buffer_size(frame, frame->current_length);
+    fscc_frame_update_buffer_size(frame, frame->data_length);
 }
 
-void fscc_frame_update_buffer_size(struct fscc_frame *frame, unsigned length)
+int fscc_frame_update_buffer_size(struct fscc_frame *frame, unsigned size)
 {
-    char *new_data = 0;
+    char *new_buffer = 0;
 
-    return_if_untrue(frame);
+    return_val_if_untrue(frame, FALSE);
 
-    warn_if_untrue(length >= frame->current_length);
-
-    if (length == 0) {
-        if (frame->data) {
-			ExFreePoolWithTag(frame->data, 'ataD');
-            frame->data = 0;
+    if (size == 0) {
+        if (frame->buffer) {
+            ExFreePoolWithTag(frame->buffer, 'ataD');
+            frame->buffer = 0;
         }
 
-        frame->current_length = 0;
-        frame->target_length = 0;
+        frame->buffer_size = 0;
+        frame->data_length = 0;
 
-        return;
+        return TRUE;
+    }
+    
+    new_buffer = (char *)ExAllocatePoolWithTag(NonPagedPool, size, 'ataD');
+
+    if (new_buffer == NULL) {
+        TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE, "Not enough memory to update frame buffer size");
+        return FALSE;
     }
 
-    if (frame->target_length == length)
-        return;
-	
-	new_data = (char *)ExAllocatePoolWithTag(NonPagedPool, length, 'ataD');
+    memset(new_buffer, 0, size);
 
-    return_if_untrue(new_data);
+    if (frame->buffer) {
+        if (frame->data_length) {
+            /* Truncate data length if the new buffer size is less than the data length */
+            frame->data_length = min(frame->data_length, size);
 
-    memset(new_data, 0, length);
+            /* Copy over the old buffer data to the new buffer */
+            memmove(new_buffer, frame->buffer, frame->data_length);
+        }
 
-    if (frame->data) {
-        if (frame->current_length)
-            memmove(new_data, frame->data, length);
-		
-		ExFreePoolWithTag(frame->data, 'ataD');
+        ExFreePoolWithTag(frame->buffer, 'ataD');
     }
 
-    frame->data = new_data;
-    frame->current_length = min(frame->current_length, length);
-    frame->target_length = length;
+    frame->buffer = new_buffer;
+    frame->buffer_size = size;
+
+    return TRUE;
 }

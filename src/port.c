@@ -836,7 +836,7 @@ int fscc_port_frame_read(struct fscc_port *port, char *buf, size_t buf_length, s
     if (!frame)
         return STATUS_BUFFER_TOO_SMALL;
 	
-    *out_length = fscc_frame_get_target_length(frame);
+    *out_length = fscc_frame_get_length(frame);
     *out_length -= (!port->append_status) ? 2 : 0;
 
 	memcpy(buf, fscc_frame_get_remaining_data(frame), *out_length);
@@ -972,7 +972,7 @@ VOID FsccEvtIoWrite(IN WDFQUEUE Queue, IN WDFREQUEST Request, IN size_t Length)
 		return;
 	}
 
-    frame = fscc_frame_new(Length, fscc_port_has_dma(port), port);
+    frame = fscc_frame_new(fscc_port_has_dma(port));
 
     if (!frame) {
     	WdfRequestComplete(Request, STATUS_INSUFFICIENT_RESOURCES);
@@ -1489,7 +1489,7 @@ unsigned fscc_port_get_output_memory_usage(struct fscc_port *port)
 	value = fscc_flist_calculate_memory_usage(&port->oframes);
 
     if (port->pending_oframe)
-        value += fscc_frame_get_current_length(port->pending_oframe);
+        value += fscc_frame_get_length(port->pending_oframe);
 
     return value;
 }
@@ -1504,7 +1504,7 @@ unsigned fscc_port_get_input_memory_usage(struct fscc_port *port,
 	value = fscc_flist_calculate_memory_usage(&port->iframes);
 
     if (port->pending_oframe)
-        value += fscc_frame_get_current_length(port->pending_iframe);
+        value += fscc_frame_get_length(port->pending_iframe);
 
     return value;
 }
