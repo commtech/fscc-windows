@@ -1,3 +1,8 @@
+version 2.2.3 (3/25/2013)
+--------------------------------------------------------------------------------
+    * Bug fix random crash when using a framing based mode
+    * Bug fix in driver where 'append status' was being ignored (full fix)
+
 version 2.2.2 (3/13/2013)
 --------------------------------------------------------------------------------
     * Bug fix in .NET library where extra data was being returned from the 
