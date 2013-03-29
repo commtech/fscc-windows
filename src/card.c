@@ -69,6 +69,21 @@ NTSTATUS fscc_card_init(struct fscc_card *card, WDFCMRESLIST ResourcesTranslated
 			card->bar[bar_num].address = ULongToPtr(descriptor->u.Port.Start.LowPart);
 			card->bar[bar_num].memory_mapped = FALSE;
 			break;
+
+		case CmResourceTypeMemory:
+			switch (i) {
+			case 0:
+				bar_num = 2;
+				break;
+
+			case 2:
+				bar_num = 0;
+				break;
+			}
+
+			card->bar[bar_num].address = MmMapIoSpace(descriptor->u.Memory.Start, descriptor->u.Memory.Length, MmNonCached);
+			card->bar[bar_num].memory_mapped = TRUE;
+			break;
 		}
 	}
 
@@ -115,17 +130,30 @@ void *fscc_card_get_BAR(struct fscc_card *card, unsigned number)
 	return card->bar[number].address;
 }
 
+UINT32 io_read(struct fscc_card *card, unsigned bar, PULONG Address)
+{
+	if (card->bar[bar].memory_mapped)
+		return READ_REGISTER_ULONG(Address);
+	else
+		return READ_PORT_ULONG(Address);
+}
+
+void io_write(struct fscc_card *card, unsigned bar, PULONG Address, ULONG Value)
+{
+	if (card->bar[bar].memory_mapped)
+		WRITE_REGISTER_ULONG(Address, Value);
+	else
+		WRITE_PORT_ULONG(Address, Value);
+}
+
 UINT32 fscc_card_get_register(struct fscc_card *card, unsigned bar,
 							  unsigned offset)
 {
 	void *address = 0;
-	UINT32 value = 0;
 
 	address = fscc_card_get_BAR(card, bar);
 
-	value = READ_PORT_ULONG((ULONG *)((char *)address + offset));
-
-	return value;
+	return io_read(card, bar, (ULONG *)((char *)address + offset));
 }
 
 void fscc_card_set_register(struct fscc_card *card, unsigned bar,
@@ -135,7 +163,7 @@ void fscc_card_set_register(struct fscc_card *card, unsigned bar,
 
 	address = fscc_card_get_BAR(card, bar);
 
-	WRITE_PORT_ULONG((ULONG *)((char *)address + offset), value);
+	io_write(card, bar, (ULONG *)((char *)address + offset), value);
 }
 
 /* 
@@ -165,13 +193,13 @@ void fscc_card_get_register_rep(struct fscc_card *card, unsigned bar,
 	for (i = 0; i < chunks; i++) {
 		UINT32 value = 0;
 
-		value = READ_PORT_ULONG((ULONG *)((char *)address + offset));
+		value = io_read(card, bar, (ULONG *)((char *)address + offset));
 
 		memcpy(&buf[i * 4], &value, sizeof(value));
 	}
 
     if (leftover_count) {
-        incoming_data = READ_PORT_ULONG((ULONG *)((char *)address + offset));
+    	incoming_data = io_read(card, bar, (ULONG *)((char *)address + offset));
 
         memmove(buf + (byte_count - leftover_count),
                 (char *)(&incoming_data), leftover_count);
@@ -235,10 +263,10 @@ void fscc_card_set_register_rep(struct fscc_card *card, unsigned bar,
 #endif
 
 	for (i = 0; i < chunks; i++)
-		WRITE_PORT_ULONG((ULONG *)((char *)address + offset), chars_to_u32(outgoing_data + (i * 4)));
+		io_write(card, bar, (ULONG *)((char *)address + offset), chars_to_u32(outgoing_data + (i * 4)));
 
     if (leftover_count)
-		WRITE_PORT_ULONG((ULONG *)((char *)address + offset), chars_to_u32(outgoing_data + (byte_count - leftover_count)));
+		io_write(card, bar, (ULONG *)((char *)address + offset), chars_to_u32(outgoing_data + (byte_count - leftover_count)));
 
     if (reversed_data)
 		ExFreePoolWithTag (reversed_data, 'ataD');
