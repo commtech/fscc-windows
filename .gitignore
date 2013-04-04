@@ -22,3 +22,4 @@ lib/c/docs
 *.hex
 *.allow
 *.pdb
+*.manifest
