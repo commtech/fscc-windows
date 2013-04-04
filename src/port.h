@@ -204,7 +204,7 @@ void fscc_port_execute_transmit(struct fscc_port *port);
 unsigned fscc_port_is_streaming(struct fscc_port *port);
 
 unsigned fscc_port_get_RFCNT(struct fscc_port *port);
-UINT32 fscc_port_get_RXCNT(struct fscc_port *port);
+unsigned fscc_port_get_RXCNT(struct fscc_port *port);
 
 unsigned fscc_port_get_input_memory_usage(struct fscc_port *port,
                                           unsigned lock);
