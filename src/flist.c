@@ -134,7 +134,7 @@ unsigned fscc_flist_calculate_memory_usage(struct fscc_flist *flist)
     WdfSpinLockAcquire(flist->spinlock);
     
     frame_iter = flist->frames.Flink;
-    while (frame_iter != flist->frames.Flink) {
+    while (frame_iter != flist->frames.Blink) {
         struct fscc_frame *current_frame = 0;
 
         current_frame = CONTAINING_RECORD(frame_iter, FSCC_FRAME, list);    
