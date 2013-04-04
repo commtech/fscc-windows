@@ -126,7 +126,6 @@ void iframe_worker(WDFDPC Dpc)
     }
 
     if (receive_length > 0) {
-		char buffer[8192];
 
         if (!port->pending_iframe) {
             port->pending_iframe = fscc_frame_new(fscc_port_has_dma(port));
@@ -136,7 +135,6 @@ void iframe_worker(WDFDPC Dpc)
                 return;
             }
         }
-
         /* Make sure we don't go over the user's memory constraint. */
         if (fscc_port_get_input_memory_usage(port, 0) + receive_length > fscc_port_get_input_memory_cap(port)) {
 			if (rejected_last_frame == 0)
@@ -154,8 +152,12 @@ void iframe_worker(WDFDPC Dpc)
             return;
         }
 
-        fscc_port_get_register_rep(port, 0, FIFO_OFFSET, buffer, receive_length);
-        fscc_frame_add_data(port->pending_iframe, buffer, receive_length);
+        {
+            char buffer[8192];
+
+            fscc_port_get_register_rep(port, 0, FIFO_OFFSET, buffer, receive_length);
+            fscc_frame_add_data(port->pending_iframe, buffer, receive_length);
+        }
 
 #ifdef __BIG_ENDIAN
         {
