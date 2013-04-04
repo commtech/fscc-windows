@@ -21,3 +21,4 @@ lib/c/docs
 *.orig
 *.hex
 *.allow
+*.pdb
