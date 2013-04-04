@@ -11,6 +11,7 @@ redist/production/serial/
 redist/production/amd64/serial/
 redist/production/i386/serial/
 bin/
+htm/
 lib/c/docs
 *.exp
 *.obj
