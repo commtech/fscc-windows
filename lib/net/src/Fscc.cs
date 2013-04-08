@@ -386,11 +386,6 @@ namespace Fscc
 
                 this.Registers = r;
             }
-
-            get
-            {
-                return (UInt32)this.Registers.CMDR;
-            }
         }
 
         public UInt32 STAR
