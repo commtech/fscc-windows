@@ -1,3 +1,11 @@
+version 2.2.4 (4/10/2013)
+--------------------------------------------------------------------------------
+    * Make the CMDR register write only in the .NET library
+    * Bug fix regression where memory usage wasn't being calculated correctly
+      (causing runaway memory use)
+    * Add initial support for memory-mapped firmware
+    * Miscellaneous little bug fixes
+
 version 2.2.3 (3/25/2013)
 --------------------------------------------------------------------------------
     * Bug fix random crash when using a framing based mode
