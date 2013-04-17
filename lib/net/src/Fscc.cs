@@ -231,9 +231,9 @@ namespace Fscc
         }
 
         [DllImport(DLL_PATH, CallingConvention = CallingConvention.Cdecl)]
-        private static extern int fscc_set_clock_frequency(IntPtr h, uint frequency, uint ppm);
+        private static extern int fscc_set_clock_frequency(IntPtr h, uint frequency, uint ppm = 2);
 
-        public void SetClockFrequency(uint frequency, uint ppm)
+        public void SetClockFrequency(uint frequency, uint ppm = 2)
         {
             int e = 0;
 
