@@ -126,6 +126,22 @@ void iframe_worker(WDFDPC Dpc)
     }
 
     if (receive_length > 0) {
+        /* Make sure we don't go over the user's memory constraint. */
+        if (fscc_port_get_input_memory_usage(port, 0) + receive_length > fscc_port_get_input_memory_cap(port)) {
+            if (rejected_last_frame == 0) {
+                TraceEvents(TRACE_LEVEL_WARNING, TRACE_DEVICE, "Rejecting frames (memory constraint)");
+                rejected_last_frame = 1; /* Track that we dropped a frame so we
+                                        don't have to warn the user again. */
+            }
+
+            if (port->pending_iframe) {
+                fscc_frame_delete(port->pending_iframe);
+                port->pending_iframe = 0;
+            }
+
+            WdfSpinLockRelease(port->board_rx_spinlock);
+            return;
+        }
 
         if (!port->pending_iframe) {
             port->pending_iframe = fscc_frame_new(fscc_port_has_dma(port));
@@ -134,22 +150,6 @@ void iframe_worker(WDFDPC Dpc)
 				WdfSpinLockRelease(port->board_rx_spinlock);
                 return;
             }
-        }
-        /* Make sure we don't go over the user's memory constraint. */
-        if (fscc_port_get_input_memory_usage(port, 0) + receive_length > fscc_port_get_input_memory_cap(port)) {
-			if (rejected_last_frame == 0)
-				TraceEvents(TRACE_LEVEL_WARNING, TRACE_DEVICE, "Rejecting frames (memory constraint)");
-			
-			TraceEvents(TRACE_LEVEL_INFORMATION, TRACE_DEVICE, 
-				"F#%i rejected (memory constraint)", port->pending_iframe->number);
-
-            fscc_frame_delete(port->pending_iframe);
-            port->pending_iframe = 0;
-			rejected_last_frame = 1; /* Track that we dropped a frame so we
-                                        don't have to warn the user again. */
-
-			WdfSpinLockRelease(port->board_rx_spinlock);
-            return;
         }
 
         {
