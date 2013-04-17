@@ -144,14 +144,6 @@ void fscc_frame_clear(struct fscc_frame *frame)
     fscc_frame_remove_data(frame, NULL, frame->data_length);
 }
 
-
-void fscc_frame_trim(struct fscc_frame *frame)
-{
-    return_if_untrue(frame);
-
-    fscc_frame_update_buffer_size(frame, frame->data_length);
-}
-
 int fscc_frame_update_buffer_size(struct fscc_frame *frame, unsigned size)
 {
     char *new_buffer = 0;

@@ -182,8 +182,6 @@ void iframe_worker(WDFDPC Dpc)
         return;
     }
 
-    fscc_frame_trim(port->pending_iframe);
-
 	if (port->pending_iframe)
         fscc_flist_add_frame(&port->iframes, port->pending_iframe);
 	

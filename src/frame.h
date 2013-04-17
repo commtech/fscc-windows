@@ -26,6 +26,5 @@ int fscc_frame_add_data(struct fscc_frame *frame, const char *data,
 int fscc_frame_remove_data(struct fscc_frame *frame, char *destination, unsigned length);
 unsigned fscc_frame_is_empty(struct fscc_frame *frame);
 void fscc_frame_clear(struct fscc_frame *frame);
-void fscc_frame_trim(struct fscc_frame *frame);
 
 #endif
