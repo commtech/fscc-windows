@@ -445,6 +445,21 @@ NTSTATUS FsccEvtDevicePrepareHardware(WDFDEVICE Device, WDFCMRESLIST ResourcesRa
     TraceEvents(TRACE_LEVEL_INFORMATION, TRACE_DEVICE, "%s (%x.%02x)",
 		        fscc_card_get_name(&port->card), fscc_port_get_PREV(port), fscc_port_get_FREV(port));
 
+    switch (PtrToUlong(port->card.bar[0].address) & 0x000000FF) {
+	case 0x00:
+		port->channel = 0;
+		break;
+
+	case 0x80:
+		port->channel = 1;
+		break;
+
+	//default:
+		//TODO: Problem
+    }
+
+	TraceEvents(TRACE_LEVEL_VERBOSE, TRACE_DEVICE, "Channel = %i", port->channel);
+
     fscc_port_set_append_status(port, DEFAULT_APPEND_STATUS_VALUE);
     fscc_port_set_ignore_timeout(port, DEFAULT_IGNORE_TIMEOUT_VALUE);
     fscc_port_set_tx_modifiers(port, DEFAULT_TX_MODIFIERS_VALUE);
