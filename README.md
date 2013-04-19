@@ -140,6 +140,10 @@ need to read from within code. This ioctl can be found within
 `<fscc/fscc.h>`.
 
 ```c
+#include <fscc.h>
+
+...
+
 struct fscc_registers registers;
 
 FSCC_REGISTERS_INIT(registers);
@@ -150,7 +154,7 @@ registers.BGR = FSCC_UPDATE_VALUE;
 DeviceIoControl(h, FSCC_GET_REGISTERS, 
 				NULL, 0, 
 				&registers, sizeof(registers), 
-				&temp, NULL);	
+				&temp, NULL);				
 ```
 
 At this point 'regs.BGR' and 'regs.FCR' would be set to their respective
@@ -158,36 +162,6 @@ values.
 
 NOTE: A complete example of how to do this can be found in the file
       fscc\lib\fscc\c\examples\get-registers.c.
-
-Use the Python API to easily get the values of any registers you need to
-read from within Python code.
-
-```python
-
-```
-
-```c
-#include <fscc.h>
-
-...
-
-struct fscc_registers registers;
-
-FSCC_REGISTERS_INIT(registers);
-
-registers.CCR0 = 0x0011201c;
-registers.BGR = 10;
-
-DeviceIoControl(h, FSCC_SET_REGISTERS, 
-				&registers, sizeof(registers), 
-				NULL, 0, 
-				&temp, NULL);
-
-DeviceIoControl(h, FSCC_GET_REGISTERS, 
-				NULL, 0, 
-				&registers, sizeof(registers), 
-				&temp, NULL);				
-```
 
 Use the various APIs to easily get the values of any registers you need 
 from within your code.
@@ -204,7 +178,7 @@ FSCC_REGISTERS_INIT(registers);
 registers.CCR0 = FSCC_UPDATE_VALUE;
 registers.BGR = FSCC_UPDATE_VALUE;
 
-fscc_get_memory_cap(h, &memcap);
+fscc_get_registers(h, &registers);
 ```
 
 NOTE: A complete example of how to do this can be found in the file
