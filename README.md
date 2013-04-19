@@ -445,6 +445,14 @@ port.purge(True, True)
 
 ### Clock Frequency
 
+PPM has been deprecated and will be removed in a future release. This value
+is ignored in the mean time.
+
+Lower clock rates (less than 1 MHz for example) can take a long time for 
+the frequency generator to finish. If you run into this situation we 
+recommend using a larger frequency and then dividing it down to your 
+desired baud rate using the BGR register.
+
 ###### Windows API
 ```c
 #include <fscc.h>
