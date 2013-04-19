@@ -729,17 +729,22 @@ A: There are many resources online that say they can calculate CRC-CCITT but mos
    to use [these settings](http://i.imgur.com/G6zT87i.jpg).
    
 
+Q: My port numbering is messed up, how do I fix them?
+
+A: It is possible, but unfortunately there isn't a good way at the moment. To do it
+   you will need to modify the following registry keys.
+   
+   This is the key for setting the automaticall generated port numbering. If you want 
+   the next number to be 8 then set this to 7. If you want it to be 0 then set to 0xffffffff 
+   (actually -1).
+   `HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\services\FSCC\Parameters\LastPortNumber`
+ 
+   This is the key for setting the port's specific number after it has already been assigned.
+   `HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Enum\MF\PCI#VEN_18F7&DEV_00XX\XXXXXXXXXXXXXXXXXX#Child0X\Device Parameters\PortNumber`
+
+
 All of the following information has been copied from the linux README and has yet
 to be integrated into the Windows README. It will be soon.
-=================================================
-
-#### Port numbers
-This is the key for setting the port numbering. If you want the next number to be 8 then set this to 7. If you want it to be 0 then set to 0xffffffff (actually -1).
-HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\services\FSCC\Parameters\LastPortNumber
- 
-This isn't the exact key because it is for the device id in my system but it will get you close. This is the port specific number.
-HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Enum\MF\PCI#VEN_18F7&DEV_0014&SUBSYS_00000000&REV_04\5&2148fa65&2d&00F0#Child01\Device Parameters\PortNumber
-
 
 ### Tx Modifiers
 
