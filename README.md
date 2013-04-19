@@ -43,6 +43,14 @@ cd fscc/src/
 BLD
 ```
 
+#### Port numbers
+This is the key for setting the port numbering. If you want the next number to be 8 then set this to 7. If you want it to be 0 then set to 0xffffffff (actually -1).
+HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\services\FSCC\Parameters\LastPortNumber
+ 
+This isn't the exact key because it is for the device id in my system but it will get you close. This is the port specific number.
+HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Enum\MF\PCI#VEN_18F7&DEV_0014&SUBSYS_00000000&REV_04\5&2148fa65&2d&00F0#Child01\Device Parameters\PortNumber
+
+
 #### CRC Calculation
 http://www.zorc.breitbandkatze.de/crc.html
 [CCITT Settings](http://i.imgur.com/G6zT87i.jpg)
