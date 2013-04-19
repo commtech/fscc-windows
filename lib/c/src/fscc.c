@@ -525,7 +525,7 @@ int fscc_purge(HANDLE h, BOOL tx, BOOL rx)
   \param[in] frequency
     the new clock frequency
   \param[in] ppm
-    TODO
+    See note.
       
   \return 0 
     if the operation completed successfully
@@ -534,8 +534,14 @@ int fscc_purge(HANDLE h, BOOL tx, BOOL rx)
 
   \snippet set-clock-frequency.c Set clock frequency
 
-  \todo
-    What should I do about PPM?
+  \note
+    PPM has been deprecated and will be removed in a future release. This value
+    is ignored in the mean time.
+
+    Lower clock rates (less than 1 MHz for example) can take a long time for 
+    the frequency generator to finish. If you run into this situation we 
+    recommend using a larger frequency and then dividing it down to your 
+    desired baud rate using the BGR register.
 
 */
 /******************************************************************************/
