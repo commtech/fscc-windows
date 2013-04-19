@@ -1216,6 +1216,12 @@ NTSTATUS fscc_port_purge_rx(struct fscc_port *port)
 	fscc_flist_clear(&port->iframes);
 	fscc_frame_clear(port->istream);
 
+    //TODO: Should pending frames be attached to flist? What about syncronization???
+	if (port->pending_iframe) {
+        fscc_frame_delete(port->pending_iframe);
+        port->pending_iframe = 0;
+    }
+
     return STATUS_SUCCESS;
 }
 
@@ -1508,14 +1514,15 @@ unsigned fscc_port_get_output_memory_usage(struct fscc_port *port)
     return value;
 }
 
-unsigned fscc_port_get_input_memory_usage(struct fscc_port *port,
-                                          unsigned lock)
+unsigned fscc_port_get_input_memory_usage(struct fscc_port *port)
 {
 	unsigned value = 0;
 
     return_val_if_untrue(port, 0);
 
 	value = fscc_flist_calculate_memory_usage(&port->iframes);
+
+	value += fscc_frame_get_length(port->istream);
 
     if (port->pending_oframe)
         value += fscc_frame_get_length(port->pending_iframe);
