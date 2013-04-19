@@ -635,58 +635,65 @@ import fscc
 port.purge(True, True)
 ```
 
-All of the following information has been copied from the linux README and has yet
-to be integrated into the Windows README. It will be soon.
-=================================================
 
 ### Migrating From 1.x to 2.x
-There are multiple benefits of using the 2.x driver: accurate posix error
-codes, intuitive ioctl calls, backend support for multiple languages (Python,
-C#) and dynamic memory management are some.
+There are multiple benefits of using the 2.x driver: amd64 support, intuitive 
+[`DeviceIoControl`](http://msdn.microsoft.com/en-us/library/windows/desktop/aa363216(v=vs.85).aspx)
+calls, backend support for multiple languages (C, C++, Python, .NET) and dynamic 
+memory management are some.
 
 The 1.x driver and the 2.x driver are very similar so porting from one to the
 other should be rather painless.
 
-NOTE: All ioctl values have changed even if their new names match their old
-      names. This means even if you use an ioctl with an identical name, it
+NOTE: All 
+[`DeviceIoControl`](http://msdn.microsoft.com/en-us/library/windows/desktop/aa363216(v=vs.85).aspx)
+values have changed even if their new names match their old
+      names. This means even if you use a
+[`DeviceIoControl`](http://msdn.microsoft.com/en-us/library/windows/desktop/aa363216(v=vs.85).aspx)
+with an identical name, it
       will not work correctly.
 
-Setting register values was split into two different ioctl's in the 1.x
+Setting register values was split into two different 
+[`DeviceIoControl`](http://msdn.microsoft.com/en-us/library/windows/desktop/aa363216(v=vs.85).aspx)
+calls in the 1.x
 driver, setting all the registers at once and one at a time. In the 2.x
 driver these two scenarios have been combined into one ioctl.
 
-Change the following ioctl's to the current ioctl `FSCC_SET_REGISTERS` (see
-section V).
+Change the following 
+[`DeviceIoControl`](http://msdn.microsoft.com/en-us/library/windows/desktop/aa363216(v=vs.85).aspx) 
+calls to the current 
+[`DeviceIoControl`](http://msdn.microsoft.com/en-us/library/windows/desktop/aa363216(v=vs.85).aspx)
+`FSCC_SET_REGISTERS`.
 
 `FSCC_WRITE_REGISTER` (setting a single register at a time)
-`FSCC_INIT` (setting all registers at a time)
+`FSCC_SETUP` (setting all registers at a time)
 
 Getting register values was limited to one at a time in the 1.x driver. In
 the 2.x driver it has been made more convenient to read multiple register
 values.
 
-Change the following ioctl to the current ioctl `FSCC_GET_REGISTERS` (see
-section VI).
+Change the following 
+[`DeviceIoControl`](http://msdn.microsoft.com/en-us/library/windows/desktop/aa363216(v=vs.85).aspx)
+to the current 
+[`DeviceIoControl`](http://msdn.microsoft.com/en-us/library/windows/desktop/aa363216(v=vs.85).aspx)
+`FSCC_GET_REGISTERS`.
 
 `FSCC_READ_REGISTER` (reading a single register at a time)
 
 Purging transmit and receive data has not changed. Continue using
 `FSCC_PURGE_TX` and `FSCC_PURGE_RX`.
 
-For more information on these ioctl's see section XII.
-
 Getting the frame status has now been designed to be configurable. In the
 1.x driver you would always have the frame status appended to your data on a
 read. In the 2.x driver this can be toggled, and defaults to not appending
 the status to the data.
 
-For more information on the ioctl's to toggle this feature see section X.
-
 Changing the clock frequency is basically the same but the data structure
-and ioctl name are different.
+and 
+[`DeviceIoControl`](http://msdn.microsoft.com/en-us/library/windows/desktop/aa363216(v=vs.85).aspx)
+name are different.
 
-Change the following ioctl to the current ioctl `FSCC_SET_CLOCK_BITS` (see
-section VIII).
+Change the following ioctl to the current ioctl `FSCC_SET_CLOCK_BITS`.
 
 `FSCC_SET_FREQ` (setting the clock frequency)
 
@@ -695,33 +702,6 @@ frequency and the clock bits that represent the frequency. In the 2.x driver
 this has been simplified down to just the clock bits.
 
 ### FAQ
-Q: Why are the /dev/fscc* ports not created even though the driver has
-   loaded?
-
-A: There are a couple of possibilities but you should first check
-   /var/log/messages for any helpful information. If that doesn't help you
-   out then continue reading.
-
-   One possibility is that there is another driver loaded that has claimed
-   our cards. For example if your kernel is patched to use our card for
-   asynchronous transmission the linux serial driver has more than likely
-   claimed the card and in turn we won't receive the appropriate 'probe'
-   notifications to load our card.
-
-   Another possibility is that you have accidentally tried insmod'ing with
-   the 'hot_plug' option enabled and your cards are not actually present.
-   Double check that your card shows up in the output of 'lspci' and make
-   sure to use hot_plug=0.
-
-Q: What does poll() and select() base their information on?
-
-A: Whether or not you can read data will be based on if there is at least 1
-   byte of data available to be read in your current mode of operation. For
-   example, if there is streaming data it will not be considered when in
-   a frame based mode.
-
-   Whether or not you can write data will be based on if you have hit your
-   output memory cap. (see section XI).
 
 Q: Why does executing a purge without a clock put the card in a broken
    state?
@@ -734,28 +714,24 @@ A: When executing a purge on either the transmitter or receiver there is
    put it into clock mode 7, execute your purge then return to your other
    clock mode.
 
-Q: Why am I receiving the error message 'Couldn't register serial port'
-   when loading the driver.
 
-A: When loading, the driver will attempt to register the board's UARTs with
-   the built in serial driver. The serial driver statically defines how
-   many UARTs can be registered and will report this error if there isn't
-   enough room.
+Q: The CRC-CCITT generated is not what I expect.
 
-   There are multiple ways of allowing more available UART room which can
-   be found in section VII.
+A: There are many resources online that say they can calculate CRC-CCITT but most
+   don't use the correct formula defined by the HDLC specification.
+   
+   An eample of one that doesn't is [lammertbies.nl](http://www.lammertbies.nl/comm/info/crc-calculation.html)
+   and the [forum post](http://www.lammertbies.nl/forum/viewtopic.php?t=607)
+   explaining why it isn't generated correctly.
+   
+   We recommend using this [CRC generator](http://www.zorc.breitbandkatze.de/crc.html)
+   to calculate the correct value and
+   to use [these settings](http://i.imgur.com/G6zT87i.jpg).
+   
 
-Q: Why am I not seeing my card in sysfs?
-
-A: There are a couple possibilities but you should first check what kernel
-   version you are using. Due to the way we register our card with sysfs it
-   won't appear in kernel versions prior to 2.6.25.
-
-   Another possibility is that it is located in a different directory than
-   you are checking. Typically fscc/ appears in /sys/class/ but it might
-   appear elsewhere. If it isn't in /sys/class/ do a search in /sys/ for
-   our fscc/ directory.
-
+All of the following information has been copied from the linux README and has yet
+to be integrated into the Windows README. It will be soon.
+=================================================
 
 #### Port numbers
 This is the key for setting the port numbering. If you want the next number to be 8 then set this to 7. If you want it to be 0 then set to 0xffffffff (actually -1).
@@ -763,13 +739,6 @@ HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\services\FSCC\Parameters\LastPortNum
  
 This isn't the exact key because it is for the device id in my system but it will get you close. This is the port specific number.
 HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Enum\MF\PCI#VEN_18F7&DEV_0014&SUBSYS_00000000&REV_04\5&2148fa65&2d&00F0#Child01\Device Parameters\PortNumber
-
-
-#### CRC Calculation
-http://www.zorc.breitbandkatze.de/crc.html
-[CCITT Settings](http://i.imgur.com/G6zT87i.jpg)
-
-Here is the reason why lammertbies CCITT is incorrect http://www.lammertbies.nl/forum/viewtopic.php?t=607
 
 
 ### Tx Modifiers
