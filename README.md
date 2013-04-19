@@ -54,6 +54,11 @@ the Windows API to an FSCC specific API. Here are a few ways of doing this.
 
 NOTE: For a listing of all of the configuration options please see the manual.
 
+NOTE: In HDLC mode some settings are fixed at certain values. If you are in
+HDLC mode and after setting/getting your registers some bits don't look correct
+then they are likely fixed. For a complete list of the fixed values see the CCR0
+section of the manual.
+
 Use the `FSCC_SET_REGISTERS` ioctl to set the values of any registers you
 need to modify from within C code. This ioctl can be found within
 `<fscc/fscc.h>`.
