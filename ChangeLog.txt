@@ -1,3 +1,13 @@
+version 2.2.5 (4/19/2013)
+--------------------------------------------------------------------------------
+    * Add a default PPM value to the .NET library
+    * Fix a bug where the channel wasn't being set correctly (causing FCR,
+      including clock operations to not work on 2nd channel)
+    * Lots of small performance improvements when handling incoming frames
+    * Increase timeout duration to decrease the frequency of timeout errors at 
+      lower data rates
+    * Fix a bug where stream data wasn't terminated on memory constraint
+
 version 2.2.4 (4/10/2013)
 --------------------------------------------------------------------------------
     * Make the CMDR register write only in the .NET library
