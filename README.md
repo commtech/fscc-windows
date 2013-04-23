@@ -59,6 +59,10 @@ HDLC mode and after setting/getting your registers some bits don't look correct
 then they are likely fixed. For a complete list of the fixed values see the CCR0
 section of the manual.
 
+NOTE: You should make sure and purge the data stream after changing registers.
+Settings like CCR0 will require being purged for the changed settings to take 
+effect.
+
 Use the `FSCC_SET_REGISTERS` ioctl to set the values of any registers you
 need to modify from within C code. This ioctl can be found within
 `<fscc/fscc.h>`.
