@@ -51,6 +51,12 @@ copy lib\net\makefile %TOP%\lib\fscc\net\ > nul
 copy lib\python\fscc.py %TOP%\lib\fscc\python\ > nul
 xcopy redist\production\serial\lib\* %TOP%\lib\serialfc\ /e /i > nul
 
+:copy_loop_files
+xcopy lib\c\loop\loop.exe %TOP%\lib\fscc\c\loop\ /i > nul
+xcopy lib\c\loop\loop.c %TOP%\lib\fscc\c\loop\ /i > nul
+xcopy lib\c\loop\makefile %TOP%\lib\fscc\c\loop\ /i > nul
+xcopy lib\c\cfscc.dll %TOP%\lib\fscc\c\loop\ /i > nul
+
 :copy_test_files
 copy lib\c\test\test.exe %TOP%\test\ > nul
 copy lib\c\cfscc.dll %TOP%\test\ > nul

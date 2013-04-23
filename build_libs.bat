@@ -13,5 +13,6 @@ pushd %TOP%\net\ & nmake clean & nmake & nmake DEBUG & popd > nul
 :building_exes
 echo Building EXEs...
 pushd %TOP%\c\test & nmake clean & nmake & popd > nul
+pushd %TOP%\c\loop & nmake clean & nmake & popd > nul
 
 exit
