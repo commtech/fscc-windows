@@ -1,3 +1,24 @@
+/*
+    Copyright (C) 2013  Commtech, Inc.
+
+    This file is part of fscc-windows.
+
+    fscc-windows is free software: you can redistribute it and/or modify it
+    under the terms of the GNU General Public License as published bythe Free
+    Software Foundation, either version 3 of the License, or (at your option)
+    any later version.
+
+    fscc-windows is distributed in the hope that it will be useful, but WITHOUT
+    ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+    FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+    more details.
+
+    You should have received a copy of the GNU General Public License along
+    with fscc-windows.  If not, see <http://www.gnu.org/licenses/>.
+
+*/
+
+
 #include "frame.h"
 #include "utils.h" /* return_{val_}if_true */
 #include "port.h" /* struct fscc_port */
@@ -14,15 +35,16 @@ struct fscc_frame *fscc_frame_new(unsigned dma)
 {
     NTSTATUS status = STATUS_SUCCESS;
     struct fscc_frame *frame = 0;
-		
-	frame = (struct fscc_frame *)ExAllocatePoolWithTag(NonPagedPool, sizeof(*frame), 'marF');
 
-	if (frame == NULL)
-		return 0;
+    frame = (struct fscc_frame *)ExAllocatePoolWithTag(NonPagedPool,
+                                     sizeof(*frame), 'marF');
+
+    if (frame == NULL)
+        return 0;
 
     status = WdfSpinLockCreate(WDF_NO_OBJECT_ATTRIBUTES, &frame->spinlock);
     if (!NT_SUCCESS(status)) {
-        TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE, 
+        TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE,
             "WdfSpinLockCreate failed %!STATUS!", status);
         ExFreePoolWithTag(frame, 'marF');
         return 0;
@@ -51,8 +73,8 @@ void fscc_frame_delete(struct fscc_frame *frame)
     fscc_frame_update_buffer_size(frame, 0);
 
     WdfSpinLockRelease(frame->spinlock);
-	
-	ExFreePoolWithTag(frame, 'marF');
+
+    ExFreePoolWithTag(frame, 'marF');
 }
 
 unsigned fscc_frame_get_length(struct fscc_frame *frame)
@@ -86,7 +108,8 @@ int fscc_frame_add_data(struct fscc_frame *frame, const char *data,
 
     /* Only update buffer size if there isn't enough space already */
     if (frame->data_length + length > frame->buffer_size) {
-        if (fscc_frame_update_buffer_size(frame, frame->data_length + length) == FALSE) {
+        if (fscc_frame_update_buffer_size(frame, frame->data_length + length)
+            == FALSE) {
             WdfSpinLockRelease(frame->spinlock);
             return FALSE;
         }
@@ -102,7 +125,8 @@ int fscc_frame_add_data(struct fscc_frame *frame, const char *data,
     return TRUE;
 }
 
-int fscc_frame_remove_data(struct fscc_frame *frame, char *destination, unsigned length)
+int fscc_frame_remove_data(struct fscc_frame *frame, char *destination,
+                           unsigned length)
 {
     return_val_if_untrue(frame, FALSE);
 
@@ -112,14 +136,16 @@ int fscc_frame_remove_data(struct fscc_frame *frame, char *destination, unsigned
     WdfSpinLockAcquire(frame->spinlock);
 
     if (frame->data_length == 0) {
-        TraceEvents(TRACE_LEVEL_WARNING, TRACE_DEVICE, "Attempting data removal from empty frame");
+        TraceEvents(TRACE_LEVEL_WARNING, TRACE_DEVICE,
+                    "Attempting data removal from empty frame");
         WdfSpinLockRelease(frame->spinlock);
         return TRUE;
     }
 
     /* Make sure we don't remove more data than we have */
     if (length > frame->data_length) {
-        TraceEvents(TRACE_LEVEL_WARNING, TRACE_DEVICE, "Attempting removal of more data than available"); 
+        TraceEvents(TRACE_LEVEL_WARNING, TRACE_DEVICE,
+                    "Attempting removal of more data than available");
         WdfSpinLockRelease(frame->spinlock);
         return FALSE;
     }
@@ -138,7 +164,8 @@ int fscc_frame_remove_data(struct fscc_frame *frame, char *destination, unsigned
     return TRUE;
 }
 
-//TODO: This could cause an issue w here data_length is less before it makes it into remove_Data
+//TODO: This could cause an issue w here data_length is less before it makes it
+// into remove_Data
 void fscc_frame_clear(struct fscc_frame *frame)
 {
     fscc_frame_remove_data(frame, NULL, frame->data_length);
@@ -161,11 +188,12 @@ int fscc_frame_update_buffer_size(struct fscc_frame *frame, unsigned size)
 
         return TRUE;
     }
-    
+
     new_buffer = (char *)ExAllocatePoolWithTag(NonPagedPool, size, 'ataD');
 
     if (new_buffer == NULL) {
-        TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE, "Not enough memory to update frame buffer size");
+        TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE,
+                    "Not enough memory to update frame buffer size");
         return FALSE;
     }
 
@@ -173,7 +201,8 @@ int fscc_frame_update_buffer_size(struct fscc_frame *frame, unsigned size)
 
     if (frame->buffer) {
         if (frame->data_length) {
-            /* Truncate data length if the new buffer size is less than the data length */
+            /* Truncate data length if the new buffer size is less than the
+            data length */
             frame->data_length = min(frame->data_length, size);
 
             /* Copy over the old buffer data to the new buffer */

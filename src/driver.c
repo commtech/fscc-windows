@@ -1,18 +1,23 @@
-/*++
+/*
+    Copyright (C) 2013  Commtech, Inc.
 
-Module Name:
+    This file is part of fscc-windows.
 
-    driver.c
+    fscc-windows is free software: you can redistribute it and/or modify it
+    under the terms of the GNU General Public License as published bythe Free
+    Software Foundation, either version 3 of the License, or (at your option)
+    any later version.
 
-Abstract:
+    fscc-windows is distributed in the hope that it will be useful, but WITHOUT
+    ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+    FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+    more details.
 
-    This file contains the driver entry points and callbacks.
+    You should have received a copy of the GNU General Public License along
+    with fscc-windows.  If not, see <http://www.gnu.org/licenses/>.
 
-Environment:
+*/
 
-    Kernel-mode Driver Framework
-
---*/
 
 #include "driver.h"
 #include "port.h"
@@ -77,11 +82,12 @@ Return Value:
 
     WDF_DRIVER_CONFIG_INIT(&config, FSCCEvtDeviceAdd);
 
-    status = WdfDriverCreate(DriverObject, RegistryPath, &attributes, &config, WDF_NO_HANDLE);
-	
+    status = WdfDriverCreate(DriverObject, RegistryPath, &attributes, &config,
+                             WDF_NO_HANDLE);
+
     if (!NT_SUCCESS(status)) {
-        TraceEvents(TRACE_LEVEL_ERROR, TRACE_DRIVER, 
-			        "WdfDriverCreate failed %!STATUS!", status);
+        TraceEvents(TRACE_LEVEL_ERROR, TRACE_DRIVER,
+                    "WdfDriverCreate failed %!STATUS!", status);
 
         WPP_CLEANUP(DriverObject);
         return status;
@@ -111,16 +117,16 @@ Return Value:
 
 --*/
 {
-	struct fscc_port *port = 0;
+    struct fscc_port *port = 0;
 
     PAGED_CODE();
-	
-	port = fscc_port_new(Driver, DeviceInit);
 
-	if (!port)
-		return STATUS_INTERNAL_ERROR;
-	
-	return STATUS_SUCCESS;
+    port = fscc_port_new(Driver, DeviceInit);
+
+    if (!port)
+        return STATUS_INTERNAL_ERROR;
+
+    return STATUS_SUCCESS;
 }
 
 VOID
@@ -155,26 +161,26 @@ NTSTATUS fscc_driver_get_last_port_num(WDFDRIVER driver, int *port_num)
     NTSTATUS status;
     WDFKEY driverkey;
     UNICODE_STRING key_str;
-	ULONG port_num_long;
+    ULONG port_num_long;
 
     RtlInitUnicodeString(&key_str, L"LastPortNumber");
-    
-    status = WdfDriverOpenParametersRegistryKey(driver, STANDARD_RIGHTS_ALL, 
+
+    status = WdfDriverOpenParametersRegistryKey(driver, STANDARD_RIGHTS_ALL,
                                     WDF_NO_OBJECT_ATTRIBUTES, &driverkey);
     if (!NT_SUCCESS(status)) {
-        TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE, 
+        TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE,
             "WdfDeviceOpenRegistryKey failed %!STATUS!", status);
         return status;
     }
 
     status = WdfRegistryQueryULong(driverkey, &key_str, &port_num_long);
     if (!NT_SUCCESS(status)) {
-        TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE, 
+        TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE,
             "WdfRegistryQueryULong failed %!STATUS!", status);
         return status;
     }
 
-	*port_num = (int)port_num_long;
+    *port_num = (int)port_num_long;
 
     WdfRegistryClose(driverkey);
 
@@ -188,18 +194,18 @@ NTSTATUS fscc_driver_set_last_port_num(WDFDRIVER driver, int value)
     UNICODE_STRING key_str;
 
     RtlInitUnicodeString(&key_str, L"LastPortNumber");
-    
-    status = WdfDriverOpenParametersRegistryKey(driver, STANDARD_RIGHTS_ALL, 
+
+    status = WdfDriverOpenParametersRegistryKey(driver, STANDARD_RIGHTS_ALL,
                                     WDF_NO_OBJECT_ATTRIBUTES, &driverkey);
     if (!NT_SUCCESS(status)) {
-        TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE, 
+        TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE,
             "WdfDeviceOpenRegistryKey failed %!STATUS!", status);
         return status;
     }
 
     status = WdfRegistryAssignULong(driverkey, &key_str, value);
     if (!NT_SUCCESS(status)) {
-        TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE, 
+        TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE,
             "WdfRegistryAssignULong failed %!STATUS!", status);
         return status;
     }

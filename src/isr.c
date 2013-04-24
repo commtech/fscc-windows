@@ -1,22 +1,23 @@
 /*
-    Copyright (C) 2012 Commtech, Inc.
+    Copyright (C) 2013  Commtech, Inc.
 
-    This file is part of fscc-linux.
+    This file is part of fscc-windows.
 
-    fscc-linux is free software: you can redistribute it and/or modify
-    it under the terms of the GNU General Public License as published by
-    the Free Software Foundation, either version 3 of the License, or
-    (at your option) any later version.
+    fscc-windows is free software: you can redistribute it and/or modify it
+    under the terms of the GNU General Public License as published bythe Free
+    Software Foundation, either version 3 of the License, or (at your option)
+    any later version.
 
-    fscc-linux is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU General Public License for more details.
+    fscc-windows is distributed in the hope that it will be useful, but WITHOUT
+    ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+    FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+    more details.
 
-    You should have received a copy of the GNU General Public License
-    along with fscc-linux.  If not, see <http://www.gnu.org/licenses/>.
+    You should have received a copy of the GNU General Public License along
+    with fscc-windows.  If not, see <http://www.gnu.org/licenses/>.
 
 */
+
 
 #include "isr.h"
 #include "port.h" /* struct fscc_port */
@@ -35,56 +36,56 @@
 BOOLEAN fscc_isr(WDFINTERRUPT Interrupt, ULONG MessageID)
 {
     struct fscc_port *port = 0;
-	BOOLEAN handled = FALSE;
+    BOOLEAN handled = FALSE;
     unsigned isr_value = 0;
     unsigned streaming = 0;
 
-	UNREFERENCED_PARAMETER(MessageID);
-	
-	port = WdfObjectGet_FSCC_PORT(WdfInterruptGetDevice(Interrupt));
+    UNREFERENCED_PARAMETER(MessageID);
 
-	//WdfTimerStop(port->timer, FALSE);
-	
-	isr_value = fscc_port_get_register(port, 0, ISR_OFFSET);
+    port = WdfObjectGet_FSCC_PORT(WdfInterruptGetDevice(Interrupt));
 
-	if (!isr_value)
-		return handled;
+    //WdfTimerStop(port->timer, FALSE);
 
-	handled = TRUE;
+    isr_value = fscc_port_get_register(port, 0, ISR_OFFSET);
 
-	port->last_isr_value |= isr_value;
-	streaming = fscc_port_is_streaming(port);
+    if (!isr_value)
+        return handled;
 
-	if (streaming) {
-		if (isr_value & (RFT | RFS))
-			WdfDpcEnqueue(port->istream_dpc);
-	}
-	else {
-		if (isr_value & (RFE | RFT | RFS))
-			WdfDpcEnqueue(port->iframe_dpc);
-	}
+    handled = TRUE;
 
-	if (isr_value & TFT && !fscc_port_has_dma(port))
-		WdfDpcEnqueue(port->oframe_dpc);
+    port->last_isr_value |= isr_value;
+    streaming = fscc_port_is_streaming(port);
 
-	/* We have to wait until an ALLS to delete a DMA frame because if we
-		delete the frame right away the DMA engine will lose the data to
-		transfer. */
-	if (fscc_port_has_dma(port) && isr_value & ALLS) {
-		if (port->pending_oframe) {
-			fscc_frame_delete(port->pending_oframe);
-			port->pending_oframe = 0;
-		}
-		
-		WdfDpcEnqueue(port->oframe_dpc);
-	}
+    if (streaming) {
+        if (isr_value & (RFT | RFS))
+            WdfDpcEnqueue(port->istream_dpc);
+    }
+    else {
+        if (isr_value & (RFE | RFT | RFS))
+            WdfDpcEnqueue(port->iframe_dpc);
+    }
+
+    if (isr_value & TFT && !fscc_port_has_dma(port))
+        WdfDpcEnqueue(port->oframe_dpc);
+
+    /* We have to wait until an ALLS to delete a DMA frame because if we
+        delete the frame right away the DMA engine will lose the data to
+        transfer. */
+    if (fscc_port_has_dma(port) && isr_value & ALLS) {
+        if (port->pending_oframe) {
+            fscc_frame_delete(port->pending_oframe);
+            port->pending_oframe = 0;
+        }
+
+        WdfDpcEnqueue(port->oframe_dpc);
+    }
 
 #ifdef DEBUG
-	WdfDpcEnqueue(port->print_dpc);
+    WdfDpcEnqueue(port->print_dpc);
 #endif
-	//fscc_port_reset_timer(port);
+    //fscc_port_reset_timer(port);
 
-	return handled;
+    return handled;
 }
 
 void iframe_worker(WDFDPC Dpc)
@@ -92,16 +93,16 @@ void iframe_worker(WDFDPC Dpc)
     struct fscc_port *port = 0;
     int receive_length = 0; /* Needs to be signed */
     unsigned finished_frame = 0;
-	static int rejected_last_frame = 0;
+    static int rejected_last_frame = 0;
 //    static unsigned last_frame_size = 0;
     unsigned current_memory = 0;
     unsigned memory_cap = 0;
     char buffer[8192];
-	
-	port = WdfObjectGet_FSCC_PORT(WdfDpcGetParentObject(Dpc));
+
+    port = WdfObjectGet_FSCC_PORT(WdfDpcGetParentObject(Dpc));
 
     return_if_untrue(port);
-    
+
     WdfSpinLockAcquire(port->board_rx_spinlock);
 
     current_memory = fscc_port_get_input_memory_usage(port);
@@ -146,7 +147,8 @@ void iframe_worker(WDFDPC Dpc)
     /* Make sure we don't go over the user's memory constraint. */
     if (current_memory + receive_length > memory_cap) {
         if (rejected_last_frame == 0) {
-            TraceEvents(TRACE_LEVEL_WARNING, TRACE_DEVICE, "Rejecting frames (memory constraint)");
+            TraceEvents(TRACE_LEVEL_WARNING, TRACE_DEVICE,
+                        "Rejecting frames (memory constraint)");
             rejected_last_frame = 1; /* Track that we dropped a frame so we
                                     don't have to warn the user again. */
         }
@@ -164,7 +166,7 @@ void iframe_worker(WDFDPC Dpc)
         port->pending_iframe = fscc_frame_new(fscc_port_has_dma(port));
 
         if (!port->pending_iframe) {
-			WdfSpinLockRelease(port->board_rx_spinlock);
+            WdfSpinLockRelease(port->board_rx_spinlock);
             return;
         }
     }
@@ -183,18 +185,18 @@ void iframe_worker(WDFDPC Dpc)
     }
 #endif
 
-	TraceEvents(TRACE_LEVEL_VERBOSE, TRACE_DEVICE, 
-		"F#%i <= %i byte%s (%sfinished)",
+    TraceEvents(TRACE_LEVEL_VERBOSE, TRACE_DEVICE,
+        "F#%i <= %i byte%s (%sfinished)",
         port->pending_iframe->number, receive_length,
         (receive_length == 1) ? "" : "s",
         (finished_frame) ? "" : "un");
 
     if (!finished_frame) {
-		WdfSpinLockRelease(port->board_rx_spinlock);
+        WdfSpinLockRelease(port->board_rx_spinlock);
         return;
     }
 
-	if (port->pending_iframe)
+    if (port->pending_iframe)
         fscc_flist_add_frame(&port->iframes, port->pending_iframe);
 
     rejected_last_frame = 0; /* Track that we received a frame to reset the
@@ -204,10 +206,11 @@ void iframe_worker(WDFDPC Dpc)
 
     WdfDpcEnqueue(port->process_read_dpc);
 
-	WdfSpinLockRelease(port->board_rx_spinlock);
+    WdfSpinLockRelease(port->board_rx_spinlock);
 }
 
-/* This function is syncronized so we don't have to worry about it being ran in parallel */
+/* This function is syncronized so we don't have to worry about it being ran in
+   parallel */
 void istream_worker(WDFDPC Dpc)
 {
     struct fscc_port *port = 0;
@@ -215,14 +218,14 @@ void istream_worker(WDFDPC Dpc)
     unsigned rxcnt = 0;
     unsigned current_memory = 0;
     unsigned memory_cap = 0;
-	static int rejected_last_stream = 0;
-	int status;
-	char buffer[8192];
-	
-	port = WdfObjectGet_FSCC_PORT(WdfDpcGetParentObject(Dpc));
+    static int rejected_last_stream = 0;
+    int status;
+    char buffer[8192];
+
+    port = WdfObjectGet_FSCC_PORT(WdfDpcGetParentObject(Dpc));
 
     return_if_untrue(port);
-    
+
     WdfSpinLockAcquire(port->board_rx_spinlock);
 
     current_memory = fscc_port_get_input_memory_usage(port);
@@ -231,7 +234,8 @@ void istream_worker(WDFDPC Dpc)
     /* Leave the interrupt handler if we are at our memory cap. */
     if (current_memory >= memory_cap) {
         if (rejected_last_stream == 0) {
-            TraceEvents(TRACE_LEVEL_WARNING, TRACE_DEVICE, "Rejecting stream (memory constraint)");
+            TraceEvents(TRACE_LEVEL_WARNING, TRACE_DEVICE,
+                        "Rejecting stream (memory constraint)");
             rejected_last_stream = 1; /* Track that we dropped stream data so we
                                          don't have to warn the user again. */
         }
@@ -249,7 +253,7 @@ void istream_worker(WDFDPC Dpc)
 
     /* Leave the interrupt handler if there is no data to read. */
     if (receive_length <= 0) {
-		WdfSpinLockRelease(port->board_rx_spinlock);
+        WdfSpinLockRelease(port->board_rx_spinlock);
         return;
     }
 
@@ -260,26 +264,26 @@ void istream_worker(WDFDPC Dpc)
 
     fscc_port_get_register_rep(port, 0, FIFO_OFFSET, buffer,
                                receive_length);
-    
+
     WdfSpinLockRelease(port->board_rx_spinlock);
 
     status = fscc_frame_add_data(port->istream, buffer, receive_length);
 
-	if (status == FALSE) {
-		TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE, 
-			"Error adding stream data");
-		return;
-	}
+    if (status == FALSE) {
+        TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE,
+            "Error adding stream data");
+        return;
+    }
 
     rejected_last_stream = 0; /* Track that we received stream data to reset
                                 the memory constraint warning print message.
                             */
 
-	TraceEvents(TRACE_LEVEL_VERBOSE, TRACE_DEVICE, 
-		"Stream <= %i byte%s", receive_length,
+    TraceEvents(TRACE_LEVEL_VERBOSE, TRACE_DEVICE,
+        "Stream <= %i byte%s", receive_length,
             (receive_length == 1) ? "" : "s");
-	
-	WdfDpcEnqueue(port->process_read_dpc);
+
+    WdfDpcEnqueue(port->process_read_dpc);
 }
 
 void oframe_worker(WDFDPC Dpc)
@@ -291,13 +295,13 @@ void oframe_worker(WDFDPC Dpc)
     unsigned buffer_size = 0;
     unsigned transmit_length = 0;
     unsigned size_in_fifo = 0;
-	
-	port = WdfObjectGet_FSCC_PORT(WdfDpcGetParentObject(Dpc));
+
+    port = WdfObjectGet_FSCC_PORT(WdfDpcGetParentObject(Dpc));
 
     return_if_untrue(port);
-	
-	WdfSpinLockAcquire(port->oframe_spinlock);
-	 
+
+    WdfSpinLockAcquire(port->oframe_spinlock);
+
     /* Check if exists and if so, grabs the frame to transmit. */
     if (!port->pending_oframe) {
         port->pending_oframe = fscc_flist_remove_frame(&port->oframes);
@@ -321,19 +325,19 @@ void oframe_worker(WDFDPC Dpc)
     transmit_length = (size_in_fifo > fifo_space) ? fifo_space : current_length;
 
     if (transmit_length == 0) {
-		WdfSpinLockRelease(port->oframe_spinlock);
+        WdfSpinLockRelease(port->oframe_spinlock);
         return;
     }
-	
+
     //TODO: Manually accessing the buffer here is not good
     fscc_port_set_register_rep(port, 0, FIFO_OFFSET,
                                port->pending_oframe->buffer,
                                transmit_length);
-	
+
     fscc_frame_remove_data(port->pending_oframe, NULL, transmit_length);
 
-	TraceEvents(TRACE_LEVEL_VERBOSE, TRACE_DEVICE, 
-			"F#%i => %i byte%s%s",
+    TraceEvents(TRACE_LEVEL_VERBOSE, TRACE_DEVICE,
+            "F#%i => %i byte%s%s",
             port->pending_oframe->number, transmit_length,
             (transmit_length == 1) ? "" : "s",
             (fscc_frame_is_empty(port->pending_oframe)) ? " (starting)" : "");
@@ -353,7 +357,7 @@ void oframe_worker(WDFDPC Dpc)
 
     fscc_port_execute_transmit(port);
 
-	WdfSpinLockRelease(port->oframe_spinlock);
+    WdfSpinLockRelease(port->oframe_spinlock);
 }
 
 VOID timer_handler(WDFTIMER Timer)
@@ -361,12 +365,12 @@ VOID timer_handler(WDFTIMER Timer)
     struct fscc_port *port = 0;
     unsigned streaming = 0;
 
-	port = WdfObjectGet_FSCC_PORT(WdfTimerGetParentObject(Timer));
-    
+    port = WdfObjectGet_FSCC_PORT(WdfTimerGetParentObject(Timer));
+
     streaming = fscc_port_is_streaming(port);
 
     if (streaming)
-		WdfDpcEnqueue(port->istream_dpc);
+        WdfDpcEnqueue(port->istream_dpc);
     //else
-	//	WdfDpcEnqueue(port->iframe_dpc);
+    //	WdfDpcEnqueue(port->iframe_dpc);
 }

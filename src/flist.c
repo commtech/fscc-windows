@@ -1,20 +1,20 @@
 /*
-    Copyright (C) 2012 Commtech, Inc.
+    Copyright (C) 2013  Commtech, Inc.
 
-    This file is part of fscc-linux.
+    This file is part of fscc-windows.
 
-    fscc-linux is free software: you can redistribute it and/or modify
-    it under the terms of the GNU General Public License as published by
-    the Free Software Foundation, either version 3 of the License, or
-    (at your option) any later version.
+    fscc-windows is free software: you can redistribute it and/or modify it
+    under the terms of the GNU General Public License as published bythe Free
+    Software Foundation, either version 3 of the License, or (at your option)
+    any later version.
 
-    fscc-linux is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU General Public License for more details.
+    fscc-windows is distributed in the hope that it will be useful, but WITHOUT
+    ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+    FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+    more details.
 
-    You should have received a copy of the GNU General Public License
-    along with fscc-linux.  If not, see <http://www.gnu.org/licenses/>.
+    You should have received a copy of the GNU General Public License along
+    with fscc-windows.  If not, see <http://www.gnu.org/licenses/>.
 
 */
 
@@ -35,7 +35,7 @@ void fscc_flist_init(struct fscc_flist *flist)
 
     status = WdfSpinLockCreate(WDF_NO_OBJECT_ATTRIBUTES, &flist->spinlock);
     if (!NT_SUCCESS(status)) {
-        TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE, 
+        TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE,
             "WdfSpinLockCreate failed %!STATUS!", status);
         return;
     }
@@ -69,7 +69,7 @@ struct fscc_frame *fscc_flist_remove_frame(struct fscc_flist *flist)
         WdfSpinLockRelease(flist->spinlock);
         return 0;
     }
-    
+
     frame = CONTAINING_RECORD(flist->frames.Flink, FSCC_FRAME, list);
 
     RemoveHeadList(&flist->frames);
@@ -79,7 +79,8 @@ struct fscc_frame *fscc_flist_remove_frame(struct fscc_flist *flist)
     return frame;
 }
 
-struct fscc_frame *fscc_flist_remove_frame_if_lte(struct fscc_flist *flist, unsigned size)
+struct fscc_frame *fscc_flist_remove_frame_if_lte(struct fscc_flist *flist,
+                                                  unsigned size)
 {
     struct fscc_frame *frame = 0;
 
@@ -108,15 +109,15 @@ void fscc_flist_clear(struct fscc_flist *flist)
 {
     WdfSpinLockAcquire(flist->spinlock);
 
-    while (!IsListEmpty(&flist->frames)) {  
+    while (!IsListEmpty(&flist->frames)) {
         LIST_ENTRY *frame_iter = 0;
-        struct fscc_frame *frame = 0;   
+        struct fscc_frame *frame = 0;
 
         frame_iter = RemoveHeadList(&flist->frames);
-        frame = CONTAINING_RECORD(frame_iter, FSCC_FRAME, list);    
+        frame = CONTAINING_RECORD(frame_iter, FSCC_FRAME, list);
 
         fscc_frame_delete(frame);
-    }   
+    }
 
     WdfSpinLockRelease(flist->spinlock);
 }
@@ -132,12 +133,12 @@ unsigned fscc_flist_calculate_memory_usage(struct fscc_flist *flist)
     unsigned memory = 0;
 
     WdfSpinLockAcquire(flist->spinlock);
-    
+
     frame_iter = flist->frames.Flink;
     while (frame_iter != flist->frames.Blink) {
         struct fscc_frame *current_frame = 0;
 
-        current_frame = CONTAINING_RECORD(frame_iter, FSCC_FRAME, list);    
+        current_frame = CONTAINING_RECORD(frame_iter, FSCC_FRAME, list);
         memory += fscc_frame_get_length(current_frame);
 
         frame_iter = frame_iter->Flink;

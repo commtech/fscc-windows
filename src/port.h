@@ -1,22 +1,23 @@
 /*
-	Copyright (C) 2010  Commtech, Inc.
-	
-	This file is part of fscc-windows.
+    Copyright (C) 2013  Commtech, Inc.
 
-	fscc-windows is free software: you can redistribute it and/or modify
-	it under the terms of the GNU General Public License as published by
-	the Free Software Foundation, either version 3 of the License, or
-	(at your option) any later version.
+    This file is part of fscc-windows.
 
-	fscc-windows is distributed in the hope that it will be useful,
-	but WITHOUT ANY WARRANTY; without even the implied warranty of
-	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-	GNU General Public License for more details.
+    fscc-windows is free software: you can redistribute it and/or modify it
+    under the terms of the GNU General Public License as published bythe Free
+    Software Foundation, either version 3 of the License, or (at your option)
+    any later version.
 
-	You should have received a copy of the GNU General Public License
-	along with fscc-windows.  If not, see <http://www.gnu.org/licenses/>.
-	
+    fscc-windows is distributed in the hope that it will be useful, but WITHOUT
+    ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+    FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+    more details.
+
+    You should have received a copy of the GNU General Public License along
+    with fscc-windows.  If not, see <http://www.gnu.org/licenses/>.
+
 */
+
 
 #ifndef FSCC_PORT_H
 #define FSCC_PORT_H
@@ -85,18 +86,18 @@
 #define CE_BIT 0x00040000
 
 typedef struct fscc_port {
-	WDFDEVICE device;
-	
-	struct fscc_card card;	
+    WDFDEVICE device;
 
-	WDFQUEUE write_queue;
-	WDFQUEUE read_queue;
-	WDFQUEUE ioctl_queue;
-	
-	WDFQUEUE read_queue2; /* TODO: Change name to be more descriptive. */
+    struct fscc_card card;	
 
-	unsigned channel;
-	struct fscc_registers register_storage; /* Only valid on suspend/resume */
+    WDFQUEUE write_queue;
+    WDFQUEUE read_queue;
+    WDFQUEUE ioctl_queue;
+
+    WDFQUEUE read_queue2; /* TODO: Change name to be more descriptive. */
+
+    unsigned channel;
+    struct fscc_registers register_storage; /* Only valid on suspend/resume */
 
     BOOLEAN append_status;
     BOOLEAN ignore_timeout;
@@ -113,7 +114,7 @@ typedef struct fscc_port {
     struct fscc_flist oframes; /* Frames not yet in the FIFO yet */
 
     struct fscc_frame *istream; /* Transparent stream */
-	
+
     struct fscc_frame *pending_iframe; /* Frame retrieving from the FIFO */
     struct fscc_frame *pending_oframe; /* Frame being put in the FIFO */
 
@@ -126,15 +127,15 @@ typedef struct fscc_port {
 
     unsigned last_isr_value;
 
-	WDFTIMER timer;
+    WDFTIMER timer;
 
-	unsigned open_counter;
+    unsigned open_counter;
 
-	WDFINTERRUPT interrupt;
-	BOOLEAN dma;
+    WDFINTERRUPT interrupt;
+    BOOLEAN dma;
 
-	unsigned force_fifo;
-	
+    unsigned force_fifo;
+
 } FSCC_PORT;
 
 WDF_DECLARE_CONTEXT_TYPE(FSCC_PORT);
@@ -142,10 +143,10 @@ WDF_DECLARE_CONTEXT_TYPE(FSCC_PORT);
 struct fscc_port *fscc_port_new(WDFDRIVER Driver, IN PWDFDEVICE_INIT DeviceInit);
 
 UINT32 fscc_port_get_register(struct fscc_port *port, unsigned bar,
-							  unsigned register_offset);
+                              unsigned register_offset);
 
 NTSTATUS fscc_port_set_register(struct fscc_port *port, unsigned bar,
-						   unsigned register_offset, UINT32 value);
+                           unsigned register_offset, UINT32 value);
 
 void fscc_port_get_register_rep(struct fscc_port *port, unsigned bar,
                                 unsigned register_offset, char *buf,
@@ -154,13 +155,13 @@ void fscc_port_get_register_rep(struct fscc_port *port, unsigned bar,
 void fscc_port_set_register_rep(struct fscc_port *port, unsigned bar,
                                 unsigned register_offset, const char *data,
                                 unsigned byte_count);
-						   
+
 NTSTATUS fscc_port_set_registers(struct fscc_port *port,
-							const struct fscc_registers *regs);
-							
+                            const struct fscc_registers *regs);
+
 void fscc_port_get_registers(struct fscc_port *port,
-							 struct fscc_registers *regs);
-						   
+                             struct fscc_registers *regs);
+
 UCHAR fscc_port_get_FREV(struct fscc_port *port);
 UCHAR fscc_port_get_PREV(struct fscc_port *port);
 UINT16 fscc_port_get_PDEV(struct fscc_port *port);

@@ -19,27 +19,14 @@
 */
 
 
-#ifndef FSCC_FLIST_H
-#define FSCC_FLIST_H
+#ifndef FSCC_DESCRIPTOR
+#define FSCC_DESCRIPTOR
 
-#include <ntddk.h>
-#include <wdf.h>
-
-#include "Trace.h"
-
-struct fscc_flist {
-    LIST_ENTRY frames;
-    WDFSPINLOCK spinlock;
+struct fscc_descriptor {
+    UINT32 control;
+    UINT32 data_address;
+    UINT32 data_count;
+    UINT32 next_descriptor;
 };
-
-void fscc_flist_init(struct fscc_flist *flist);
-void fscc_flist_delete(struct fscc_flist *flist);
-void fscc_flist_add_frame(struct fscc_flist *flist, struct fscc_frame *frame);
-struct fscc_frame *fscc_flist_remove_frame(struct fscc_flist *flist);
-struct fscc_frame *fscc_flist_remove_frame_if_lte(struct fscc_flist *flist,
-                                                  unsigned size);
-void fscc_flist_clear(struct fscc_flist *flist);
-BOOLEAN fscc_flist_is_empty(struct fscc_flist *flist);
-unsigned fscc_flist_calculate_memory_usage(struct fscc_flist *flist);
 
 #endif

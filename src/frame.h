@@ -1,3 +1,24 @@
+/*
+    Copyright (C) 2013  Commtech, Inc.
+
+    This file is part of fscc-windows.
+
+    fscc-windows is free software: you can redistribute it and/or modify it
+    under the terms of the GNU General Public License as published bythe Free
+    Software Foundation, either version 3 of the License, or (at your option)
+    any later version.
+
+    fscc-windows is distributed in the hope that it will be useful, but WITHOUT
+    ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+    FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+    more details.
+
+    You should have received a copy of the GNU General Public License along
+    with fscc-windows.  If not, see <http://www.gnu.org/licenses/>.
+
+*/
+
+
 #ifndef FSCC_FRAME_H
 #define FSCC_FRAME_H
 
@@ -6,7 +27,7 @@
 #include <wdf.h>
 
 typedef struct fscc_frame {
-	LIST_ENTRY list;
+    LIST_ENTRY list;
     char *buffer;
     unsigned buffer_size;
     unsigned data_length;
@@ -23,7 +44,8 @@ unsigned fscc_frame_get_buffer_size(struct fscc_frame *frame);
 int fscc_frame_add_data(struct fscc_frame *frame, const char *data,
                          unsigned length);
 
-int fscc_frame_remove_data(struct fscc_frame *frame, char *destination, unsigned length);
+int fscc_frame_remove_data(struct fscc_frame *frame, char *destination,
+                           unsigned length);
 unsigned fscc_frame_is_empty(struct fscc_frame *frame);
 void fscc_frame_clear(struct fscc_frame *frame);
 

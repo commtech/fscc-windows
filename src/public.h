@@ -1,19 +1,23 @@
-/*++
+/*
+    Copyright (C) 2013  Commtech, Inc.
 
-Module Name:
+    This file is part of fscc-windows.
 
-    public.h
+    fscc-windows is free software: you can redistribute it and/or modify it
+    under the terms of the GNU General Public License as published bythe Free
+    Software Foundation, either version 3 of the License, or (at your option)
+    any later version.
 
-Abstract:
+    fscc-windows is distributed in the hope that it will be useful, but WITHOUT
+    ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+    FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+    more details.
 
-    This module contains the common declarations shared by driver
-    and user applications.
+    You should have received a copy of the GNU General Public License along
+    with fscc-windows.  If not, see <http://www.gnu.org/licenses/>.
 
-Environment:
+*/
 
-    user and kernel
-
---*/
 
 //
 // Define an Interface Guid so that app can find the device and talk to it.
