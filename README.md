@@ -402,6 +402,12 @@ function returns there are a couple errors specific to the FSCC you might run in
 STATUS_BUFFER_TOO_SMALL: If the size parameter passed into the read() function is smaller
           than the next frame (in a frame based mode).
 
+Most users will want the advanced IO capabilities included by using the [Windows OVERLAPPED IO
+API](http://msdn.microsoft.com/en-us/library/windows/desktop/ms686358(v=vs.85).aspx). We won't
+duplicate any of it's documentation here but for reference sake here is an [article]
+(http://blogs.msdn.com/b/oldnewthing/archive/2011/02/02/10123392.aspx) on a common
+bug developers introduce while trying to cancel IO operations while using OVERLAPPED IO.
+
 
 ### Viewing/Setting Frame Status
 It is a good idea to pay attention to the status of each frame. For example if
