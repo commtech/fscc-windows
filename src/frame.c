@@ -98,6 +98,7 @@ unsigned fscc_frame_is_empty(struct fscc_frame *frame)
 
     return frame->data_length == 0;
 }
+
 int fscc_frame_add_data(struct fscc_frame *frame, const char *data,
                          unsigned length)
 {
@@ -117,6 +118,33 @@ int fscc_frame_add_data(struct fscc_frame *frame, const char *data,
 
     /* Copy the new data to the end of the frame */
     memmove(frame->buffer + frame->data_length, data, length);
+
+    frame->data_length += length;
+
+    WdfSpinLockRelease(frame->spinlock);
+
+    return TRUE;
+}
+
+int fscc_frame_add_data_from_port(struct fscc_frame *frame, struct fscc_port *port,
+                                  unsigned length)
+{
+    return_val_if_untrue(frame, FALSE);
+    return_val_if_untrue(length > 0, FALSE);
+
+    WdfSpinLockAcquire(frame->spinlock);
+
+    /* Only update buffer size if there isn't enough space already */
+    if (frame->data_length + length > frame->buffer_size) {
+        if (fscc_frame_update_buffer_size(frame, frame->data_length + length)
+            == FALSE) {
+            WdfSpinLockRelease(frame->spinlock);
+            return FALSE;
+        }
+    }
+
+    /* Copy the new data to the end of the frame */
+    fscc_port_get_register_rep(port, 0, FIFO_OFFSET, frame->buffer + frame->data_length, length);
 
     frame->data_length += length;
 

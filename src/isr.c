@@ -97,7 +97,7 @@ void iframe_worker(WDFDPC Dpc)
 //    static unsigned last_frame_size = 0;
     unsigned current_memory = 0;
     unsigned memory_cap = 0;
-    char buffer[8192];
+    int status;
 
     port = WdfObjectGet_FSCC_PORT(WdfDpcGetParentObject(Dpc));
 
@@ -171,8 +171,13 @@ void iframe_worker(WDFDPC Dpc)
         }
     }
 
-    fscc_port_get_register_rep(port, 0, FIFO_OFFSET, buffer, receive_length);
-    fscc_frame_add_data(port->pending_iframe, buffer, receive_length);
+    status = fscc_frame_add_data_from_port(port->pending_iframe, port, receive_length);
+    if (status == FALSE) {
+        TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE,
+            "Error adding stream data");
+        WdfSpinLockRelease(port->board_rx_spinlock);
+        return;
+    }
 
 #ifdef __BIG_ENDIAN
     {
@@ -220,7 +225,6 @@ void istream_worker(WDFDPC Dpc)
     unsigned memory_cap = 0;
     static int rejected_last_stream = 0;
     int status;
-    char buffer[8192];
 
     port = WdfObjectGet_FSCC_PORT(WdfDpcGetParentObject(Dpc));
 
@@ -262,18 +266,15 @@ void istream_worker(WDFDPC Dpc)
     if (receive_length + current_memory > memory_cap)
         receive_length = memory_cap - current_memory;
 
-    fscc_port_get_register_rep(port, 0, FIFO_OFFSET, buffer,
-                               receive_length);
-
-    WdfSpinLockRelease(port->board_rx_spinlock);
-
-    status = fscc_frame_add_data(port->istream, buffer, receive_length);
-
+    status = fscc_frame_add_data_from_port(port->istream, port, receive_length);
     if (status == FALSE) {
         TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE,
             "Error adding stream data");
+        WdfSpinLockRelease(port->board_rx_spinlock);
         return;
     }
+
+    WdfSpinLockRelease(port->board_rx_spinlock);
 
     rejected_last_stream = 0; /* Track that we received stream data to reset
                                 the memory constraint warning print message.
