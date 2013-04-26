@@ -320,7 +320,23 @@ struct fscc_port *fscc_port_new(WDFDRIVER Driver,
     WDF_OBJECT_ATTRIBUTES_INIT(&attributes);
     attributes.ParentObject = port->device;
 
-    status = WdfSpinLockCreate(&attributes, &port->oframe_spinlock);
+    status = WdfSpinLockCreate(&attributes, &port->istream_spinlock);
+    if (!NT_SUCCESS(status)) {
+        WdfObjectDelete(port->device);
+        TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE,
+            "WdfSpinLockCreate failed %!STATUS!", status);
+        return 0;
+    }
+
+    status = WdfSpinLockCreate(&attributes, &port->pending_oframe_spinlock);
+    if (!NT_SUCCESS(status)) {
+        WdfObjectDelete(port->device);
+        TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE,
+            "WdfSpinLockCreate failed %!STATUS!", status);
+        return 0;
+    }
+
+    status = WdfSpinLockCreate(&attributes, &port->pending_iframe_spinlock);
     if (!NT_SUCCESS(status)) {
         WdfObjectDelete(port->device);
         TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE,
@@ -580,7 +596,6 @@ VOID FsccDeviceFileCreate(
     if (port->open_counter == 1) {
         fscc_port_set_register(port, 2, FCR_OFFSET,
                                0x40000000 << port->channel);
-        WdfSpinLockRelease(port->board_settings_spinlock);
     }
 
     WdfSpinLockRelease(port->board_settings_spinlock);
@@ -894,9 +909,13 @@ int fscc_port_stream_read(struct fscc_port *port, char *buf, size_t buf_length,
 {
     return_val_if_untrue(port, 0);
 
+    WdfSpinLockAcquire(port->istream_spinlock);
+
     *out_length = min(buf_length, (size_t)fscc_frame_get_length(port->istream));
 
     fscc_frame_remove_data(port->istream, buf, (unsigned)(*out_length));
+
+    WdfSpinLockRelease(port->istream_spinlock);
 
     return STATUS_SUCCESS;
 }
@@ -1243,14 +1262,17 @@ NTSTATUS fscc_port_purge_rx(struct fscc_port *port)
     }
 
     fscc_flist_clear(&port->iframes);
-    fscc_frame_clear(port->istream);
 
-    //TODO: Should pending frames be attached to flist? What about
-    // syncronization???
+    WdfSpinLockAcquire(port->istream_spinlock);
+    fscc_frame_clear(port->istream);
+    WdfSpinLockRelease(port->istream_spinlock);
+
+    WdfSpinLockAcquire(port->pending_iframe_spinlock);
     if (port->pending_iframe) {
         fscc_frame_delete(port->pending_iframe);
         port->pending_iframe = 0;
     }
+    WdfSpinLockRelease(port->pending_iframe_spinlock);
 
     return STATUS_SUCCESS;
 }
@@ -1273,12 +1295,12 @@ NTSTATUS fscc_port_purge_tx(struct fscc_port *port)
 
     fscc_flist_clear(&port->oframes);
 
-    //TODO: Should pending frames be attached to flist? What about
-    // syncronization???
+    WdfSpinLockAcquire(port->pending_oframe_spinlock);
     if (port->pending_oframe) {
         fscc_frame_delete(port->pending_oframe);
         port->pending_oframe = 0;
     }
+    WdfSpinLockRelease(port->pending_oframe_spinlock);
 
     //TODO
     //wake_up_interruptible(&port->output_queue);
@@ -1539,8 +1561,10 @@ unsigned fscc_port_get_output_memory_usage(struct fscc_port *port)
 
     value = fscc_flist_calculate_memory_usage(&port->oframes);
 
+    WdfSpinLockAcquire(port->pending_oframe_spinlock);
     if (port->pending_oframe)
         value += fscc_frame_get_length(port->pending_oframe);
+    WdfSpinLockRelease(port->pending_oframe_spinlock);
 
     return value;
 }
@@ -1553,10 +1577,14 @@ unsigned fscc_port_get_input_memory_usage(struct fscc_port *port)
 
     value = fscc_flist_calculate_memory_usage(&port->iframes);
 
+    WdfSpinLockAcquire(port->istream_spinlock);
     value += fscc_frame_get_length(port->istream);
+    WdfSpinLockRelease(port->istream_spinlock);
 
+    WdfSpinLockAcquire(port->pending_iframe_spinlock);
     if (port->pending_oframe)
         value += fscc_frame_get_length(port->pending_iframe);
+    WdfSpinLockRelease(port->pending_iframe_spinlock);
 
     return value;
 }

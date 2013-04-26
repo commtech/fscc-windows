@@ -42,24 +42,12 @@ struct fscc_frame *fscc_frame_new(unsigned dma)
     if (frame == NULL)
         return 0;
 
-    status = WdfSpinLockCreate(WDF_NO_OBJECT_ATTRIBUTES, &frame->spinlock);
-    if (!NT_SUCCESS(status)) {
-        TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE,
-            "WdfSpinLockCreate failed %!STATUS!", status);
-        ExFreePoolWithTag(frame, 'marF');
-        return 0;
-    }
-
-    WdfSpinLockAcquire(frame->spinlock);
-
     frame->data_length = 0;
     frame->buffer_size = 0;
     frame->buffer = 0;
 
     frame->number = frame_counter;
     frame_counter += 1;
-
-    WdfSpinLockRelease(frame->spinlock);
 
     return frame;
 }
@@ -68,11 +56,7 @@ void fscc_frame_delete(struct fscc_frame *frame)
 {
     return_if_untrue(frame);
 
-    WdfSpinLockAcquire(frame->spinlock);
-
     fscc_frame_update_buffer_size(frame, 0);
-
-    WdfSpinLockRelease(frame->spinlock);
 
     ExFreePoolWithTag(frame, 'marF');
 }
@@ -105,13 +89,10 @@ int fscc_frame_add_data(struct fscc_frame *frame, const char *data,
     return_val_if_untrue(frame, FALSE);
     return_val_if_untrue(length > 0, FALSE);
 
-    WdfSpinLockAcquire(frame->spinlock);
-
     /* Only update buffer size if there isn't enough space already */
     if (frame->data_length + length > frame->buffer_size) {
         if (fscc_frame_update_buffer_size(frame, frame->data_length + length)
             == FALSE) {
-            WdfSpinLockRelease(frame->spinlock);
             return FALSE;
         }
     }
@@ -120,8 +101,6 @@ int fscc_frame_add_data(struct fscc_frame *frame, const char *data,
     memmove(frame->buffer + frame->data_length, data, length);
 
     frame->data_length += length;
-
-    WdfSpinLockRelease(frame->spinlock);
 
     return TRUE;
 }
@@ -132,13 +111,10 @@ int fscc_frame_add_data_from_port(struct fscc_frame *frame, struct fscc_port *po
     return_val_if_untrue(frame, FALSE);
     return_val_if_untrue(length > 0, FALSE);
 
-    WdfSpinLockAcquire(frame->spinlock);
-
     /* Only update buffer size if there isn't enough space already */
     if (frame->data_length + length > frame->buffer_size) {
         if (fscc_frame_update_buffer_size(frame, frame->data_length + length)
             == FALSE) {
-            WdfSpinLockRelease(frame->spinlock);
             return FALSE;
         }
     }
@@ -147,8 +123,6 @@ int fscc_frame_add_data_from_port(struct fscc_frame *frame, struct fscc_port *po
     fscc_port_get_register_rep(port, 0, FIFO_OFFSET, frame->buffer + frame->data_length, length);
 
     frame->data_length += length;
-
-    WdfSpinLockRelease(frame->spinlock);
 
     return TRUE;
 }
@@ -161,12 +135,9 @@ int fscc_frame_remove_data(struct fscc_frame *frame, char *destination,
     if (length == 0)
         return TRUE;
 
-    WdfSpinLockAcquire(frame->spinlock);
-
     if (frame->data_length == 0) {
         TraceEvents(TRACE_LEVEL_WARNING, TRACE_DEVICE,
                     "Attempting data removal from empty frame");
-        WdfSpinLockRelease(frame->spinlock);
         return TRUE;
     }
 
@@ -174,7 +145,6 @@ int fscc_frame_remove_data(struct fscc_frame *frame, char *destination,
     if (length > frame->data_length) {
         TraceEvents(TRACE_LEVEL_WARNING, TRACE_DEVICE,
                     "Attempting removal of more data than available");
-        WdfSpinLockRelease(frame->spinlock);
         return FALSE;
     }
 
@@ -186,8 +156,6 @@ int fscc_frame_remove_data(struct fscc_frame *frame, char *destination,
 
     /* Move the data up in the buffer (essentially removing the old data) */
     memmove(frame->buffer, frame->buffer + length, frame->data_length);
-
-    WdfSpinLockRelease(frame->spinlock);
 
     return TRUE;
 }

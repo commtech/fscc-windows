@@ -32,7 +32,6 @@ typedef struct fscc_frame {
     unsigned buffer_size;
     unsigned data_length;
     unsigned number;
-    WDFSPINLOCK spinlock;
 } FSCC_FRAME;
 
 struct fscc_frame *fscc_frame_new(unsigned dma);

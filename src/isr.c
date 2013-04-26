@@ -68,17 +68,19 @@ BOOLEAN fscc_isr(WDFINTERRUPT Interrupt, ULONG MessageID)
     if (isr_value & TFT && !fscc_port_has_dma(port))
         WdfDpcEnqueue(port->oframe_dpc);
 
+#if 0
     /* We have to wait until an ALLS to delete a DMA frame because if we
         delete the frame right away the DMA engine will lose the data to
         transfer. */
     if (fscc_port_has_dma(port) && isr_value & ALLS) {
-        if (port->pending_oframe) {
-            fscc_frame_delete(port->pending_oframe);
+        if (port->pending_oframe) { //TODO: Synchronization
+            fscc_frame_delete(port->pending_oframe); //TODO: This free might not be allowed at this IRQL
             port->pending_oframe = 0;
         }
 
         WdfDpcEnqueue(port->oframe_dpc);
     }
+#endif
 
 #ifdef DEBUG
     WdfDpcEnqueue(port->print_dpc);
@@ -103,13 +105,14 @@ void iframe_worker(WDFDPC Dpc)
 
     return_if_untrue(port);
 
-    WdfSpinLockAcquire(port->board_rx_spinlock);
-
     current_memory = fscc_port_get_input_memory_usage(port);
     memory_cap = fscc_port_get_input_memory_cap(port);
 
 //    if (current_memory + last_frame_size > memory_cap)
 //        return;
+
+    WdfSpinLockAcquire(port->board_rx_spinlock);
+    WdfSpinLockAcquire(port->pending_iframe_spinlock);
 
     finished_frame = (fscc_port_get_RFCNT(port) > 0) ? 1 : 0;
 
@@ -137,9 +140,9 @@ void iframe_worker(WDFDPC Dpc)
         receive_length -= receive_length % 4;
     }
 
-
     /* Leave the interrupt handler if there is no data to read. */
     if (receive_length <= 0) {
+        WdfSpinLockRelease(port->pending_iframe_spinlock);
         WdfSpinLockRelease(port->board_rx_spinlock);
         return;
     }
@@ -158,6 +161,7 @@ void iframe_worker(WDFDPC Dpc)
             port->pending_iframe = 0;
         }
 
+        WdfSpinLockRelease(port->pending_iframe_spinlock);
         WdfSpinLockRelease(port->board_rx_spinlock);
         return;
     }
@@ -166,6 +170,7 @@ void iframe_worker(WDFDPC Dpc)
         port->pending_iframe = fscc_frame_new(fscc_port_has_dma(port));
 
         if (!port->pending_iframe) {
+            WdfSpinLockRelease(port->pending_iframe_spinlock);
             WdfSpinLockRelease(port->board_rx_spinlock);
             return;
         }
@@ -175,6 +180,7 @@ void iframe_worker(WDFDPC Dpc)
     if (status == FALSE) {
         TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE,
             "Error adding stream data");
+        WdfSpinLockRelease(port->pending_iframe_spinlock);
         WdfSpinLockRelease(port->board_rx_spinlock);
         return;
     }
@@ -197,6 +203,7 @@ void iframe_worker(WDFDPC Dpc)
         (finished_frame) ? "" : "un");
 
     if (!finished_frame) {
+        WdfSpinLockRelease(port->pending_iframe_spinlock);
         WdfSpinLockRelease(port->board_rx_spinlock);
         return;
     }
@@ -211,6 +218,7 @@ void iframe_worker(WDFDPC Dpc)
 
     WdfDpcEnqueue(port->process_read_dpc);
 
+    WdfSpinLockRelease(port->pending_iframe_spinlock);
     WdfSpinLockRelease(port->board_rx_spinlock);
 }
 
@@ -230,8 +238,6 @@ void istream_worker(WDFDPC Dpc)
 
     return_if_untrue(port);
 
-    WdfSpinLockAcquire(port->board_rx_spinlock);
-
     current_memory = fscc_port_get_input_memory_usage(port);
     memory_cap = fscc_port_get_input_memory_cap(port);
 
@@ -244,9 +250,10 @@ void istream_worker(WDFDPC Dpc)
                                          don't have to warn the user again. */
         }
 
-        WdfSpinLockRelease(port->board_rx_spinlock);
         return;
     }
+
+    WdfSpinLockAcquire(port->board_rx_spinlock);
 
     rxcnt = fscc_port_get_RXCNT(port);
 
@@ -266,7 +273,9 @@ void istream_worker(WDFDPC Dpc)
     if (receive_length + current_memory > memory_cap)
         receive_length = memory_cap - current_memory;
 
+    WdfSpinLockAcquire(port->istream_spinlock);
     status = fscc_frame_add_data_from_port(port->istream, port, receive_length);
+    WdfSpinLockRelease(port->istream_spinlock);
     if (status == FALSE) {
         TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE,
             "Error adding stream data");
@@ -301,7 +310,8 @@ void oframe_worker(WDFDPC Dpc)
 
     return_if_untrue(port);
 
-    WdfSpinLockAcquire(port->oframe_spinlock);
+    WdfSpinLockAcquire(port->board_tx_spinlock);
+    WdfSpinLockAcquire(port->pending_oframe_spinlock);
 
     /* Check if exists and if so, grabs the frame to transmit. */
     if (!port->pending_oframe) {
@@ -309,7 +319,8 @@ void oframe_worker(WDFDPC Dpc)
 
         /* No frames in queue to transmit */
         if (!port->pending_oframe) {
-            WdfSpinLockRelease(port->oframe_spinlock);
+            WdfSpinLockRelease(port->pending_oframe_spinlock);
+            WdfSpinLockRelease(port->board_tx_spinlock);
             return;
         }
     }
@@ -326,11 +337,12 @@ void oframe_worker(WDFDPC Dpc)
     transmit_length = (size_in_fifo > fifo_space) ? fifo_space : current_length;
 
     if (transmit_length == 0) {
-        WdfSpinLockRelease(port->oframe_spinlock);
+        WdfSpinLockRelease(port->pending_oframe_spinlock);
+        WdfSpinLockRelease(port->board_tx_spinlock);
         return;
     }
 
-    //TODO: Manually accessing the buffer here is not good
+    //TODO: Manually accessing the buffer here is not good design
     fscc_port_set_register_rep(port, 0, FIFO_OFFSET,
                                port->pending_oframe->buffer,
                                transmit_length);
@@ -356,9 +368,10 @@ void oframe_worker(WDFDPC Dpc)
         //wake_up_interruptible(&port->output_queue);
     }
 
-    fscc_port_execute_transmit(port);
+    WdfSpinLockRelease(port->pending_oframe_spinlock);
+    WdfSpinLockRelease(port->board_tx_spinlock);
 
-    WdfSpinLockRelease(port->oframe_spinlock);
+    fscc_port_execute_transmit(port);
 }
 
 VOID timer_handler(WDFTIMER Timer)

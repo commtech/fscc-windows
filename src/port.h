@@ -90,22 +90,21 @@ typedef struct fscc_port {
 
     struct fscc_card card;	
 
-    WDFQUEUE write_queue;
-    WDFQUEUE read_queue;
-    WDFQUEUE ioctl_queue;
-
-    WDFQUEUE read_queue2; /* TODO: Change name to be more descriptive. */
-
     unsigned channel;
     struct fscc_registers register_storage; /* Only valid on suspend/resume */
-
     BOOLEAN append_status;
     BOOLEAN ignore_timeout;
     int tx_modifiers;
-
+    unsigned last_isr_value;
+    unsigned open_counter;
+    unsigned force_fifo;
     struct fscc_memory_cap memory_cap;
 
-    WDFSPINLOCK oframe_spinlock;
+    WDFQUEUE write_queue;
+    WDFQUEUE read_queue;
+    WDFQUEUE ioctl_queue;
+    WDFQUEUE read_queue2; /* TODO: Change name to be more descriptive. */
+
     WDFSPINLOCK board_settings_spinlock; /* Anything that will alter the settings at a board level */
     WDFSPINLOCK board_rx_spinlock; /* Anything that will alter the state of rx at a board level */
     WDFSPINLOCK board_tx_spinlock; /* Anything that will alter the state of rx at a board level */
@@ -113,9 +112,13 @@ typedef struct fscc_port {
     struct fscc_flist iframes; /* Frames already retrieved from the FIFO */
     struct fscc_flist oframes; /* Frames not yet in the FIFO yet */
 
+    WDFSPINLOCK istream_spinlock;
     struct fscc_frame *istream; /* Transparent stream */
 
+    WDFSPINLOCK pending_iframe_spinlock;
     struct fscc_frame *pending_iframe; /* Frame retrieving from the FIFO */
+
+    WDFSPINLOCK pending_oframe_spinlock;
     struct fscc_frame *pending_oframe; /* Frame being put in the FIFO */
 
     WDFDPC oframe_dpc;
@@ -125,16 +128,13 @@ typedef struct fscc_port {
 
     WDFDPC process_read_dpc;
 
-    unsigned last_isr_value;
 
     WDFTIMER timer;
 
-    unsigned open_counter;
 
     WDFINTERRUPT interrupt;
     BOOLEAN dma;
 
-    unsigned force_fifo;
 
 } FSCC_PORT;
 
