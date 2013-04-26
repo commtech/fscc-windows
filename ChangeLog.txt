@@ -1,3 +1,8 @@
+version 2.2.6 (4/26/2013)
+--------------------------------------------------------------------------------
+    * Fix a memory leak when using a frame based reception mode
+    * General memory improvements
+
 version 2.2.5 (4/19/2013)
 --------------------------------------------------------------------------------
     * Add a default PPM value to the .NET library
