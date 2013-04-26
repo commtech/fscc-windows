@@ -164,7 +164,7 @@ int fscc_frame_remove_data(struct fscc_frame *frame, char *destination,
 // into remove_Data
 void fscc_frame_clear(struct fscc_frame *frame)
 {
-    fscc_frame_remove_data(frame, NULL, frame->data_length);
+    fscc_frame_update_buffer_size(frame, 0);
 }
 
 int fscc_frame_update_buffer_size(struct fscc_frame *frame, unsigned size)
