@@ -1484,7 +1484,7 @@ void fscc_port_set_clock_bits(struct fscc_port *port,
 #endif
 
 
-    data = (UINT32 *)ExAllocatePoolWithTag(NonPagedPool, sizeof(UINT32) * 323, 'stiB');
+    data = (UINT32 *)ExAllocatePoolWithTag(PagedPool, sizeof(UINT32) * 323, 'stiB');
 
     if (data == NULL) {
         TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE,
@@ -1530,7 +1530,7 @@ void fscc_port_set_clock_bits(struct fscc_port *port,
 
     WdfSpinLockRelease(port->board_settings_spinlock);
 
-    ExFreePoolWithTag (data, 'stiB');
+    ExFreePoolWithTag(data, 'stiB');
 }
 
 unsigned fscc_port_using_async(struct fscc_port *port)
