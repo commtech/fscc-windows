@@ -713,44 +713,40 @@ this has been simplified down to just the clock bits.
 
 ### FAQ
 
-Q: Why does executing a purge without a clock put the card in a broken
-   state?
-
-A: When executing a purge on either the transmitter or receiver there is
-   a TRES or RRES (command from the CMDR register) happening behind the
-   scenes. If there is no clock available the command will stall until
-   a clock is available. This should work in theory but doesn't in
-   practice. So whenever you need to execute a purge without a clock, first
-   put it into clock mode 7, execute your purge then return to your other
-   clock mode.
+##### Why does executing a purge without a clock put the card in a broken state?
+When executing a purge on either the transmitter or receiver there is
+a TRES or RRES (command from the CMDR register) happening behind the
+scenes. If there is no clock available the command will stall until
+a clock is available. This should work in theory but doesn't in
+practice. So whenever you need to execute a purge without a clock, first
+put it into clock mode 7, execute your purge then return to your other
+clock mode.
 
 
-Q: The CRC-CCITT generated is not what I expect.
-
-A: There are many resources online that say they can calculate CRC-CCITT but most
-   don't use the correct formula defined by the HDLC specification.
+##### The CRC-CCITT generated is not what I expect.
+There are many resources online that say they can calculate CRC-CCITT but most
+don't use the correct formula defined by the HDLC specification.
    
-   An eample of one that doesn't is [lammertbies.nl](http://www.lammertbies.nl/comm/info/crc-calculation.html)
-   and the [forum post](http://www.lammertbies.nl/forum/viewtopic.php?t=607)
-   explaining why it isn't generated correctly.
+An eample of one that doesn't is [lammertbies.nl](http://www.lammertbies.nl/comm/info/crc-calculation.html)
+and the [forum post](http://www.lammertbies.nl/forum/viewtopic.php?t=607)
+explaining why it isn't generated correctly.
    
-   We recommend using this [CRC generator](http://www.zorc.breitbandkatze.de/crc.html)
-   to calculate the correct value and
-   to use [these settings](http://i.imgur.com/G6zT87i.jpg).
+We recommend using this [CRC generator](http://www.zorc.breitbandkatze.de/crc.html)
+to calculate the correct value and
+to use [these settings](http://i.imgur.com/G6zT87i.jpg).
    
 
-Q: My port numbering is messed up, how do I fix them?
-
-A: It is possible, but unfortunately there isn't a good way at the moment. To do it
-   you will need to modify the following registry keys.
+##### My port numbering is messed up, how do I fix them?
+It is possible, but unfortunately there isn't a good way at the moment. To do it
+you will need to modify the following registry keys.
    
-   This is the key for setting the automaticall generated port numbering. If you want 
-   the next number to be 8 then set this to 7. If you want it to be 0 then set to 0xffffffff 
-   (actually -1).
-   `HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\services\FSCC\Parameters\LastPortNumber`
+This is the key for setting the automaticall generated port numbering. If you want 
+the next number to be 8 then set this to 7. If you want it to be 0 then set to 0xffffffff 
+(actually -1).
+`HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\services\FSCC\Parameters\LastPortNumber`
  
-   This is the key for setting the port's specific number after it has already been assigned.
-   `HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Enum\MF\PCI#VEN_18F7&DEV_00XX\XXXXXXXXXXXXXXXXXX#Child0X\Device Parameters\PortNumber`
+This is the key for setting the port's specific number after it has already been assigned.
+`HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Enum\MF\PCI#VEN_18F7&DEV_00XX\XXXXXXXXXXXXXXXXXX#Child0X\Device Parameters\PortNumber`
 
 
 All of the following information has been copied from the linux README and has yet
