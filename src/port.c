@@ -1154,6 +1154,7 @@ void fscc_port_set_register_rep(struct fscc_port *port, unsigned bar,
     fscc_card_set_register_rep(&port->card, bar, offset, data, byte_count);
 }
 
+/* Prevents the internal async bits from being set */
 NTSTATUS fscc_port_set_registers(struct fscc_port *port,
                             const struct fscc_registers *regs)
 {
@@ -1174,7 +1175,7 @@ NTSTATUS fscc_port_set_registers(struct fscc_port *port,
         }
         else {
             fscc_port_set_register(port, 2, FCR_OFFSET,
-                                   (UINT32)(((fscc_register *)regs)[i]));
+                                   (UINT32)(((fscc_register *)regs)[i]) & 0x3fffffff);
         }
     }
 
