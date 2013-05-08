@@ -1,5 +1,7 @@
-version 2.2.7 (5/7/2013)
+version 2.2.7 (5/8/2013)
 --------------------------------------------------------------------------------
+    * Fixed a bug that allowed the user to open the FSCC and COM ports at the
+      same time by manually clearing the FCR register
     * Update SerialFC to v2.1.4 
       (https://github.com/commtech/serialfc-windows/blob/master/ChangeLog.txt)
 
