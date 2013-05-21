@@ -594,8 +594,12 @@ VOID FsccDeviceFileCreate(
 
     /* Mark the port as open in synchronous mode (so async won't open) */
     if (port->open_counter == 1) {
-        fscc_port_set_register(port, 2, FCR_OFFSET,
-                               0x40000000 << port->channel);
+        UINT32 orig_fcr, new_fcr;
+
+        orig_fcr = fscc_port_get_register(port, 2, FCR_OFFSET);
+        new_fcr = orig_fcr | (0x40000000 << port->channel);
+
+        fscc_port_set_register(port, 2, FCR_OFFSET, new_fcr);
     }
 
     WdfSpinLockRelease(port->board_settings_spinlock);
