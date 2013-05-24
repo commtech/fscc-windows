@@ -1,13 +1,13 @@
 This README file is best viewed on the [GitHub page](http://github.com/commtech/fscc-windows/).
 
-### Downloading Driver Package
+### Installation
+
+##### Downloading Driver Package
 You can download a pre-built driver package from
 the [Commtech website](http://www.commtech-fastcom.com/CommtechSoftware.html).
 
 Later on in this document is a guide on how to build the driver from source code if you
 would like to make any changes.
-
-_TODO: Add better installation instructions._
 
 ##### Dependencies
 This driver will work on all version of Windows (32 and 64) starting with XP. It might
@@ -15,6 +15,13 @@ work on Windows 2000 but we haven't tested it.
 
 The only additional packages you will require is if you want to use the Python library.
 In addition to having Python installed, we also require that you install pySerial.
+
+##### Library Compatability
+All of the 2.2.X releases will not break API compatability. If a function in the 2.2.X
+series returns an incorrect value it could be fixed to return the correct value in a
+later release.
+
+When and if we switch to a 2.3 release there will only be minor API changes.
 
 
 ### Quick Start Guide
