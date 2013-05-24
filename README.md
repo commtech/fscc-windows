@@ -1,4 +1,4 @@
-This README file is best viewed on the [GitHub page](github.com/commtech/fscc-windows/).
+This README file is best viewed on the [GitHub page](http://github.com/commtech/fscc-windows/).
 
 ### Downloading Driver Package
 You can download a pre-built driver package from
@@ -965,6 +965,6 @@ port.ignore_timeout = True
 
 ### License
 
-Copyright (C) 2013 [Commtech, Inc.](commtech-fastcom.com)
+Copyright (C) 2013 [Commtech, Inc.](http://commtech-fastcom.com)
 
 Licensed under the [GNU General Public License v3](http://www.gnu.org/licenses/gpl.txt).
