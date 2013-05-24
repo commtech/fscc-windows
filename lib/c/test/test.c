@@ -3,7 +3,7 @@
 
 #include <Windows.h>
 
-#include "../src/fscc.h"
+#include <fscc.h>
 
 #define DATA_LENGTH 20
 #define NUM_ITERATIONS 100
