@@ -1,13 +1,70 @@
-This README file is best viewed on it's [GitHub page](github.com/commtech/fscc-windows/).
-
-## Installation
+This README file is best viewed on the [GitHub page](github.com/commtech/fscc-windows/).
 
 ### Downloading Driver Package
 You will more than likely want to download our pre-built driver package from
 the [Commtech website](http://www.commtech-fastcom.com/CommtechSoftware.html).
 
-Later on in the document is a guide on how to build the driver from it's source
-code.
+Later on in the document is a guide on how to build the driver from source code if you
+would like to make any changes.
+
+### Quick Start Guide
+There is documentation for each specific function down below but lets get started
+with a quick programming example for fun.
+
+First, drop `cfscc.dll` and `cfscc.lib` into a test directory. Now that those are copied
+over, create a new C file with the following code.
+
+```
+#include <stdio.h>
+
+#include <fscc.h>
+
+int main(void)
+{
+    HANDLE h;
+    int e = 0;
+    char odata[] = "Hello world!";
+    char idata[20] = {0};
+    unsigned tmp;
+
+    /* Open FSCC0 */
+    e = fscc_connect(3, FALSE, &h);
+    if (e != 0) {
+        fprintf(stderr, "fscc_connect failed with %d\n", e);
+        return EXIT_FAILURE;
+    }
+
+    /* Send our "Hello world!" text */
+    fscc_write(h, odata, sizeof(odata), &tmp, NULL);
+
+    /* Read the data back in (with our loopback connector) */
+    fscc_read(h, idata, sizeof(idata), &tmp, NULL);
+
+    fprintf(stdout, idata);
+
+    fscc_disconnect(h);
+
+    return EXIT_SUCCESS;
+}
+```
+
+For this example I will use the Visual Studio command line comipler but
+you don't have to.
+
+```
+# cl /W4 /MT main.c cfscc.lib /I fscc\lib\fscc\c\
+```
+
+Now attach the included loopback connector.
+
+```
+# quick_start.exe
+Hello world!
+```
+
+You have now transmitted and received an HDLC frame! There is likely other
+configuration options you will need to set up for your own program. All of
+these options are defined below.
 
 
 ### Changing Register Values
