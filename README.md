@@ -749,6 +749,13 @@ This is the key for setting the port's specific number after it has already been
 `HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Enum\MF\PCI#VEN_18F7&DEV_00XX\XXXXXXXXXXXXXXXXXX#Child0X\Device Parameters\PortNumber`
 
 
+##### Which resitors are for termination?
+Near the connector on the front and back you will see resistors labeled '102' which 
+are the pull up/down resistors. On the back you will see resistors labeled '101' which 
+are the termination resistors. If you would like to send the card to us we will remove 
+them for you. If you decide to do it yourself you will void your warranty. 
+
+
 All of the following information has been copied from the linux README and has yet
 to be integrated into the Windows README. It will be soon.
 
