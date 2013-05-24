@@ -1,47 +1,88 @@
-## Installation
+This README file is best viewed on the [GitHub page](http://github.com/commtech/fscc-windows/).
 
-### Downloading Driver Package
-You will more than likely want to download our pre-built driver package from
+### Installation
+
+##### Downloading Driver Package
+You can download a pre-built driver package from
 the [Commtech website](http://www.commtech-fastcom.com/CommtechSoftware.html).
 
+Later on in this document is a guide on how to build the driver from source code if you
+would like to make any changes.
 
-### Downloading Source Code
-If you are installing from the pre-built driver packge you can skip ahead
-to the section on loading the driver.
+##### Dependencies
+This driver will work on all version of Windows (32 and 64) starting with XP. It might
+work on Windows 2000 but we haven't tested it.
 
-The source code for the Fastcom FSCC driver is hosted on Github code hosting.
-To check out the latest code you will need Git and to run the following in a
-terminal.
+The only additional packages you will require is if you want to use the Python library.
+In addition to having Python installed, we also require that you install pySerial.
 
-```
-git clone git://github.com/commtech/fscc-windows.git fscc
-```
+##### Library Compatability
+All of the 2.2.X releases will not break API compatability. If a function in the 2.2.X
+series returns an incorrect value it could be fixed to return the correct value in a
+later release.
 
-NOTE: We prefer you use the above method for downloading the driver source code
-      (because it is the easiest way to stay up to date) but you can also get 
-      the driver source code from the
-      [download page](https://github.com/commtech/fscc-windows/tags/).
+When and if we switch to a 2.3 release there will only be minor API changes.
 
-Now that you have the latest code checked out you will more than likely want
-to switch to a stable version within the code directory. To do this browse
-the various tags for one you would like to switch to. Version v1.0.0 is only
-listed here as an example.
 
-```
-git tag
-git checkout v1.0.0
-```
+### Quick Start Guide
+There is documentation for each specific function down below but lets get started
+with a quick programming example for fun.
 
-### Compiling Driver
-Compiling the driver is relatively simple assuming you have all of the
-required dependencies. You will need Windows Driver Kit 7.1.0 at a 
-minimum. After assembling all of these things you can build the driver by
-simply running the BLD command from within the source code directory.
+First, drop `cfscc.dll` and `cfscc.lib` into a test directory. Now that those are copied
+over, create a new C file with the following code.
 
 ```
-cd fscc/src/
-BLD
+#include <stdio.h>
+
+#include <fscc.h>
+
+int main(void)
+{
+    HANDLE h;
+    int e = 0;
+    char odata[] = "Hello world!";
+    char idata[20] = {0};
+    unsigned tmp;
+
+    /* Open FSCC0 */
+    e = fscc_connect(3, FALSE, &h);
+    if (e != 0) {
+        fprintf(stderr, "fscc_connect failed with %d\n", e);
+        return EXIT_FAILURE;
+    }
+
+    /* Send our "Hello world!" text */
+    fscc_write(h, odata, sizeof(odata), &tmp, NULL);
+
+    /* Read the data back in (with our loopback connector) */
+    fscc_read(h, idata, sizeof(idata), &tmp, NULL);
+
+    fprintf(stdout, idata);
+
+    fscc_disconnect(h);
+
+    return EXIT_SUCCESS;
+}
 ```
+
+For this example I will use the Visual Studio command line comipler but
+you don't have to.
+
+```
+# cl /W4 /MT main.c cfscc.lib /I fscc\lib\fscc\c\
+```
+
+Now attach the included loopback connector.
+
+```
+# quick_start.exe
+Hello world!
+```
+
+You have now transmitted and received an HDLC frame! There is likely other
+configuration options you will need to set up for your own program. All of
+these options are defined below.
+
 
 ### Changing Register Values
 The FSCC driver is a swiss army knife of sorts with communication. It can
@@ -49,17 +90,18 @@ handle many different situations if configured correctly. Typically to
 configure it to handle your specific situation you need to modify the card's
 register values.
 
+_For a complete listing of all of the configuration options please see the 
+manual._
+
 There are multiple ways of modifying the card's registers varying from using
 the Windows API to an FSCC specific API. Here are a few ways of doing this.
 
-NOTE: For a listing of all of the configuration options please see the manual.
-
-NOTE: In HDLC mode some settings are fixed at certain values. If you are in
+In HDLC mode some settings are fixed at certain values. If you are in
 HDLC mode and after setting/getting your registers some bits don't look correct
 then they are likely fixed. For a complete list of the fixed values see the CCR0
 section of the manual.
 
-NOTE: You should make sure and purge the data stream after changing registers.
+You should make sure and purge the data stream after changing registers.
 Settings like CCR0 will require being purged for the changed settings to take 
 effect.
 
@@ -103,8 +145,8 @@ registers.BGR = 10;
 fscc_set_registers(h, &registers);
 ```
 
-NOTE: A complete example of how to do this can be found in the file
-      fscc\lib\fscc\c\examples\set-registers.c.
+A complete example of how to do this can be found in the file
+`fscc\lib\fscc\c\examples\set-registers.c`.
 
 ###### C++ Library
 ```cpp
@@ -169,8 +211,8 @@ DeviceIoControl(h, FSCC_GET_REGISTERS,
 At this point 'regs.BGR' and 'regs.FCR' would be set to their respective
 values.
 
-NOTE: A complete example of how to do this can be found in the file
-      fscc\lib\fscc\c\examples\get-registers.c.
+A complete example of how to do this can be found in the file
+`fscc\lib\fscc\c\examples\get-registers.c`.
 
 Use the various APIs to easily get the values of any registers you need 
 from within your code.
@@ -264,15 +306,15 @@ DeviceIoControl(h, FSCC_SET_CLOCK_BITS,
 				&temp, NULL);
 ```
 
-NOTE: A complete example of how to do this along with how to calculate
-      these clock bits can be found in the file
-      fscc\lib\fscc\c\examples\set-clock-frequency.c.
+A complete example of how to do this along with how to calculate these 
+clock bits can be found in the file
+`fscc\lib\fscc\c\examples\set-clock-frequency.c`.
 
 Use the various APIs to easily get the values of any registers you need 
 from within your code.
 
-NOTE: PPM (Parts Per Million) has been deprecated and will be removed in 
-a future release. This value will be ignored in the mean time.
+_PPM (Parts Per Million) has been deprecated and will be removed in 
+a future release. This value will be ignored in the mean time._
 
 ###### Windows API
 ```c
@@ -515,10 +557,10 @@ DeviceIoControl(h, FSCC_GET_MEMORY_CAP,
 				&temp, NULL);				
 ```
 
-NOTE: You can set only 1 of the 2 values by running the `FSCC_MEMORY_CAP_INIT`
-      macro on the `fscc_memory_cap` struct then setting only 1 of the values
-      in the structure. The `FSCC_MEMORY_CAP_INIT` structure initializes both
-      values to -1 which will be ignored in the driver.
+You can set only 1 of the 2 values by running the `FSCC_MEMORY_CAP_INIT`
+macro on the `fscc_memory_cap` struct then setting only 1 of the values
+in the structure. The `FSCC_MEMORY_CAP_INIT` structure initializes both
+values to -1 which will be ignored in the driver.
 
 ###### C Library
 ```
@@ -534,10 +576,10 @@ fscc_set_memory_cap(h, &memcap);
 fscc_get_memory_cap(h, &memcap);
 ```
 
-NOTE: You can set only 1 of the 2 values by running the `FSCC_MEMORY_CAP_INIT`
-      macro on the `fscc_memory_cap` struct then setting only 1 of the values
-      in the structure. The `FSCC_MEMORY_CAP_INIT` structure initializes both
-      values to -1 which will be ignored in the driver.
+You can set only 1 of the 2 values by running the `FSCC_MEMORY_CAP_INIT`
+macro on the `fscc_memory_cap` struct then setting only 1 of the values
+in the structure. The `FSCC_MEMORY_CAP_INIT` structure initializes both
+values to -1 which will be ignored in the driver.
 
 ###### C++ Library
 ```cpp
@@ -579,9 +621,9 @@ memory_cap.output = 10000;
 ioctl(port_fd, FSCC_SET_MEMORY_CAP, &memory_cap);
 ```
 
-NOTE: A complete example of how to do this can be found in the file
-      fscc\lib\fscc\c\examples\set-memory-cap.c and 
-      fscc\lib\fscc\c\examples\get-memory-cap.c
+A complete example of how to do this can be found in the file
+`fscc\lib\fscc\c\examples\set-memory-cap.c` and 
+`fscc\lib\fscc\c\examples\get-memory-cap.c`.
 
 ### Purging Data
 Between the hardware FIFO and the driver's software buffers there are multiple
@@ -618,8 +660,8 @@ STATUS_IO_TIMEOUT: If trying to use a FSCC port without a transmit clock present
             This check can be turned off with the 'ignore_timeout' command
             line parameter.
 
-NOTE: A complete example of how to do this can be found in the files
-      fscc\lib\fscc\c\examples\purge.c.
+A complete example of how to do this can be found in the files
+`fscc\lib\fscc\c\examples\purge.c`.
 
 ###### C++ Library
 ```cpp
@@ -655,7 +697,7 @@ memory management are some.
 The 1.x driver and the 2.x driver are very similar so porting from one to the
 other should be rather painless.
 
-NOTE: All 
+All 
 [`DeviceIoControl`](http://msdn.microsoft.com/en-us/library/windows/desktop/aa363216(v=vs.85).aspx)
 values have changed even if their new names match their old
       names. This means even if you use a
@@ -711,6 +753,43 @@ In the 1.x driver you passed in a structure composed of both the desired
 frequency and the clock bits that represent the frequency. In the 2.x driver
 this has been simplified down to just the clock bits.
 
+
+### Downloading Source Code
+The source code for the Fastcom FSCC driver is hosted on Github code hosting.
+To check out the latest code you will need Git and to run the following in a
+terminal.
+
+```
+git clone git://github.com/commtech/fscc-windows.git fscc
+```
+
+NOTE: We prefer you use the above method for downloading the driver source code
+      (because it is the easiest way to stay up to date) but you can also get 
+      the driver source code from the
+      [download page](https://github.com/commtech/fscc-windows/tags/).
+
+Now that you have the latest code checked out you will more than likely want
+to switch to a stable version within the code directory. To do this browse
+the various tags for one you would like to switch to. Version v1.0.0 is only
+listed here as an example.
+
+```
+git tag
+git checkout v2.2.8
+```
+
+### Compiling Driver
+Compiling the driver is relatively simple assuming you have all of the
+required dependencies. You will need Windows Driver Kit 7.1.0 at a 
+minimum. After assembling all of these things you can build the driver by
+simply running the BLD command from within the source code directory.
+
+```
+cd fscc/src/
+BLD
+```
+
+
 ### FAQ
 
 ##### Why does executing a purge without a clock put the card in a broken state?
@@ -747,6 +826,13 @@ the next number to be 8 then set this to 7. If you want it to be 0 then set to 0
  
 This is the key for setting the port's specific number after it has already been assigned.
 `HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Enum\MF\PCI#VEN_18F7&DEV_00XX\XXXXXXXXXXXXXXXXXX#Child0X\Device Parameters\PortNumber`
+
+
+##### Which resitors are for termination?
+Near the connector on the front and back you will see resistors labeled '102' which 
+are the pull up/down resistors. On the back you will see resistors labeled '101' which 
+are the termination resistors. If you would like to send the card to us we will remove 
+them for you. If you decide to do it yourself you will void your warranty. 
 
 
 All of the following information has been copied from the linux README and has yet
@@ -881,3 +967,11 @@ import fscc
 
 port.ignore_timeout = True
 ```
+
+
+
+### License
+
+Copyright (C) 2013 [Commtech, Inc.](http://commtech-fastcom.com)
+
+Licensed under the [GNU General Public License v3](http://www.gnu.org/licenses/gpl.txt).
