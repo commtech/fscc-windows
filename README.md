@@ -1,11 +1,21 @@
 This README file is best viewed on the [GitHub page](github.com/commtech/fscc-windows/).
 
 ### Downloading Driver Package
-You will more than likely want to download our pre-built driver package from
+You can download a pre-built driver package from
 the [Commtech website](http://www.commtech-fastcom.com/CommtechSoftware.html).
 
-Later on in the document is a guide on how to build the driver from source code if you
+Later on in this document is a guide on how to build the driver from source code if you
 would like to make any changes.
+
+_TODO: Add better installation instructions._
+
+##### Dependencies
+This driver will work on all version of Windows (32 and 64) starting with XP. It might
+work on Windows 2000 but we haven't tested it.
+
+The only additional packages you will require is if you want to use the Python library.
+In addition to having Python installed, we also require that you install pySerial.
+
 
 ### Quick Start Guide
 There is documentation for each specific function down below but lets get started
@@ -950,3 +960,11 @@ import fscc
 
 port.ignore_timeout = True
 ```
+
+
+
+### License
+
+Copyright (C) 2013 [Commtech, Inc.](commtech-fastcom.com)
+
+Licensed under the [GNU General Public License v3](http://www.gnu.org/licenses/gpl.txt).
