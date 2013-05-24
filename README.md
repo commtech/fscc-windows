@@ -1,3 +1,5 @@
+This README file is best viewed on it's [GitHub page](github.com/commtech/fscc-windows/).
+
 ## Installation
 
 ### Downloading Driver Package
