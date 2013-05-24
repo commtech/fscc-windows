@@ -4,44 +4,9 @@
 You will more than likely want to download our pre-built driver package from
 the [Commtech website](http://www.commtech-fastcom.com/CommtechSoftware.html).
 
+Later on in the document is a guide on how to build the driver from it's source
+code.
 
-### Downloading Source Code
-If you are installing from the pre-built driver packge you can skip ahead
-to the section on loading the driver.
-
-The source code for the Fastcom FSCC driver is hosted on Github code hosting.
-To check out the latest code you will need Git and to run the following in a
-terminal.
-
-```
-git clone git://github.com/commtech/fscc-windows.git fscc
-```
-
-NOTE: We prefer you use the above method for downloading the driver source code
-      (because it is the easiest way to stay up to date) but you can also get 
-      the driver source code from the
-      [download page](https://github.com/commtech/fscc-windows/tags/).
-
-Now that you have the latest code checked out you will more than likely want
-to switch to a stable version within the code directory. To do this browse
-the various tags for one you would like to switch to. Version v1.0.0 is only
-listed here as an example.
-
-```
-git tag
-git checkout v1.0.0
-```
-
-### Compiling Driver
-Compiling the driver is relatively simple assuming you have all of the
-required dependencies. You will need Windows Driver Kit 7.1.0 at a 
-minimum. After assembling all of these things you can build the driver by
-simply running the BLD command from within the source code directory.
-
-```
-cd fscc/src/
-BLD
-```
 
 ### Changing Register Values
 The FSCC driver is a swiss army knife of sorts with communication. It can
@@ -710,6 +675,43 @@ Change the following ioctl to the current ioctl `FSCC_SET_CLOCK_BITS`.
 In the 1.x driver you passed in a structure composed of both the desired
 frequency and the clock bits that represent the frequency. In the 2.x driver
 this has been simplified down to just the clock bits.
+
+
+### Downloading Source Code
+The source code for the Fastcom FSCC driver is hosted on Github code hosting.
+To check out the latest code you will need Git and to run the following in a
+terminal.
+
+```
+git clone git://github.com/commtech/fscc-windows.git fscc
+```
+
+NOTE: We prefer you use the above method for downloading the driver source code
+      (because it is the easiest way to stay up to date) but you can also get 
+      the driver source code from the
+      [download page](https://github.com/commtech/fscc-windows/tags/).
+
+Now that you have the latest code checked out you will more than likely want
+to switch to a stable version within the code directory. To do this browse
+the various tags for one you would like to switch to. Version v1.0.0 is only
+listed here as an example.
+
+```
+git tag
+git checkout v2.2.8
+```
+
+### Compiling Driver
+Compiling the driver is relatively simple assuming you have all of the
+required dependencies. You will need Windows Driver Kit 7.1.0 at a 
+minimum. After assembling all of these things you can build the driver by
+simply running the BLD command from within the source code directory.
+
+```
+cd fscc/src/
+BLD
+```
+
 
 ### FAQ
 
