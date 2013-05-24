@@ -41,14 +41,17 @@ void display_register(unsigned bar, unsigned offset, UINT32 old_val,
         break;
     }
 
+    if (bar == 0 && (offset == FIFO_OFFSET || offset == BC_FIFO_L_OFFSET || offset == CMDR_OFFSET))
+        old_val = new_val;
+
     if (old_val != new_val) {
         TraceEvents(SessionHandle, TRACE_DEVICE,
-                    "Register (%i:0x%02i) 0x%08x => 0x%08x", bar, offset,
+                    "Register (%i:0x%02x) 0x%08x => 0x%08x", bar, offset,
                     old_val, new_val);
     }
     else {
         TraceEvents(TRACE_LEVEL_VERBOSE, TRACE_DEVICE,
-                    "Register (%i:0x%02i) = 0x%08x", bar, offset, new_val);
+                    "Register (%i:0x%02x) = 0x%08x", bar, offset, new_val);
     }
 }
 
