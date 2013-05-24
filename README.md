@@ -73,17 +73,18 @@ handle many different situations if configured correctly. Typically to
 configure it to handle your specific situation you need to modify the card's
 register values.
 
+_For a complete listing of all of the configuration options please see the 
+manual._
+
 There are multiple ways of modifying the card's registers varying from using
 the Windows API to an FSCC specific API. Here are a few ways of doing this.
 
-NOTE: For a listing of all of the configuration options please see the manual.
-
-NOTE: In HDLC mode some settings are fixed at certain values. If you are in
+In HDLC mode some settings are fixed at certain values. If you are in
 HDLC mode and after setting/getting your registers some bits don't look correct
 then they are likely fixed. For a complete list of the fixed values see the CCR0
 section of the manual.
 
-NOTE: You should make sure and purge the data stream after changing registers.
+You should make sure and purge the data stream after changing registers.
 Settings like CCR0 will require being purged for the changed settings to take 
 effect.
 
@@ -127,8 +128,8 @@ registers.BGR = 10;
 fscc_set_registers(h, &registers);
 ```
 
-NOTE: A complete example of how to do this can be found in the file
-      fscc\lib\fscc\c\examples\set-registers.c.
+A complete example of how to do this can be found in the file
+`fscc\lib\fscc\c\examples\set-registers.c`.
 
 ###### C++ Library
 ```cpp
@@ -193,8 +194,8 @@ DeviceIoControl(h, FSCC_GET_REGISTERS,
 At this point 'regs.BGR' and 'regs.FCR' would be set to their respective
 values.
 
-NOTE: A complete example of how to do this can be found in the file
-      fscc\lib\fscc\c\examples\get-registers.c.
+A complete example of how to do this can be found in the file
+`fscc\lib\fscc\c\examples\get-registers.c`.
 
 Use the various APIs to easily get the values of any registers you need 
 from within your code.
@@ -288,15 +289,15 @@ DeviceIoControl(h, FSCC_SET_CLOCK_BITS,
 				&temp, NULL);
 ```
 
-NOTE: A complete example of how to do this along with how to calculate
-      these clock bits can be found in the file
-      fscc\lib\fscc\c\examples\set-clock-frequency.c.
+A complete example of how to do this along with how to calculate these 
+clock bits can be found in the file
+`fscc\lib\fscc\c\examples\set-clock-frequency.c`.
 
 Use the various APIs to easily get the values of any registers you need 
 from within your code.
 
-NOTE: PPM (Parts Per Million) has been deprecated and will be removed in 
-a future release. This value will be ignored in the mean time.
+_PPM (Parts Per Million) has been deprecated and will be removed in 
+a future release. This value will be ignored in the mean time._
 
 ###### Windows API
 ```c
@@ -539,10 +540,10 @@ DeviceIoControl(h, FSCC_GET_MEMORY_CAP,
 				&temp, NULL);				
 ```
 
-NOTE: You can set only 1 of the 2 values by running the `FSCC_MEMORY_CAP_INIT`
-      macro on the `fscc_memory_cap` struct then setting only 1 of the values
-      in the structure. The `FSCC_MEMORY_CAP_INIT` structure initializes both
-      values to -1 which will be ignored in the driver.
+You can set only 1 of the 2 values by running the `FSCC_MEMORY_CAP_INIT`
+macro on the `fscc_memory_cap` struct then setting only 1 of the values
+in the structure. The `FSCC_MEMORY_CAP_INIT` structure initializes both
+values to -1 which will be ignored in the driver.
 
 ###### C Library
 ```
@@ -558,10 +559,10 @@ fscc_set_memory_cap(h, &memcap);
 fscc_get_memory_cap(h, &memcap);
 ```
 
-NOTE: You can set only 1 of the 2 values by running the `FSCC_MEMORY_CAP_INIT`
-      macro on the `fscc_memory_cap` struct then setting only 1 of the values
-      in the structure. The `FSCC_MEMORY_CAP_INIT` structure initializes both
-      values to -1 which will be ignored in the driver.
+You can set only 1 of the 2 values by running the `FSCC_MEMORY_CAP_INIT`
+macro on the `fscc_memory_cap` struct then setting only 1 of the values
+in the structure. The `FSCC_MEMORY_CAP_INIT` structure initializes both
+values to -1 which will be ignored in the driver.
 
 ###### C++ Library
 ```cpp
@@ -603,9 +604,9 @@ memory_cap.output = 10000;
 ioctl(port_fd, FSCC_SET_MEMORY_CAP, &memory_cap);
 ```
 
-NOTE: A complete example of how to do this can be found in the file
-      fscc\lib\fscc\c\examples\set-memory-cap.c and 
-      fscc\lib\fscc\c\examples\get-memory-cap.c
+A complete example of how to do this can be found in the file
+`fscc\lib\fscc\c\examples\set-memory-cap.c` and 
+`fscc\lib\fscc\c\examples\get-memory-cap.c`.
 
 ### Purging Data
 Between the hardware FIFO and the driver's software buffers there are multiple
@@ -642,8 +643,8 @@ STATUS_IO_TIMEOUT: If trying to use a FSCC port without a transmit clock present
             This check can be turned off with the 'ignore_timeout' command
             line parameter.
 
-NOTE: A complete example of how to do this can be found in the files
-      fscc\lib\fscc\c\examples\purge.c.
+A complete example of how to do this can be found in the files
+`fscc\lib\fscc\c\examples\purge.c`.
 
 ###### C++ Library
 ```cpp
@@ -679,7 +680,7 @@ memory management are some.
 The 1.x driver and the 2.x driver are very similar so porting from one to the
 other should be rather painless.
 
-NOTE: All 
+All 
 [`DeviceIoControl`](http://msdn.microsoft.com/en-us/library/windows/desktop/aa363216(v=vs.85).aspx)
 values have changed even if their new names match their old
       names. This means even if you use a
