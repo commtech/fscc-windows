@@ -157,7 +157,7 @@ int main(void)
     unsigned tmp;
 
     /* Open FSCC0 */
-    e = fscc_connect(3, FALSE, &h);
+    e = fscc_connect(0, FALSE, &h);
     if (e != 0) {
         fprintf(stderr, "fscc_connect failed with %d\n", e);
         return EXIT_FAILURE;
