@@ -82,27 +82,17 @@ All `DeviceIoControl` values have changed even if their new names match their ol
 names. This means even if you use a `DeviceIoControl` with an identical name, it
 will not work correctly.
 
+| Old IOCTL                      | New IOCTL                    | Notes                               
+| ------------------------------ | ---------------------------- | ---------------------------------------------------- 
+| `IOCTL_FSCCDRV_WRITE_REGISTER` | `FSCC_SET_REGISTERS`         | Single register set after `FSCC_REGISTERS_INIT`
+| `IOCTL_FSCCDRV_SETUP`          | `FSCC_SET_REGISTERS`         | 
+| `IOCTL_FSCCDRV_READ_REGISTER`  | `FSCC_GET_REGISTERS`         | Single register specified with `FSCC_UPDATE_VALUE`
+|                                | `FSCC_GET_REGISTERS`         | Added support for getting multiple registers at once
+| `IOCTL_FSCCDRV_FLUSH_TX`       | `FSCC_PURGE_TX`              | Only a name change
+|                                | `FSCC_ENABLE_APPEND_STATUS`  | 
+|                                | `FSCC_DISABLE_APPEND_STATUS` | 
+|                                | `FSCC_GET_APPEND_STATUS`     | 
 
-###### `FSCC_SET_REGISTERS`
-Setting register values was split into two different calls in the 1.x
-driver, setting all the registers at once and one at a time. In the 2.x
-driver these two scenarios have been combined into one ioctl.
-
-- `FSCC_WRITE_REGISTER` (setting a single register at a time)
-- `FSCC_SETUP` (setting all registers at a time)
-
-
-###### `FSCC_GET_REGISTERS`
-Getting register values was limited to one at a time in the 1.x driver. In
-the 2.x driver it has been made more convenient to read multiple register
-values.
-- `FSCC_READ_REGISTER` (reading a single register at a time)
-
-
-###### `FSCC_PURGE_{TX, RX}`
-Purging transmit and receive data has only changed in name, not functionality.
-
-- `IOCTL_FSCCDRV_FLUSH_{TX, RX}`
 
 
 ###### `FSCC_{ENABLE, DISABLE, GET}_APPEND_STATUS`
