@@ -6,15 +6,53 @@ This README file is best viewed on the [GitHub page](http://github.com/commtech/
 You can download a pre-built driver package from
 the [Commtech website](http://www.commtech-fastcom.com/CommtechSoftware.html).
 
-Later on in this document is a guide on how to build the driver from source code if you
-would like to make any changes.
+We recommend users install the driver using the pre-built package above. For the more
+advanced user that wants to make driver modifications you can follow the instructions
+below.
 
 ##### Dependencies
-This driver will work on all version of Windows (32 and 64) starting with XP. It might
-work on Windows 2000 but we haven't tested it.
+For 99% of our customers you will be able to install the driver without any additional
+dependencies. The full dependency list is below.
 
-The only additional packages you will require is if you want to use the Python library.
-In addition to having Python installed, we also require that you install pySerial.
+- Driver Package: Windows (32 and 64) staring with XP
+- Driver Source Code: Windows Driver Kit 7.1.0 (Only required when building from source)
+- Python Library: Python, pySerial
+
+
+##### Downloading Source Code
+The source code for the Fastcom FSCC driver is hosted on Github code hosting.
+To check out the latest code you will need Git and to run the following in a
+terminal.
+
+```
+git clone git://github.com/commtech/fscc-windows.git fscc
+```
+
+NOTE: We prefer you use the above method for downloading the driver source code
+      (because it is the easiest way to stay up to date) but you can also get 
+      the driver source code from the
+      [download page](https://github.com/commtech/fscc-windows/tags/).
+
+Now that you have the latest code checked out you will more than likely want
+to switch to a stable version within the code directory. To do this browse
+the various tags for one you would like to switch to. Version v1.0.0 is only
+listed here as an example.
+
+```
+git tag
+git checkout v2.2.8
+```
+
+##### Compiling Driver
+Compiling the driver is relatively simple assuming you have all of the
+required dependencies. You will need Windows Driver Kit 7.1.0 at a 
+minimum. After assembling all of these things you can build the driver by
+simply running the BLD command from within the source code directory.
+
+```
+cd fscc/src/
+BLD
+```
 
 ##### Library Compatability
 All of the 2.2.X releases will not break API compatability. If a function in the 2.2.X
@@ -22,6 +60,71 @@ series returns an incorrect value it could be fixed to return the correct value 
 later release.
 
 When and if we switch to a 2.3 release there will only be minor API changes.
+
+##### Migrating From 1.x to 2.x
+There are multiple benefits of using the 2.x driver: amd64 support, intuitive 
+[`DeviceIoControl`](http://msdn.microsoft.com/en-us/library/windows/desktop/aa363216(v=vs.85).aspx)
+calls, backend support for multiple languages (C, C++, Python, .NET) and dynamic 
+memory management are some.
+
+The 1.x driver and the 2.x driver are very similar so porting from one to the
+other should be rather painless.
+
+All 
+[`DeviceIoControl`](http://msdn.microsoft.com/en-us/library/windows/desktop/aa363216(v=vs.85).aspx)
+values have changed even if their new names match their old
+      names. This means even if you use a
+[`DeviceIoControl`](http://msdn.microsoft.com/en-us/library/windows/desktop/aa363216(v=vs.85).aspx)
+with an identical name, it
+      will not work correctly.
+
+Setting register values was split into two different 
+[`DeviceIoControl`](http://msdn.microsoft.com/en-us/library/windows/desktop/aa363216(v=vs.85).aspx)
+calls in the 1.x
+driver, setting all the registers at once and one at a time. In the 2.x
+driver these two scenarios have been combined into one ioctl.
+
+Change the following 
+[`DeviceIoControl`](http://msdn.microsoft.com/en-us/library/windows/desktop/aa363216(v=vs.85).aspx) 
+calls to the current 
+[`DeviceIoControl`](http://msdn.microsoft.com/en-us/library/windows/desktop/aa363216(v=vs.85).aspx)
+`FSCC_SET_REGISTERS`.
+
+`FSCC_WRITE_REGISTER` (setting a single register at a time)
+`FSCC_SETUP` (setting all registers at a time)
+
+Getting register values was limited to one at a time in the 1.x driver. In
+the 2.x driver it has been made more convenient to read multiple register
+values.
+
+Change the following 
+[`DeviceIoControl`](http://msdn.microsoft.com/en-us/library/windows/desktop/aa363216(v=vs.85).aspx)
+to the current 
+[`DeviceIoControl`](http://msdn.microsoft.com/en-us/library/windows/desktop/aa363216(v=vs.85).aspx)
+`FSCC_GET_REGISTERS`.
+
+`FSCC_READ_REGISTER` (reading a single register at a time)
+
+Purging transmit and receive data has not changed. Continue using
+`FSCC_PURGE_TX` and `FSCC_PURGE_RX`.
+
+Getting the frame status has now been designed to be configurable. In the
+1.x driver you would always have the frame status appended to your data on a
+read. In the 2.x driver this can be toggled, and defaults to not appending
+the status to the data.
+
+Changing the clock frequency is basically the same but the data structure
+and 
+[`DeviceIoControl`](http://msdn.microsoft.com/en-us/library/windows/desktop/aa363216(v=vs.85).aspx)
+name are different.
+
+Change the following ioctl to the current ioctl `FSCC_SET_CLOCK_BITS`.
+
+`FSCC_SET_FREQ` (setting the clock frequency)
+
+In the 1.x driver you passed in a structure composed of both the desired
+frequency and the clock bits that represent the frequency. In the 2.x driver
+this has been simplified down to just the clock bits.
 
 
 ### Programming Your Card
@@ -817,108 +920,6 @@ COM handle to be in asychronous mode.
 
 For more information about using the UART's take a look at the 
 [SerialFC driver readme](https://github.com/commtech/serialfc-windows/blob/master/README.md).
-
-
-##### Migrating From 1.x to 2.x
-There are multiple benefits of using the 2.x driver: amd64 support, intuitive 
-[`DeviceIoControl`](http://msdn.microsoft.com/en-us/library/windows/desktop/aa363216(v=vs.85).aspx)
-calls, backend support for multiple languages (C, C++, Python, .NET) and dynamic 
-memory management are some.
-
-The 1.x driver and the 2.x driver are very similar so porting from one to the
-other should be rather painless.
-
-All 
-[`DeviceIoControl`](http://msdn.microsoft.com/en-us/library/windows/desktop/aa363216(v=vs.85).aspx)
-values have changed even if their new names match their old
-      names. This means even if you use a
-[`DeviceIoControl`](http://msdn.microsoft.com/en-us/library/windows/desktop/aa363216(v=vs.85).aspx)
-with an identical name, it
-      will not work correctly.
-
-Setting register values was split into two different 
-[`DeviceIoControl`](http://msdn.microsoft.com/en-us/library/windows/desktop/aa363216(v=vs.85).aspx)
-calls in the 1.x
-driver, setting all the registers at once and one at a time. In the 2.x
-driver these two scenarios have been combined into one ioctl.
-
-Change the following 
-[`DeviceIoControl`](http://msdn.microsoft.com/en-us/library/windows/desktop/aa363216(v=vs.85).aspx) 
-calls to the current 
-[`DeviceIoControl`](http://msdn.microsoft.com/en-us/library/windows/desktop/aa363216(v=vs.85).aspx)
-`FSCC_SET_REGISTERS`.
-
-`FSCC_WRITE_REGISTER` (setting a single register at a time)
-`FSCC_SETUP` (setting all registers at a time)
-
-Getting register values was limited to one at a time in the 1.x driver. In
-the 2.x driver it has been made more convenient to read multiple register
-values.
-
-Change the following 
-[`DeviceIoControl`](http://msdn.microsoft.com/en-us/library/windows/desktop/aa363216(v=vs.85).aspx)
-to the current 
-[`DeviceIoControl`](http://msdn.microsoft.com/en-us/library/windows/desktop/aa363216(v=vs.85).aspx)
-`FSCC_GET_REGISTERS`.
-
-`FSCC_READ_REGISTER` (reading a single register at a time)
-
-Purging transmit and receive data has not changed. Continue using
-`FSCC_PURGE_TX` and `FSCC_PURGE_RX`.
-
-Getting the frame status has now been designed to be configurable. In the
-1.x driver you would always have the frame status appended to your data on a
-read. In the 2.x driver this can be toggled, and defaults to not appending
-the status to the data.
-
-Changing the clock frequency is basically the same but the data structure
-and 
-[`DeviceIoControl`](http://msdn.microsoft.com/en-us/library/windows/desktop/aa363216(v=vs.85).aspx)
-name are different.
-
-Change the following ioctl to the current ioctl `FSCC_SET_CLOCK_BITS`.
-
-`FSCC_SET_FREQ` (setting the clock frequency)
-
-In the 1.x driver you passed in a structure composed of both the desired
-frequency and the clock bits that represent the frequency. In the 2.x driver
-this has been simplified down to just the clock bits.
-
-
-### Downloading Source Code
-The source code for the Fastcom FSCC driver is hosted on Github code hosting.
-To check out the latest code you will need Git and to run the following in a
-terminal.
-
-```
-git clone git://github.com/commtech/fscc-windows.git fscc
-```
-
-NOTE: We prefer you use the above method for downloading the driver source code
-      (because it is the easiest way to stay up to date) but you can also get 
-      the driver source code from the
-      [download page](https://github.com/commtech/fscc-windows/tags/).
-
-Now that you have the latest code checked out you will more than likely want
-to switch to a stable version within the code directory. To do this browse
-the various tags for one you would like to switch to. Version v1.0.0 is only
-listed here as an example.
-
-```
-git tag
-git checkout v2.2.8
-```
-
-### Compiling Driver
-Compiling the driver is relatively simple assuming you have all of the
-required dependencies. You will need Windows Driver Kit 7.1.0 at a 
-minimum. After assembling all of these things you can build the driver by
-simply running the BLD command from within the source code directory.
-
-```
-cd fscc/src/
-BLD
-```
 
 
 ### FAQ
