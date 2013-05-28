@@ -24,7 +24,9 @@ later release.
 When and if we switch to a 2.3 release there will only be minor API changes.
 
 
-### Quick Start Guide
+### Using the FSCC
+
+##### Quick Start Guide
 There is documentation for each specific function down below but lets get started
 with a quick programming example for fun.
 
@@ -84,7 +86,7 @@ configuration options you will need to set up for your own program. All of
 these options are defined below.
 
 
-### Changing Register Values
+##### Changing Register Values
 The FSCC driver is a swiss army knife of sorts with communication. It can
 handle many different situations if configured correctly. Typically to
 configure it to handle your specific situation you need to modify the card's
@@ -182,7 +184,7 @@ port.registers.BGR = 10
 ```
 
 
-### Reading Register Values
+##### Reading Register Values
 There are multiple ways of reading the card's registers varying from using
 the Windows API to an FSCC specific API. Here are a few ways of doing this.
 
@@ -262,7 +264,7 @@ bgr = port.registers.FCR
 ```
 
 
-### Asynchronous Communication
+##### Asynchronous Communication
 The FSCC driver includes a slightly modified version of the Windows serial 
 driver for handling the asynchronous communication for our UARTs. The Windows
 serial driver is highly tested and likely more stable than anything we could 
@@ -278,7 +280,7 @@ For more information about using the UART's take a look at the
 
 
 
-### Setting Clock Frequency
+##### Setting Clock Frequency
 The FSCC device has a programmable clock that can be set anywhere from
 20 KHz to 200 MHz. However, this is not the full operational range of an
 FSCC port, only the range that the onboard clock can be set to.
@@ -361,7 +363,7 @@ TODO
 ```
 
 
-###  Operating Driver
+#####  Operating Driver
 The FSCC driver typically (but not always) works in "frames". This means that
 data typically is packaged together in permanent chunks. If the card received
 two frames of data prior to you retrieving the data you will only get one chunk
@@ -451,7 +453,7 @@ duplicate any of it's documentation here but for reference sake here is an [arti
 bug developers introduce while trying to cancel IO operations while using OVERLAPPED IO.
 
 
-### Viewing/Setting Frame Status
+##### Viewing/Setting Frame Status
 It is a good idea to pay attention to the status of each frame. For example if
 you want to see if the frame's CRC check succeeded or failed.
 
@@ -527,8 +529,7 @@ port.append_status = True;
 ```
 
 
-XI. Viewing/Setting Memory Constraints
--------------------------------------------------------------------------------
+##### Viewing/Setting Memory Constraints
 For systems with limited memory available to them there is safety checks in
 place to prevent spurious incoming data from overrunning your system. Each port
 has an option for setting it's input and output memory cap.
@@ -625,7 +626,138 @@ A complete example of how to do this can be found in the file
 `fscc\lib\fscc\c\examples\set-memory-cap.c` and 
 `fscc\lib\fscc\c\examples\get-memory-cap.c`.
 
-### Purging Data
+
+##### Transmit Modifiers
+
+###### Options
+- XF - Normal transmit - disable modifiers
+- XREP - Transmit repeat
+- TXT - Transmit on timer
+- TXEXT - Transmit on external signal
+
+###### Windows API
+```c
+#include <fscc.h>
+
+...
+
+unsigned modifiers = TXT | XREP;
+
+DeviceIoControl(h, FSCC_SET_TX_MODIFIERS, 
+				&modifiers, sizeof(modifiers), 
+				NULL, 0, 
+				&temp, NULL);
+
+DeviceIoControl(h, FSCC_GET_TX_MODIFIERS, 
+				NULL, 0, 
+				&modifiers, sizeof(modifiers), 
+				&temp, NULL);				
+```
+
+###### C Library
+```
+#include <fscc.h>
+...
+
+unsigned modifiers;
+
+fscc_set_tx_modifiers(h, XF | XREP);
+fscc_get_tx_modifiers(h, &modifiers);
+```
+
+###### C++ Library
+```cpp
+#include <fscc.hpp>
+...
+
+port.SetTxModifiers(XF | XREP);
+
+unsigned modifiers = port.GetTxModifiers();
+```
+
+###### .NET Library
+```csharp
+using FSCC;
+...
+
+port.TxModifiers = XF | XREP;
+```
+
+###### Python Library
+```python
+import fscc
+...
+
+port.tx_modifiers = XF | XREP
+```
+
+##### Ignore Timeout
+
+###### Windows API
+```c
+#include <fscc.h>
+...
+
+BOOL status;
+
+DeviceIoControl(h, FSCC_ENABLE_IGNORE_TIMEOUT, 
+                NULL, 0, 
+                NULL, 0, 
+                &temp, NULL);
+
+DeviceIoControl(h, FSCC_DISABLE_IGNORE_TIMEOUT, 
+                NULL, 0, 
+                NULL, 0, 
+                &temp, NULL);
+				
+DeviceIoControl(h, FSCC_GET_IGNORE_TIMEOUT, 
+                NULL, 0, 
+                &status, sizeof(status), 
+                &temp, NULL);
+```
+
+###### C Library
+```c
+#include <fscc.h>
+...
+
+BOOL status;
+
+fscc_enable_ignore_timeout(h);
+fscc_disable_ignore_timeout(h);
+
+fscc_get_ignore_timeout(h, &status);
+```
+
+###### C++ Library
+```cpp
+#include <fscc.hpp>
+...
+
+port.EnableIgnoreTimeout();
+port.DisableIgnoreTimeout();
+
+bool status = port.GetIgnoreTimeout();
+```
+
+###### .NET Library
+```csharp
+using FSCC;
+...
+
+port.IgnoreTimeout = true;
+```
+
+###### Python Library
+```python
+import fscc
+...
+
+port.ignore_timeout = True
+```
+
+
+##### Purging Data
 Between the hardware FIFO and the driver's software buffers there are multiple
 places data could be at excluding your application code. If you ever need to
 clear this data out and start out fresh there are a couple ways of doing this.
@@ -688,7 +820,7 @@ port.purge(True, True)
 ```
 
 
-### Migrating From 1.x to 2.x
+##### Migrating From 1.x to 2.x
 There are multiple benefits of using the 2.x driver: amd64 support, intuitive 
 [`DeviceIoControl`](http://msdn.microsoft.com/en-us/library/windows/desktop/aa363216(v=vs.85).aspx)
 calls, backend support for multiple languages (C, C++, Python, .NET) and dynamic 
@@ -833,141 +965,6 @@ Near the connector on the front and back you will see resistors labeled '102' wh
 are the pull up/down resistors. On the back you will see resistors labeled '101' which 
 are the termination resistors. If you would like to send the card to us we will remove 
 them for you. If you decide to do it yourself you will void your warranty. 
-
-
-All of the following information has been copied from the linux README and has yet
-to be integrated into the Windows README. It will be soon.
-
-### Tx Modifiers
-
-##### Options
-- XF - Normal transmit - disable modifiers
-- XREP - Transmit repeat
-- TXT - Transmit on timer
-- TXEXT - Transmit on external signal
-
-###### Windows API
-```c
-#include <fscc.h>
-
-...
-
-unsigned modifiers = TXT | XREP;
-
-DeviceIoControl(h, FSCC_SET_TX_MODIFIERS, 
-				&modifiers, sizeof(modifiers), 
-				NULL, 0, 
-				&temp, NULL);
-
-DeviceIoControl(h, FSCC_GET_TX_MODIFIERS, 
-				NULL, 0, 
-				&modifiers, sizeof(modifiers), 
-				&temp, NULL);				
-```
-
-###### C Library
-```
-#include <fscc.h>
-...
-
-unsigned modifiers;
-
-fscc_set_tx_modifiers(h, XF | XREP);
-fscc_get_tx_modifiers(h, &modifiers);
-```
-
-###### C++ Library
-```cpp
-#include <fscc.hpp>
-...
-
-port.SetTxModifiers(XF | XREP);
-
-unsigned modifiers = port.GetTxModifiers();
-```
-
-###### .NET Library
-```csharp
-using FSCC;
-...
-
-port.TxModifiers = XF | XREP;
-```
-
-###### Python Library
-```python
-import fscc
-...
-
-port.tx_modifiers = XF | XREP
-```
-
-
-### Ignore Timeout
-
-###### Windows API
-```c
-#include <fscc.h>
-...
-
-BOOL status;
-
-DeviceIoControl(h, FSCC_ENABLE_IGNORE_TIMEOUT, 
-                NULL, 0, 
-                NULL, 0, 
-                &temp, NULL);
-
-DeviceIoControl(h, FSCC_DISABLE_IGNORE_TIMEOUT, 
-                NULL, 0, 
-                NULL, 0, 
-                &temp, NULL);
-				
-DeviceIoControl(h, FSCC_GET_IGNORE_TIMEOUT, 
-                NULL, 0, 
-                &status, sizeof(status), 
-                &temp, NULL);
-```
-
-###### C Library
-```c
-#include <fscc.h>
-...
-
-BOOL status;
-
-fscc_enable_ignore_timeout(h);
-fscc_disable_ignore_timeout(h);
-
-fscc_get_ignore_timeout(h, &status);
-```
-
-###### C++ Library
-```cpp
-#include <fscc.hpp>
-...
-
-port.EnableIgnoreTimeout();
-port.DisableIgnoreTimeout();
-
-bool status = port.GetIgnoreTimeout();
-```
-
-###### .NET Library
-```csharp
-using FSCC;
-...
-
-port.IgnoreTimeout = true;
-```
-
-###### Python Library
-```python
-import fscc
-...
-
-port.ignore_timeout = True
-```
-
 
 
 ### License
