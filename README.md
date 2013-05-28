@@ -70,7 +70,7 @@ When and if we switch to a 2.3 release there will only be minor API changes.
 
 ##### Migrating From 1.x to 2.x
 There are multiple benefits of using the 2.x driver: amd64 support, intuitive 
-[`DeviceIoControl`](http://msdn.microsoft.com/en-us/library/windows/desktop/aa363216(v=vs.85).aspx)
+[`DeviceIoControl`](http://msdn.microsoft.com/en-us/library/windows/desktop/aa363216.aspx)
 calls, backend support for multiple languages (C, C++, Python, .NET) and dynamic 
 memory management are some.
 
@@ -78,23 +78,23 @@ The 1.x driver and the 2.x driver are very similar so porting from one to the
 other should be rather painless.
 
 All 
-[`DeviceIoControl`](http://msdn.microsoft.com/en-us/library/windows/desktop/aa363216(v=vs.85).aspx)
+[`DeviceIoControl`](http://msdn.microsoft.com/en-us/library/windows/desktop/aa363216.aspx)
 values have changed even if their new names match their old
       names. This means even if you use a
-[`DeviceIoControl`](http://msdn.microsoft.com/en-us/library/windows/desktop/aa363216(v=vs.85).aspx)
+[`DeviceIoControl`](http://msdn.microsoft.com/en-us/library/windows/desktop/aa363216.aspx)
 with an identical name, it
       will not work correctly.
 
 Setting register values was split into two different 
-[`DeviceIoControl`](http://msdn.microsoft.com/en-us/library/windows/desktop/aa363216(v=vs.85).aspx)
+[`DeviceIoControl`](http://msdn.microsoft.com/en-us/library/windows/desktop/aa363216.aspx)
 calls in the 1.x
 driver, setting all the registers at once and one at a time. In the 2.x
 driver these two scenarios have been combined into one ioctl.
 
 Change the following 
-[`DeviceIoControl`](http://msdn.microsoft.com/en-us/library/windows/desktop/aa363216(v=vs.85).aspx) 
+[`DeviceIoControl`](http://msdn.microsoft.com/en-us/library/windows/desktop/aa363216.aspx) 
 calls to the current 
-[`DeviceIoControl`](http://msdn.microsoft.com/en-us/library/windows/desktop/aa363216(v=vs.85).aspx)
+[`DeviceIoControl`](http://msdn.microsoft.com/en-us/library/windows/desktop/aa363216.aspx)
 `FSCC_SET_REGISTERS`.
 
 `FSCC_WRITE_REGISTER` (setting a single register at a time)
@@ -105,9 +105,9 @@ the 2.x driver it has been made more convenient to read multiple register
 values.
 
 Change the following 
-[`DeviceIoControl`](http://msdn.microsoft.com/en-us/library/windows/desktop/aa363216(v=vs.85).aspx)
+[`DeviceIoControl`](http://msdn.microsoft.com/en-us/library/windows/desktop/aa363216.aspx)
 to the current 
-[`DeviceIoControl`](http://msdn.microsoft.com/en-us/library/windows/desktop/aa363216(v=vs.85).aspx)
+[`DeviceIoControl`](http://msdn.microsoft.com/en-us/library/windows/desktop/aa363216.aspx)
 `FSCC_GET_REGISTERS`.
 
 `FSCC_READ_REGISTER` (reading a single register at a time)
@@ -122,7 +122,7 @@ the status to the data.
 
 Changing the clock frequency is basically the same but the data structure
 and 
-[`DeviceIoControl`](http://msdn.microsoft.com/en-us/library/windows/desktop/aa363216(v=vs.85).aspx)
+[`DeviceIoControl`](http://msdn.microsoft.com/en-us/library/windows/desktop/aa363216.aspx)
 name are different.
 
 Change the following ioctl to the current ioctl `FSCC_SET_CLOCK_BITS`.
@@ -834,16 +834,16 @@ There are multiple ways of reading/writing data to/from the card. Listed below
 are only the most common.
 
 Writing data will typically be done within C code using the 
-[`WriteFile()`](http://msdn.microsoft.com/en-us/library/windows/desktop/aa365747(v=vs.85).aspx)
+[`WriteFile()`](http://msdn.microsoft.com/en-us/library/windows/desktop/aa365747.aspx)
 function found within 
-[`<windows.h>`](http://msdn.microsoft.com/en-us/library/windows/desktop/aa383745(v=vs.85).aspx). 
+[`<windows.h>`](http://msdn.microsoft.com/en-us/library/windows/desktop/aa383745.aspx). 
 
 ```
 result = WriteFile(handle, buf, count, (DWORD*)bytes_written, NULL);
 ```
 
 In in addition to the standard errors that the 
-[`WriteFile()`](http://msdn.microsoft.com/en-us/library/windows/desktop/aa365747(v=vs.85).aspx)
+[`WriteFile()`](http://msdn.microsoft.com/en-us/library/windows/desktop/aa365747.aspx)
 function returns there are a couple errors specific to the FSCC you might run 
 into.
 
@@ -858,9 +858,9 @@ STATUS_BUFFER_TOO_SMALL: If the count parameter passed into the write() function
 
 
 Reading data will typically be done within C code using the 
-[`ReadFile()`](http://msdn.microsoft.com/en-us/library/windows/desktop/aa365467(v=vs.85).aspx)
+[`ReadFile()`](http://msdn.microsoft.com/en-us/library/windows/desktop/aa365467.aspx)
 function found within the 
-[`<windows.h>`](http://msdn.microsoft.com/en-us/library/windows/desktop/aa383745(v=vs.85).aspx). 
+[`<windows.h>`](http://msdn.microsoft.com/en-us/library/windows/desktop/aa383745.aspx). 
 
 ```c
 result = ReadFile(handle, buf, length, (DWORD*)bytes_read, NULL);
@@ -873,21 +873,21 @@ In a frame based mode the length argument specifies the maximum frame size
 to return. If the next queued frame is larger than the size you specified
 the error `STATUS_BUFFER_TOO_SMALL` is returned and the data will remain 
 waiting for a 
-[`ReadFile()`](http://msdn.microsoft.com/en-us/library/windows/desktop/aa365467(v=vs.85).aspx)
+[`ReadFile()`](http://msdn.microsoft.com/en-us/library/windows/desktop/aa365467.aspx)
 of a larger value. If a 
-[`ReadFile()`](http://msdn.microsoft.com/en-us/library/windows/desktop/aa365467(v=vs.85).aspx)
+[`ReadFile()`](http://msdn.microsoft.com/en-us/library/windows/desktop/aa365467.aspx)
 length is specified that is larger than the
 length of multiple frames in queue you will still only receive one frame per
-[`ReadFile()`](http://msdn.microsoft.com/en-us/library/windows/desktop/aa365467(v=vs.85).aspx)
+[`ReadFile()`](http://msdn.microsoft.com/en-us/library/windows/desktop/aa365467.aspx)
 call.
 
 In streaming mode (no frame termination) the length argument specifies the
 maximum amount of data to return. If there is 100 bytes of streaming data
 in the card and you 
-[`ReadFile()`](http://msdn.microsoft.com/en-us/library/windows/desktop/aa365467(v=vs.85).aspx)
+[`ReadFile()`](http://msdn.microsoft.com/en-us/library/windows/desktop/aa365467.aspx)
 with a length of 50, you will receive 50 bytes.
 If you were to do a 
-[`ReadFile()`](http://msdn.microsoft.com/en-us/library/windows/desktop/aa365467(v=vs.85).aspx)
+[`ReadFile()`](http://msdn.microsoft.com/en-us/library/windows/desktop/aa365467.aspx)
 of 200 bytes you will receive the 100 bytes
 available.
 
@@ -895,13 +895,13 @@ Frame based data and streaming data are kept separate within the driver.
 To understand what this means first imagine this scenario. You are in a
 frame based mode and receive a couple of frames. You then switch to
 streaming mode and receive a stream of data. When calling 
-[`ReadFile()`](http://msdn.microsoft.com/en-us/library/windows/desktop/aa365467(v=vs.85).aspx)
+[`ReadFile()`](http://msdn.microsoft.com/en-us/library/windows/desktop/aa365467.aspx)
 you will receive the the streaming data until you switch back into a frame based
 mode then do a 
-[`ReadFile()`](http://msdn.microsoft.com/en-us/library/windows/desktop/aa365467(v=vs.85).aspx).
+[`ReadFile()`](http://msdn.microsoft.com/en-us/library/windows/desktop/aa365467.aspx).
 
 In in addition to the standard errors that the 
-[`ReadFile()`](http://msdn.microsoft.com/en-us/library/windows/desktop/aa365467(v=vs.85).aspx)
+[`ReadFile()`](http://msdn.microsoft.com/en-us/library/windows/desktop/aa365467.aspx)
 function returns there are a couple errors specific to the FSCC you might run into.
 
 STATUS_BUFFER_TOO_SMALL: If the size parameter passed into the read() function is smaller
