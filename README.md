@@ -92,25 +92,14 @@ will not work correctly.
 |                                | `FSCC_ENABLE_APPEND_STATUS`  | 
 |                                | `FSCC_DISABLE_APPEND_STATUS` | 
 |                                | `FSCC_GET_APPEND_STATUS`     | 
+| `IOCTL_FSCCDRV_SET_FREQ`       | `FSCC_SET_CLOCK_BITS`        | Only takes clock bits now
 
 
-
-###### `FSCC_{ENABLE, DISABLE, GET}_APPEND_STATUS`
+###### Status Bytes
 Getting the frame status has now been designed to be configurable. In the
 1.x driver you would always have the frame status appended to your data on a
 read. In the 2.x driver this can be toggled, and defaults to not appending
 the status to the data.
-
-
-###### `FSCC_SET_CLOCK_BITS`
-Changing the clock frequency is basically the same but the data structure
-and `DeviceIoControl` name are different.
-
-- `IOCTL_FSCCDRV_SET_FREQ` (setting the clock frequency)
-
-In the 1.x driver you passed in a structure composed of both the desired
-frequency and the clock bits that represent the frequency. In the 2.x driver
-this has been simplified down to just the clock bits.
 
 
 ### Programming Your Card
