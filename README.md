@@ -68,6 +68,7 @@ later release.
 
 When and if we switch to a 2.3 release there will only be minor API changes.
 
+
 ##### Migrating From 1.x to 2.x
 There are multiple benefits of using the 2.x driver: amd64 support, intuitive 
 [`DeviceIoControl`](http://msdn.microsoft.com/en-us/library/windows/desktop/aa363216.aspx)
@@ -77,57 +78,45 @@ memory management are some.
 The 1.x driver and the 2.x driver are very similar so porting from one to the
 other should be rather painless.
 
-All 
-[`DeviceIoControl`](http://msdn.microsoft.com/en-us/library/windows/desktop/aa363216.aspx)
-values have changed even if their new names match their old
-      names. This means even if you use a
-[`DeviceIoControl`](http://msdn.microsoft.com/en-us/library/windows/desktop/aa363216.aspx)
-with an identical name, it
-      will not work correctly.
+All `DeviceIoControl` values have changed even if their new names match their old
+names. This means even if you use a `DeviceIoControl` with an identical name, it
+will not work correctly.
 
-Setting register values was split into two different 
-[`DeviceIoControl`](http://msdn.microsoft.com/en-us/library/windows/desktop/aa363216.aspx)
-calls in the 1.x
+
+###### `FSCC_SET_REGISTERS`
+Setting register values was split into two different calls in the 1.x
 driver, setting all the registers at once and one at a time. In the 2.x
 driver these two scenarios have been combined into one ioctl.
 
-Change the following 
-[`DeviceIoControl`](http://msdn.microsoft.com/en-us/library/windows/desktop/aa363216.aspx) 
-calls to the current 
-[`DeviceIoControl`](http://msdn.microsoft.com/en-us/library/windows/desktop/aa363216.aspx)
-`FSCC_SET_REGISTERS`.
+- `FSCC_WRITE_REGISTER` (setting a single register at a time)
+- `FSCC_SETUP` (setting all registers at a time)
 
-`FSCC_WRITE_REGISTER` (setting a single register at a time)
-`FSCC_SETUP` (setting all registers at a time)
 
+###### `FSCC_GET_REGISTERS`
 Getting register values was limited to one at a time in the 1.x driver. In
 the 2.x driver it has been made more convenient to read multiple register
 values.
+- `FSCC_READ_REGISTER` (reading a single register at a time)
 
-Change the following 
-[`DeviceIoControl`](http://msdn.microsoft.com/en-us/library/windows/desktop/aa363216.aspx)
-to the current 
-[`DeviceIoControl`](http://msdn.microsoft.com/en-us/library/windows/desktop/aa363216.aspx)
-`FSCC_GET_REGISTERS`.
 
-`FSCC_READ_REGISTER` (reading a single register at a time)
+###### `FSCC_PURGE_{TX, RX}`
+Purging transmit and receive data has only changed in name, not functionality.
 
-Purging transmit and receive data has not changed. Continue using
-`FSCC_PURGE_TX` and `FSCC_PURGE_RX`.
+- `IOCTL_FSCCDRV_FLUSH_{TX, RX}`
 
+
+###### `FSCC_{ENABLE, DISABLE, GET}_APPEND_STATUS`
 Getting the frame status has now been designed to be configurable. In the
 1.x driver you would always have the frame status appended to your data on a
 read. In the 2.x driver this can be toggled, and defaults to not appending
 the status to the data.
 
+
+###### `FSCC_SET_CLOCK_BITS`
 Changing the clock frequency is basically the same but the data structure
-and 
-[`DeviceIoControl`](http://msdn.microsoft.com/en-us/library/windows/desktop/aa363216.aspx)
-name are different.
+and `DeviceIoControl` name are different.
 
-Change the following ioctl to the current ioctl `FSCC_SET_CLOCK_BITS`.
-
-`FSCC_SET_FREQ` (setting the clock frequency)
+- `IOCTL_FSCCDRV_SET_FREQ` (setting the clock frequency)
 
 In the 1.x driver you passed in a structure composed of both the desired
 frequency and the clock bits that represent the frequency. In the 2.x driver
