@@ -1,6 +1,6 @@
 This README file is best viewed on the [GitHub page](http://github.com/commtech/fscc-windows/).
 
-### Installation
+### Installing Driver
 
 ##### Downloading Driver Package
 You can download a pre-built driver package from
@@ -24,7 +24,7 @@ later release.
 When and if we switch to a 2.3 release there will only be minor API changes.
 
 
-### Using the FSCC
+### Programming Your Card
 
 ##### Quick Start Guide
 There is documentation for each specific function down below but lets get started
@@ -264,22 +264,6 @@ bgr = port.registers.FCR
 ```
 
 
-##### Asynchronous Communication
-The FSCC driver includes a slightly modified version of the Windows serial 
-driver for handling the asynchronous communication for our UARTs. The Windows
-serial driver is highly tested and likely more stable than anything we could 
-produce in any reasonably amount of time.
-
-The FSCC and SerialFC drivers work together to automatically switch between 
-synchronous and asynchronous modes by modifying the FCR register for you. 
-All you need to do is open the FSCC handle to be in synchronous mode and the 
-COM handle to be in asychronous mode.
-
-For more information about using the UART's take a look at the 
-[SerialFC driver readme](https://github.com/commtech/serialfc-windows/blob/master/README.md).
-
-
-
 ##### Setting Clock Frequency
 The FSCC device has a programmable clock that can be set anywhere from
 20 KHz to 200 MHz. However, this is not the full operational range of an
@@ -361,96 +345,6 @@ port.SetClockFrequency(18432000, 2);
 ```python
 TODO
 ```
-
-
-#####  Operating Driver
-The FSCC driver typically (but not always) works in "frames". This means that
-data typically is packaged together in permanent chunks. If the card received
-two frames of data prior to you retrieving the data you will only get one chunk
-of data back at a time when you interface with the driver to get the data.
-
-There are multiple ways of reading/writing data to/from the card. Listed below
-are only the most common.
-
-Writing data will typically be done within C code using the 
-[`WriteFile()`](http://msdn.microsoft.com/en-us/library/windows/desktop/aa365747(v=vs.85).aspx)
-function found within 
-[`<windows.h>`](http://msdn.microsoft.com/en-us/library/windows/desktop/aa383745(v=vs.85).aspx). 
-
-```
-result = WriteFile(handle, buf, count, (DWORD*)bytes_written, NULL);
-```
-
-In in addition to the standard errors that the 
-[`WriteFile()`](http://msdn.microsoft.com/en-us/library/windows/desktop/aa365747(v=vs.85).aspx)
-function returns there are a couple errors specific to the FSCC you might run 
-into.
-
-STATUS_IO_TIMEOUT: If trying to use a FSCC port without a transmit clock present.
-            This check can be turned off with the 'ignore_timeout' option.
-
-STATUS_BUFFER_TOO_SMALL: If the count parameter passed into the write() function 
-          is larger
-          than the output cap. If the count parameter is less than the
-          output cap but the amount out of output space isn't enough the
-          driver will block instead of returning this error.
-
-
-Reading data will typically be done within C code using the 
-[`ReadFile()`](http://msdn.microsoft.com/en-us/library/windows/desktop/aa365467(v=vs.85).aspx)
-function found within the 
-[`<windows.h>`](http://msdn.microsoft.com/en-us/library/windows/desktop/aa383745(v=vs.85).aspx). 
-
-```c
-result = ReadFile(handle, buf, length, (DWORD*)bytes_read, NULL);
-```
-
-The length argument of the `ReadFile()` function means different things depending
-on the mode you are using.
-
-In a frame based mode the length argument specifies the maximum frame size
-to return. If the next queued frame is larger than the size you specified
-the error `STATUS_BUFFER_TOO_SMALL` is returned and the data will remain 
-waiting for a 
-[`ReadFile()`](http://msdn.microsoft.com/en-us/library/windows/desktop/aa365467(v=vs.85).aspx)
-of a larger value. If a 
-[`ReadFile()`](http://msdn.microsoft.com/en-us/library/windows/desktop/aa365467(v=vs.85).aspx)
-length is specified that is larger than the
-length of multiple frames in queue you will still only receive one frame per
-[`ReadFile()`](http://msdn.microsoft.com/en-us/library/windows/desktop/aa365467(v=vs.85).aspx)
-call.
-
-In streaming mode (no frame termination) the length argument specifies the
-maximum amount of data to return. If there is 100 bytes of streaming data
-in the card and you 
-[`ReadFile()`](http://msdn.microsoft.com/en-us/library/windows/desktop/aa365467(v=vs.85).aspx)
-with a length of 50, you will receive 50 bytes.
-If you were to do a 
-[`ReadFile()`](http://msdn.microsoft.com/en-us/library/windows/desktop/aa365467(v=vs.85).aspx)
-of 200 bytes you will receive the 100 bytes
-available.
-
-Frame based data and streaming data are kept separate within the driver.
-To understand what this means first imagine this scenario. You are in a
-frame based mode and receive a couple of frames. You then switch to
-streaming mode and receive a stream of data. When calling 
-[`ReadFile()`](http://msdn.microsoft.com/en-us/library/windows/desktop/aa365467(v=vs.85).aspx)
-you will receive the the streaming data until you switch back into a frame based
-mode then do a 
-[`ReadFile()`](http://msdn.microsoft.com/en-us/library/windows/desktop/aa365467(v=vs.85).aspx).
-
-In in addition to the standard errors that the 
-[`ReadFile()`](http://msdn.microsoft.com/en-us/library/windows/desktop/aa365467(v=vs.85).aspx)
-function returns there are a couple errors specific to the FSCC you might run into.
-
-STATUS_BUFFER_TOO_SMALL: If the size parameter passed into the read() function is smaller
-          than the next frame (in a frame based mode).
-
-Most users will want the advanced IO capabilities included by using the [Windows OVERLAPPED IO
-API](http://msdn.microsoft.com/en-us/library/windows/desktop/ms686358(v=vs.85).aspx). We won't
-duplicate any of it's documentation here but for reference sake here is an [article]
-(http://blogs.msdn.com/b/oldnewthing/archive/2011/02/02/10123392.aspx) on a common
-bug developers introduce while trying to cancel IO operations while using OVERLAPPED IO.
 
 
 ##### Viewing/Setting Frame Status
@@ -818,6 +712,111 @@ import fscc
 
 port.purge(True, True)
 ```
+
+
+##### Sending/Receiving Data
+The FSCC driver typically (but not always) works in "frames". This means that
+data typically is packaged together in permanent chunks. If the card received
+two frames of data prior to you retrieving the data you will only get one chunk
+of data back at a time when you interface with the driver to get the data.
+
+There are multiple ways of reading/writing data to/from the card. Listed below
+are only the most common.
+
+Writing data will typically be done within C code using the 
+[`WriteFile()`](http://msdn.microsoft.com/en-us/library/windows/desktop/aa365747(v=vs.85).aspx)
+function found within 
+[`<windows.h>`](http://msdn.microsoft.com/en-us/library/windows/desktop/aa383745(v=vs.85).aspx). 
+
+```
+result = WriteFile(handle, buf, count, (DWORD*)bytes_written, NULL);
+```
+
+In in addition to the standard errors that the 
+[`WriteFile()`](http://msdn.microsoft.com/en-us/library/windows/desktop/aa365747(v=vs.85).aspx)
+function returns there are a couple errors specific to the FSCC you might run 
+into.
+
+STATUS_IO_TIMEOUT: If trying to use a FSCC port without a transmit clock present.
+            This check can be turned off with the 'ignore_timeout' option.
+
+STATUS_BUFFER_TOO_SMALL: If the count parameter passed into the write() function 
+          is larger
+          than the output cap. If the count parameter is less than the
+          output cap but the amount out of output space isn't enough the
+          driver will block instead of returning this error.
+
+
+Reading data will typically be done within C code using the 
+[`ReadFile()`](http://msdn.microsoft.com/en-us/library/windows/desktop/aa365467(v=vs.85).aspx)
+function found within the 
+[`<windows.h>`](http://msdn.microsoft.com/en-us/library/windows/desktop/aa383745(v=vs.85).aspx). 
+
+```c
+result = ReadFile(handle, buf, length, (DWORD*)bytes_read, NULL);
+```
+
+The length argument of the `ReadFile()` function means different things depending
+on the mode you are using.
+
+In a frame based mode the length argument specifies the maximum frame size
+to return. If the next queued frame is larger than the size you specified
+the error `STATUS_BUFFER_TOO_SMALL` is returned and the data will remain 
+waiting for a 
+[`ReadFile()`](http://msdn.microsoft.com/en-us/library/windows/desktop/aa365467(v=vs.85).aspx)
+of a larger value. If a 
+[`ReadFile()`](http://msdn.microsoft.com/en-us/library/windows/desktop/aa365467(v=vs.85).aspx)
+length is specified that is larger than the
+length of multiple frames in queue you will still only receive one frame per
+[`ReadFile()`](http://msdn.microsoft.com/en-us/library/windows/desktop/aa365467(v=vs.85).aspx)
+call.
+
+In streaming mode (no frame termination) the length argument specifies the
+maximum amount of data to return. If there is 100 bytes of streaming data
+in the card and you 
+[`ReadFile()`](http://msdn.microsoft.com/en-us/library/windows/desktop/aa365467(v=vs.85).aspx)
+with a length of 50, you will receive 50 bytes.
+If you were to do a 
+[`ReadFile()`](http://msdn.microsoft.com/en-us/library/windows/desktop/aa365467(v=vs.85).aspx)
+of 200 bytes you will receive the 100 bytes
+available.
+
+Frame based data and streaming data are kept separate within the driver.
+To understand what this means first imagine this scenario. You are in a
+frame based mode and receive a couple of frames. You then switch to
+streaming mode and receive a stream of data. When calling 
+[`ReadFile()`](http://msdn.microsoft.com/en-us/library/windows/desktop/aa365467(v=vs.85).aspx)
+you will receive the the streaming data until you switch back into a frame based
+mode then do a 
+[`ReadFile()`](http://msdn.microsoft.com/en-us/library/windows/desktop/aa365467(v=vs.85).aspx).
+
+In in addition to the standard errors that the 
+[`ReadFile()`](http://msdn.microsoft.com/en-us/library/windows/desktop/aa365467(v=vs.85).aspx)
+function returns there are a couple errors specific to the FSCC you might run into.
+
+STATUS_BUFFER_TOO_SMALL: If the size parameter passed into the read() function is smaller
+          than the next frame (in a frame based mode).
+
+Most users will want the advanced IO capabilities included by using the [Windows OVERLAPPED IO
+API](http://msdn.microsoft.com/en-us/library/windows/desktop/ms686358(v=vs.85).aspx). We won't
+duplicate any of it's documentation here but for reference sake here is an [article]
+(http://blogs.msdn.com/b/oldnewthing/archive/2011/02/02/10123392.aspx) on a common
+bug developers introduce while trying to cancel IO operations while using OVERLAPPED IO.
+
+
+##### Asynchronous Communication
+The FSCC driver includes a slightly modified version of the Windows serial 
+driver for handling the asynchronous communication for our UARTs. The Windows
+serial driver is highly tested and likely more stable than anything we could 
+produce in any reasonably amount of time.
+
+The FSCC and SerialFC drivers work together to automatically switch between 
+synchronous and asynchronous modes by modifying the FCR register for you. 
+All you need to do is open the FSCC handle to be in synchronous mode and the 
+COM handle to be in asychronous mode.
+
+For more information about using the UART's take a look at the 
+[SerialFC driver readme](https://github.com/commtech/serialfc-windows/blob/master/README.md).
 
 
 ##### Migrating From 1.x to 2.x
