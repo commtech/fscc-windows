@@ -18,6 +18,13 @@ dependencies. The full dependency list is below.
 - Driver Source Code: Windows Driver Kit 7.1.0 (Only required when building from source)
 - Python Library: Python, pySerial
 
+##### Driver Changes
+You can view an up-to-date list of driver changes over at our 
+[ChangeLog](https://github.com/commtech/fscc-windows/blob/master/ChangeLog.txt).
+
+##### Upgrade Driver
+TODO
+
 
 ##### Downloading Source Code
 The source code for the Fastcom FSCC driver is hosted on Github code hosting.
