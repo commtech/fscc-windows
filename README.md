@@ -78,8 +78,11 @@ guide near the bottom of this guide.
 There is documentation for each specific function down below but lets get started
 with a quick programming example for fun.
 
-First, drop `cfscc.dll` and `cfscc.lib` into a test directory. Now that those are copied
-over, create a new C file with the following code.
+_This tutorial has already been set up for you at_ `fscc/lib/fscc/c/tutorial/` _if you are in a rush!_
+
+First, drop `cfscc.dll` and `cfscc.lib` into a test directory. These files can be found in the C
+library directory. Now that those are copied over, create a new C file (named tutorial.c) with 
+the following code.
 
 ```
 #include <stdio.h>
@@ -115,23 +118,24 @@ int main(void)
 }
 ```
 
-For this example I will use the Visual Studio command line comipler but
-you don't have to.
+For this example I will use the Visual Studio command line compiler but
+you can use your compiler of choice.
 
 ```
-# cl /W4 /MT main.c cfscc.lib /I fscc\lib\fscc\c\
+# cl /W4 /MT tutorial.c cfscc.lib /I fscc\lib\fscc\c\
 ```
 
 Now attach the included loopback connector.
 
 ```
-# quick_start.exe
+# tutorial.exe
 Hello world!
 ```
 
-You have now transmitted and received an HDLC frame! There is likely other
-configuration options you will need to set up for your own program. All of
-these options are defined below.
+You have now transmitted and received an HDLC frame! 
+
+There is likely other configuration options you will need to set up for your 
+own program. All of these options are described below.
 
 
 ##### Changing Register Values
