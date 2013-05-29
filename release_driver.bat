@@ -57,6 +57,11 @@ xcopy lib\c\loop\loop.c %TOP%\lib\fscc\c\loop\ /i > nul
 xcopy lib\c\loop\makefile %TOP%\lib\fscc\c\loop\ /i > nul
 xcopy lib\c\cfscc.dll %TOP%\lib\fscc\c\loop\ /i > nul
 
+:copy_tutorial_files
+xcopy lib\c\tutorial\tutorial.c %TOP%\lib\fscc\c\tutorial\ /i > nul
+xcopy lib\c\tutorial\makefile %TOP%\lib\fscc\c\tutorial\ /i > nul
+xcopy lib\c\cfscc.dll %TOP%\lib\fscc\c\tutorial\ /i > nul
+
 :copy_test_files
 copy lib\c\test\test.exe %TOP%\test\ > nul
 copy lib\c\cfscc.dll %TOP%\test\ > nul
