@@ -68,76 +68,8 @@ later release.
 
 When and if we switch to a 2.3 release there will only be minor API changes.
 
-
-##### Migrating From 1.x to 2.x
-There are multiple benefits of using the 2.x driver: amd64 support, intuitive 
-[`DeviceIoControl`](http://msdn.microsoft.com/en-us/library/windows/desktop/aa363216.aspx)
-calls, backend support for multiple languages (C, C++, Python, .NET) and dynamic 
-memory management are some.
-
-The 1.x driver and the 2.x driver are very similar so porting from one to the
-other should be rather painless.
-
-All `DeviceIoControl` values have changed even if their new names match their old
-names. This means even if you use a `DeviceIoControl` with an identical name, it
-will not work correctly.
-
-| Old IOCTL                                | New IOCTL                    | Notes                               
-| ---------------------------------------- | ---------------------------- | ---------------------------------------------------- 
-| `IOCTL_FSCCDRV_TX_ACTIVE`                |                              | No longer available
-| `IOCTL_FSCCDRV_RX_READY`                 |                              | No longer available
-| `IOCTL_FSCCDRV_SETUP`                    | `FSCC_SET_REGISTERS`         | 
-| `IOCTL_FSCCDRV_STATUS`                   |                              | No longer available
-| `IOCTL_FSCCDRV_FLUSH_RX`                 | `FSCC_PURGE_RX`              | Name change
-| `IOCTL_FSCCDRV_FLUSH_TX`                 | `FSCC_PURGE_TX`              | Name change
-| `IOCTL_FSCCDRV_READ_REGISTER`            | `FSCC_GET_REGISTERS`         | Single register specified with `FSCC_UPDATE_VALUE`
-| `IOCTL_FSCCDRV_WRITE_REGISTER`           | `FSCC_SET_REGISTERS`         | Single register set after `FSCC_REGISTERS_INIT`
-|                                          | `FSCC_GET_REGISTERS`         | Added support for getting multiple registers at once
-| `IOCTL_FSCCDRV_IMMEDIATE_STATUS`         |                              | No longer available
-| `IOCTL_FSCCDRV_WRITE_REGISTER2`          | `FSCC_SET_REGISTERS`         | Single register set after `FSCC_REGISTERS_INIT`
-| `IOCTL_FSCCDRV_READ_REGISTER3`           | `FSCC_GET_REGISTERS`         | Single register specified with `FSCC_UPDATE_VALUE`
-| `IOCTL_FSCCDRV_WRITE_REGISTER3`          | `FSCC_SET_REGISTERS`         | Single register set after `FSCC_REGISTERS_INIT`
-| `IOCTL_FSCCDRV_READ_REGISTER2`           | `FSCC_GET_REGISTERS`         | Single register specified with `FSCC_UPDATE_VALUE`
-| `IOCTL_FSCCDRV_CANCEL_RX`                | `CancelIo, CancelIoEx`       | Can use Windows API Cancel functions
-| `IOCTL_FSCCDRV_CANCEL_TX`                | `CancelIo, CancelIoEx`       | Can use Windows API Cancel functions
-| `IOCTL_FSCCDRV_CANCEL_STATUS`            |                              | No longer available
-| `IOCTL_FSCCDRV_SET_FREQ`                 | `FSCC_SET_CLOCK_BITS`        | Only takes clock bits now
-| `IOCTL_FSCCDRV_SET_FEATURES`             | `FSCC_SET_REGISTERS`         | Use the FCR member of the registers structure
-| `IOCTL_FSCCDRV_GET_FEATURES`             | `FSCC_GET_REGISTERS`         | Use the FCR member of the registers structure
-| `IOCTL_FSCCDRV_GET_FREQ`                 |                              | No longer available
-| `IOCTL_FSCCDRV_BLOCK_MULTIPLE_IO`        |                              | No longer available
-| `IOCTL_FSCCDRV_GET_SETUP`                | `FSCC_GET_REGISTERS`         | 
-| `IOCTL_FSCCDRV_TIMED_TRANSMIT`           | `FSCC_SET_TX_MODIFIERS`      | TXT option
-| `IOCTL_FSCCDRV_TRANSMIT_REPEAT`          | `FSCC_SET_TX_MODIFIERS`      | XREP option
-| `IOCTL_FSCCDRV_DELAY_WRITE_START`        |                              | No longer available
-| `IOCTL_FSCCDRV_ALLOW_READ_CUTOFF`        |                              | No longer required (handled automatically)
-| `IOCTL_FSCCDRV_SET_RX_IRQ_RATE`          |                              | No longer available
-| `IOCTL_FSCCDRV_SET_TX_IRQ_RATE`          |                              | No longer available
-| `IOCTL_FSCCDRV_SET_DMA`                  |                              | No longer available
-| `IOCTL_FSCCDRV_SET_RECEIVE_MULTIPLE`     |                              | No longer available
-| `IOCTL_FSCCDRV_GET_RECEIVE_MULTIPLE`     |                              | No longer available
-| `IOCTL_FSCCDRV_SET_CHARACTER_MAP_ENABLE` |                              | No longer available
-| `IOCTL_FSCCDRV_GET_CHARACTER_MAP_ENABLE` |                              | No longer available
-| `IOCTL_FSCCDRV_SET_CHARACTER_MAP`        |                              | No longer available
-| `IOCTL_FSCCDRV_GET_CHARACTER_MAP`        |                              | No longer available
-| `IOCTL_FSCCDRV_SET_UCHARACTER_MAP`       |                              | No longer available
-| `IOCTL_FSCCDRV_GET_UCHARACTER_MAP`       |                              | No longer available
-| `IOCTL_FSCCDRV_EXTERNAL_TRANSMIT`        | `FSCC_SET_TX_MODIFIERS`      | TXEXT option
-| `IOCTL_FSCCDRV_GET_TIMED_TRANSMIT`       | `FSCC_GET_TX_MODIFIERS`      | Check for TXT
-| `IOCTL_FSCCDRV_GET_TRANSMIT_REPEAT`      | `FSCC_GET_TX_MODIFIERS`      | Check for XREP
-| `IOCTL_FSCCDRV_GET_EXTERNAL_TRANSMIT`    | `FSCC_GET_TX_MODIFIERS`      | Check for TXEXT
-| `IOCTL_FSCCDRV_SET_PROGBITS`             | `FSCC_SET_CLOCK_BITS`        | Only takes clock bits now
-| `IOCTL_FSCCDRV_GET_PROGBITS`             |                              | No longer available
-|                                          | `FSCC_ENABLE_APPEND_STATUS`  | 
-|                                          | `FSCC_DISABLE_APPEND_STATUS` | 
-|                                          | `FSCC_GET_APPEND_STATUS`     | 
-
-
-###### Status Bytes
-Getting the frame status has now been designed to be configurable. In the
-1.x driver you would always have the frame status appended to your data on a
-read. In the 2.x driver this can be toggled, and defaults to not appending
-the status to the data.
+If you are looking at migrating from an older 1.X release, checking out the migration
+guide near the bottom of this guide.
 
 
 ### Programming Your Card
@@ -978,6 +910,77 @@ Near the connector on the front and back you will see resistors labeled '102' wh
 are the pull up/down resistors. On the back you will see resistors labeled '101' which 
 are the termination resistors. If you would like to send the card to us we will remove 
 them for you. If you decide to do it yourself you will void your warranty. 
+
+
+##### Should I migrate from 1.x to 2.x?
+There are multiple benefits of using the 2.x driver: amd64 support, intuitive 
+[`DeviceIoControl`](http://msdn.microsoft.com/en-us/library/windows/desktop/aa363216.aspx)
+calls, backend support for multiple languages (C, C++, Python, .NET) and dynamic 
+memory management are some.
+
+The 1.x driver and the 2.x driver are very similar so porting from one to the
+other should be rather painless.
+
+All `DeviceIoControl` values have changed even if their new names match their old
+names. This means even if you use a `DeviceIoControl` with an identical name, it
+will not work correctly.
+
+| Old IOCTL                                | New IOCTL                    | Notes                               
+| ---------------------------------------- | ---------------------------- | ---------------------------------------------------- 
+| `IOCTL_FSCCDRV_TX_ACTIVE`                |                              | No longer available
+| `IOCTL_FSCCDRV_RX_READY`                 |                              | No longer available
+| `IOCTL_FSCCDRV_SETUP`                    | `FSCC_SET_REGISTERS`         | 
+| `IOCTL_FSCCDRV_STATUS`                   |                              | No longer available
+| `IOCTL_FSCCDRV_FLUSH_RX`                 | `FSCC_PURGE_RX`              | Name change
+| `IOCTL_FSCCDRV_FLUSH_TX`                 | `FSCC_PURGE_TX`              | Name change
+| `IOCTL_FSCCDRV_READ_REGISTER`            | `FSCC_GET_REGISTERS`         | Single register specified with `FSCC_UPDATE_VALUE`
+| `IOCTL_FSCCDRV_WRITE_REGISTER`           | `FSCC_SET_REGISTERS`         | Single register set after `FSCC_REGISTERS_INIT`
+|                                          | `FSCC_GET_REGISTERS`         | Added support for getting multiple registers at once
+| `IOCTL_FSCCDRV_IMMEDIATE_STATUS`         |                              | No longer available
+| `IOCTL_FSCCDRV_WRITE_REGISTER2`          | `FSCC_SET_REGISTERS`         | Single register set after `FSCC_REGISTERS_INIT`
+| `IOCTL_FSCCDRV_READ_REGISTER3`           | `FSCC_GET_REGISTERS`         | Single register specified with `FSCC_UPDATE_VALUE`
+| `IOCTL_FSCCDRV_WRITE_REGISTER3`          | `FSCC_SET_REGISTERS`         | Single register set after `FSCC_REGISTERS_INIT`
+| `IOCTL_FSCCDRV_READ_REGISTER2`           | `FSCC_GET_REGISTERS`         | Single register specified with `FSCC_UPDATE_VALUE`
+| `IOCTL_FSCCDRV_CANCEL_RX`                | `CancelIo, CancelIoEx`       | Can use Windows API Cancel functions
+| `IOCTL_FSCCDRV_CANCEL_TX`                | `CancelIo, CancelIoEx`       | Can use Windows API Cancel functions
+| `IOCTL_FSCCDRV_CANCEL_STATUS`            |                              | No longer available
+| `IOCTL_FSCCDRV_SET_FREQ`                 | `FSCC_SET_CLOCK_BITS`        | Only takes clock bits now
+| `IOCTL_FSCCDRV_SET_FEATURES`             | `FSCC_SET_REGISTERS`         | Use the FCR member of the registers structure
+| `IOCTL_FSCCDRV_GET_FEATURES`             | `FSCC_GET_REGISTERS`         | Use the FCR member of the registers structure
+| `IOCTL_FSCCDRV_GET_FREQ`                 |                              | No longer available
+| `IOCTL_FSCCDRV_BLOCK_MULTIPLE_IO`        |                              | No longer available
+| `IOCTL_FSCCDRV_GET_SETUP`                | `FSCC_GET_REGISTERS`         | 
+| `IOCTL_FSCCDRV_TIMED_TRANSMIT`           | `FSCC_SET_TX_MODIFIERS`      | TXT option
+| `IOCTL_FSCCDRV_TRANSMIT_REPEAT`          | `FSCC_SET_TX_MODIFIERS`      | XREP option
+| `IOCTL_FSCCDRV_DELAY_WRITE_START`        |                              | No longer available
+| `IOCTL_FSCCDRV_ALLOW_READ_CUTOFF`        |                              | No longer required (handled automatically)
+| `IOCTL_FSCCDRV_SET_RX_IRQ_RATE`          |                              | No longer available
+| `IOCTL_FSCCDRV_SET_TX_IRQ_RATE`          |                              | No longer available
+| `IOCTL_FSCCDRV_SET_DMA`                  |                              | No longer available
+| `IOCTL_FSCCDRV_SET_RECEIVE_MULTIPLE`     |                              | No longer available
+| `IOCTL_FSCCDRV_GET_RECEIVE_MULTIPLE`     |                              | No longer available
+| `IOCTL_FSCCDRV_SET_CHARACTER_MAP_ENABLE` |                              | No longer available
+| `IOCTL_FSCCDRV_GET_CHARACTER_MAP_ENABLE` |                              | No longer available
+| `IOCTL_FSCCDRV_SET_CHARACTER_MAP`        |                              | No longer available
+| `IOCTL_FSCCDRV_GET_CHARACTER_MAP`        |                              | No longer available
+| `IOCTL_FSCCDRV_SET_UCHARACTER_MAP`       |                              | No longer available
+| `IOCTL_FSCCDRV_GET_UCHARACTER_MAP`       |                              | No longer available
+| `IOCTL_FSCCDRV_EXTERNAL_TRANSMIT`        | `FSCC_SET_TX_MODIFIERS`      | TXEXT option
+| `IOCTL_FSCCDRV_GET_TIMED_TRANSMIT`       | `FSCC_GET_TX_MODIFIERS`      | Check for TXT
+| `IOCTL_FSCCDRV_GET_TRANSMIT_REPEAT`      | `FSCC_GET_TX_MODIFIERS`      | Check for XREP
+| `IOCTL_FSCCDRV_GET_EXTERNAL_TRANSMIT`    | `FSCC_GET_TX_MODIFIERS`      | Check for TXEXT
+| `IOCTL_FSCCDRV_SET_PROGBITS`             | `FSCC_SET_CLOCK_BITS`        | Only takes clock bits now
+| `IOCTL_FSCCDRV_GET_PROGBITS`             |                              | No longer available
+|                                          | `FSCC_ENABLE_APPEND_STATUS`  | 
+|                                          | `FSCC_DISABLE_APPEND_STATUS` | 
+|                                          | `FSCC_GET_APPEND_STATUS`     | 
+
+
+###### Status Bytes
+Getting the frame status has now been designed to be configurable. In the
+1.x driver you would always have the frame status appended to your data on a
+read. In the 2.x driver this can be toggled, and defaults to not appending
+the status to the data.
 
 
 ### License
