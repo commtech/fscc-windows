@@ -102,32 +102,32 @@ will not work correctly.
 | `IOCTL_FSCCDRV_CANCEL_TX`                | `CancelIo, CancelIoEx`       | Can use Windows API Cancel functions
 | `IOCTL_FSCCDRV_CANCEL_STATUS`            |                              | No longer available
 | `IOCTL_FSCCDRV_SET_FREQ`                 | `FSCC_SET_CLOCK_BITS`        | Only takes clock bits now
-| `IOCTL_FSCCDRV_SET_FEATURES`             |
-| `IOCTL_FSCCDRV_GET_FEATURES`             |
-| `IOCTL_FSCCDRV_GET_FREQ`                 |
-| `IOCTL_FSCCDRV_BLOCK_MULTIPLE_IO`        |
-| `IOCTL_FSCCDRV_GET_SETUP`                |
-| `IOCTL_FSCCDRV_TIMED_TRANSMIT`           |
-| `IOCTL_FSCCDRV_TRANSMIT_REPEAT`          |
-| `IOCTL_FSCCDRV_DELAY_WRITE_START`        |
-| `IOCTL_FSCCDRV_ALLOW_READ_CUTOFF`        |
-| `IOCTL_FSCCDRV_SET_RX_IRQ_RATE`          |
-| `IOCTL_FSCCDRV_SET_TX_IRQ_RATE`          |
-| `IOCTL_FSCCDRV_SET_DMA`                  |
-| `IOCTL_FSCCDRV_SET_RECEIVE_MULTIPLE`     |
-| `IOCTL_FSCCDRV_GET_RECEIVE_MULTIPLE`     |
-| `IOCTL_FSCCDRV_SET_CHARACTER_MAP_ENABLE` |
-| `IOCTL_FSCCDRV_GET_CHARACTER_MAP_ENABLE` |
-| `IOCTL_FSCCDRV_SET_CHARACTER_MAP`        |
-| `IOCTL_FSCCDRV_GET_CHARACTER_MAP`        |
-| `IOCTL_FSCCDRV_SET_UCHARACTER_MAP`       |
-| `IOCTL_FSCCDRV_GET_UCHARACTER_MAP`       |
-| `IOCTL_FSCCDRV_EXTERNAL_TRANSMIT`        |
-| `IOCTL_FSCCDRV_GET_TIMED_TRANSMIT`       |
-| `IOCTL_FSCCDRV_GET_TRANSMIT_REPEAT`      |
-| `IOCTL_FSCCDRV_GET_EXTERNAL_TRANSMIT`    |
-| `IOCTL_FSCCDRV_SET_PROGBITS`             |
-| `IOCTL_FSCCDRV_GET_PROGBITS`             |
+| `IOCTL_FSCCDRV_SET_FEATURES`             | `FSCC_SET_REGISTERS`         | Use the FCR member of the registers structure
+| `IOCTL_FSCCDRV_GET_FEATURES`             | `FSCC_GET_REGISTERS`         | Use the FCR member of the registers structure
+| `IOCTL_FSCCDRV_GET_FREQ`                 |                              | No longer available
+| `IOCTL_FSCCDRV_BLOCK_MULTIPLE_IO`        |                              | No longer available
+| `IOCTL_FSCCDRV_GET_SETUP`                | `FSCC_GET_REGISTERS`         | 
+| `IOCTL_FSCCDRV_TIMED_TRANSMIT`           | `FSCC_SET_TX_MODIFIERS`      | TXT option
+| `IOCTL_FSCCDRV_TRANSMIT_REPEAT`          | `FSCC_SET_TX_MODIFIERS`      | XREP option
+| `IOCTL_FSCCDRV_DELAY_WRITE_START`        |                              | No longer available
+| `IOCTL_FSCCDRV_ALLOW_READ_CUTOFF`        |                              | No longer required (handled automatically)
+| `IOCTL_FSCCDRV_SET_RX_IRQ_RATE`          |                              | No longer available
+| `IOCTL_FSCCDRV_SET_TX_IRQ_RATE`          |                              | No longer available
+| `IOCTL_FSCCDRV_SET_DMA`                  |                              | No longer available
+| `IOCTL_FSCCDRV_SET_RECEIVE_MULTIPLE`     |                              | No longer available
+| `IOCTL_FSCCDRV_GET_RECEIVE_MULTIPLE`     |                              | No longer available
+| `IOCTL_FSCCDRV_SET_CHARACTER_MAP_ENABLE` |                              | No longer available
+| `IOCTL_FSCCDRV_GET_CHARACTER_MAP_ENABLE` |                              | No longer available
+| `IOCTL_FSCCDRV_SET_CHARACTER_MAP`        |                              | No longer available
+| `IOCTL_FSCCDRV_GET_CHARACTER_MAP`        |                              | No longer available
+| `IOCTL_FSCCDRV_SET_UCHARACTER_MAP`       |                              | No longer available
+| `IOCTL_FSCCDRV_GET_UCHARACTER_MAP`       |                              | No longer available
+| `IOCTL_FSCCDRV_EXTERNAL_TRANSMIT`        | `FSCC_SET_TX_MODIFIERS`      | TXEXT option
+| `IOCTL_FSCCDRV_GET_TIMED_TRANSMIT`       | `FSCC_GET_TX_MODIFIERS`      | Check for TXT
+| `IOCTL_FSCCDRV_GET_TRANSMIT_REPEAT`      | `FSCC_GET_TX_MODIFIERS`      | Check for XREP
+| `IOCTL_FSCCDRV_GET_EXTERNAL_TRANSMIT`    | `FSCC_GET_TX_MODIFIERS`      | Check for TXEXT
+| `IOCTL_FSCCDRV_SET_PROGBITS`             | `FSCC_SET_CLOCK_BITS`        | Only takes clock bits now
+| `IOCTL_FSCCDRV_GET_PROGBITS`             |                              | No longer available
 |                                          | `FSCC_ENABLE_APPEND_STATUS`  | 
 |                                          | `FSCC_DISABLE_APPEND_STATUS` | 
 |                                          | `FSCC_GET_APPEND_STATUS`     | 
