@@ -82,17 +82,55 @@ All `DeviceIoControl` values have changed even if their new names match their ol
 names. This means even if you use a `DeviceIoControl` with an identical name, it
 will not work correctly.
 
-| Old IOCTL                      | New IOCTL                    | Notes                               
-| ------------------------------ | ---------------------------- | ---------------------------------------------------- 
-| `IOCTL_FSCCDRV_WRITE_REGISTER` | `FSCC_SET_REGISTERS`         | Single register set after `FSCC_REGISTERS_INIT`
-| `IOCTL_FSCCDRV_SETUP`          | `FSCC_SET_REGISTERS`         | 
-| `IOCTL_FSCCDRV_READ_REGISTER`  | `FSCC_GET_REGISTERS`         | Single register specified with `FSCC_UPDATE_VALUE`
-|                                | `FSCC_GET_REGISTERS`         | Added support for getting multiple registers at once
-| `IOCTL_FSCCDRV_FLUSH_TX`       | `FSCC_PURGE_TX`              | Only a name change
-|                                | `FSCC_ENABLE_APPEND_STATUS`  | 
-|                                | `FSCC_DISABLE_APPEND_STATUS` | 
-|                                | `FSCC_GET_APPEND_STATUS`     | 
-| `IOCTL_FSCCDRV_SET_FREQ`       | `FSCC_SET_CLOCK_BITS`        | Only takes clock bits now
+| Old IOCTL                                | New IOCTL                    | Notes                               
+| ---------------------------------------- | ---------------------------- | ---------------------------------------------------- 
+| `IOCTL_FSCCDRV_TX_ACTIVE`                |                              | No longer available
+| `IOCTL_FSCCDRV_RX_READY`                 |                              | No longer available
+| `IOCTL_FSCCDRV_SETUP`                    | `FSCC_SET_REGISTERS`         | 
+| `IOCTL_FSCCDRV_STATUS`                   |                              | No longer available
+| `IOCTL_FSCCDRV_FLUSH_RX`                 | `FSCC_PURGE_RX`              | Name change
+| `IOCTL_FSCCDRV_FLUSH_TX`                 | `FSCC_PURGE_TX`              | Name change
+| `IOCTL_FSCCDRV_READ_REGISTER`            | `FSCC_GET_REGISTERS`         | Single register specified with `FSCC_UPDATE_VALUE`
+| `IOCTL_FSCCDRV_WRITE_REGISTER`           | `FSCC_SET_REGISTERS`         | Single register set after `FSCC_REGISTERS_INIT`
+|                                          | `FSCC_GET_REGISTERS`         | Added support for getting multiple registers at once
+| `IOCTL_FSCCDRV_IMMEDIATE_STATUS`         |                              | No longer available
+| `IOCTL_FSCCDRV_WRITE_REGISTER2`          | `FSCC_SET_REGISTERS`         | Single register set after `FSCC_REGISTERS_INIT`
+| `IOCTL_FSCCDRV_READ_REGISTER3`           | `FSCC_GET_REGISTERS`         | Single register specified with `FSCC_UPDATE_VALUE`
+| `IOCTL_FSCCDRV_WRITE_REGISTER3`          | `FSCC_SET_REGISTERS`         | Single register set after `FSCC_REGISTERS_INIT`
+| `IOCTL_FSCCDRV_READ_REGISTER2`           | `FSCC_GET_REGISTERS`         | Single register specified with `FSCC_UPDATE_VALUE`
+| `IOCTL_FSCCDRV_CANCEL_RX`                | `CancelIo, CancelIoEx`       | Can use Windows API Cancel functions
+| `IOCTL_FSCCDRV_CANCEL_TX`                | `CancelIo, CancelIoEx`       | Can use Windows API Cancel functions
+| `IOCTL_FSCCDRV_CANCEL_STATUS`            |                              | No longer available
+| `IOCTL_FSCCDRV_SET_FREQ`                 | `FSCC_SET_CLOCK_BITS`        | Only takes clock bits now
+| `IOCTL_FSCCDRV_SET_FEATURES`             |
+| `IOCTL_FSCCDRV_GET_FEATURES`             |
+| `IOCTL_FSCCDRV_GET_FREQ`                 |
+| `IOCTL_FSCCDRV_BLOCK_MULTIPLE_IO`        |
+| `IOCTL_FSCCDRV_GET_SETUP`                |
+| `IOCTL_FSCCDRV_TIMED_TRANSMIT`           |
+| `IOCTL_FSCCDRV_TRANSMIT_REPEAT`          |
+| `IOCTL_FSCCDRV_DELAY_WRITE_START`        |
+| `IOCTL_FSCCDRV_ALLOW_READ_CUTOFF`        |
+| `IOCTL_FSCCDRV_SET_RX_IRQ_RATE`          |
+| `IOCTL_FSCCDRV_SET_TX_IRQ_RATE`          |
+| `IOCTL_FSCCDRV_SET_DMA`                  |
+| `IOCTL_FSCCDRV_SET_RECEIVE_MULTIPLE`     |
+| `IOCTL_FSCCDRV_GET_RECEIVE_MULTIPLE`     |
+| `IOCTL_FSCCDRV_SET_CHARACTER_MAP_ENABLE` |
+| `IOCTL_FSCCDRV_GET_CHARACTER_MAP_ENABLE` |
+| `IOCTL_FSCCDRV_SET_CHARACTER_MAP`        |
+| `IOCTL_FSCCDRV_GET_CHARACTER_MAP`        |
+| `IOCTL_FSCCDRV_SET_UCHARACTER_MAP`       |
+| `IOCTL_FSCCDRV_GET_UCHARACTER_MAP`       |
+| `IOCTL_FSCCDRV_EXTERNAL_TRANSMIT`        |
+| `IOCTL_FSCCDRV_GET_TIMED_TRANSMIT`       |
+| `IOCTL_FSCCDRV_GET_TRANSMIT_REPEAT`      |
+| `IOCTL_FSCCDRV_GET_EXTERNAL_TRANSMIT`    |
+| `IOCTL_FSCCDRV_SET_PROGBITS`             |
+| `IOCTL_FSCCDRV_GET_PROGBITS`             |
+|                                          | `FSCC_ENABLE_APPEND_STATUS`  | 
+|                                          | `FSCC_DISABLE_APPEND_STATUS` | 
+|                                          | `FSCC_GET_APPEND_STATUS`     | 
 
 
 ###### Status Bytes
