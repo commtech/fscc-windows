@@ -6,70 +6,9 @@ This README file is best viewed on the [GitHub page](http://github.com/commtech/
 You can download a pre-built driver package from
 the [Commtech website](http://www.commtech-fastcom.com/CommtechSoftware.html).
 
-We recommend users install the driver using the pre-built package above. For the more
-advanced user that wants to make driver modifications you can follow the instructions
-below.
-
-##### Dependencies
-For 99% of our customers you will be able to install the driver without any additional
-dependencies. The full dependency list is below.
-
-- Driver Package: Windows (32 and 64) staring with XP
-- Driver Source Code: Windows Driver Kit 7.1.0 (Only required when building from source)
-- Python Library: Python, pySerial
-
-##### Driver Changes
-You can view an up-to-date list of driver changes over at our 
-[ChangeLog](https://github.com/commtech/fscc-windows/blob/master/ChangeLog.txt).
-
-##### Upgrade Driver
-TODO
-
-
-##### Downloading Source Code
-The source code for the Fastcom FSCC driver is hosted on Github code hosting.
-To check out the latest code you will need Git and to run the following in a
-terminal.
-
-```
-git clone git://github.com/commtech/fscc-windows.git fscc
-```
-
-NOTE: We prefer you use the above method for downloading the driver source code
-      (because it is the easiest way to stay up to date) but you can also get 
-      the driver source code from the
-      [download page](https://github.com/commtech/fscc-windows/tags/).
-
-Now that you have the latest code checked out you will more than likely want
-to switch to a stable version within the code directory. To do this browse
-the various tags for one you would like to switch to. Version v1.0.0 is only
-listed here as an example.
-
-```
-git tag
-git checkout v2.2.8
-```
-
-##### Compiling Driver
-Compiling the driver is relatively simple assuming you have all of the
-required dependencies. You will need Windows Driver Kit 7.1.0 at a 
-minimum. After assembling all of these things you can build the driver by
-simply running the BLD command from within the source code directory.
-
-```
-cd fscc/src/
-BLD
-```
-
-##### Library Compatability
-All of the 2.2.X releases will not break API compatability. If a function in the 2.2.X
-series returns an incorrect value it could be fixed to return the correct value in a
-later release.
-
-When and if we switch to a 2.3 release there will only be minor API changes.
-
-If you are looking at migrating from an older 1.X release, checking out the migration
-guide near the bottom of this guide.
+We recommend users install the driver using the pre-built package above. If you would like to
+make driver modifications there is a section later on in the guide that will walk you through
+getting and building the driver source code.
 
 
 ### Programming Your Card
@@ -916,6 +855,60 @@ are the termination resistors. If you would like to send the card to us we will 
 them for you. If you decide to do it yourself you will void your warranty. 
 
 
+
+##### What are the project's dependencies?
+For 99% of our customers you will be able to install the driver without any additional
+dependencies. The full dependency list is below.
+
+- Driver Package: Windows (32 and 64) staring with XP
+- Driver Source Code: Windows Driver Kit 7.1.0 (Only required when building from source)
+- Python Library: Python, pySerial
+
+
+##### What was changed in 2.X?
+You can view an up-to-date list of driver changes over at our 
+[ChangeLog](https://github.com/commtech/fscc-windows/blob/master/ChangeLog.txt).
+
+
+##### How do I upgrade driver versions?
+TODO
+
+
+##### How do I download and build the driver source code?
+The source code for the Fastcom FSCC driver is hosted on Github code hosting.
+To check out the latest code you will need Git and to run the following in a
+terminal.
+
+```
+git clone git://github.com/commtech/fscc-windows.git fscc
+```
+
+NOTE: We prefer you use the above method for downloading the driver source code
+      (because it is the easiest way to stay up to date) but you can also get 
+      the driver source code from the
+      [download page](https://github.com/commtech/fscc-windows/tags/).
+
+Now that you have the latest code checked out you will more than likely want
+to switch to a stable version within the code directory. To do this browse
+the various tags for one you would like to switch to. Version v1.0.0 is only
+listed here as an example.
+
+```
+git tag
+git checkout v2.2.8
+```
+
+Compiling the driver is relatively simple assuming you have all of the
+required dependencies. You will need Windows Driver Kit 7.1.0 at a 
+minimum. After assembling all of these things you can build the driver by
+simply running the BLD command from within the source code directory.
+
+```
+cd fscc/src/
+BLD
+```
+
+
 ##### Should I migrate from 1.x to 2.x?
 There are multiple benefits of using the 2.x driver: amd64 support, intuitive 
 [`DeviceIoControl`](http://msdn.microsoft.com/en-us/library/windows/desktop/aa363216.aspx)
@@ -985,6 +978,12 @@ Getting the frame status has now been designed to be configurable. In the
 1.x driver you would always have the frame status appended to your data on a
 read. In the 2.x driver this can be toggled, and defaults to not appending
 the status to the data.
+
+All of the 2.2.X releases will not break API compatability. If a function in the 2.2.X
+series returns an incorrect value it could be fixed to return the correct value in a
+later release.
+
+When and if we switch to a 2.3 release there will only be minor API changes.
 
 
 ### License
