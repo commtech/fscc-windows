@@ -845,10 +845,16 @@ This is the key for setting the port's specific number after it has already been
 
 
 ##### Which resitors are for termination?
-Near the connector on the front and back you will see resistors labeled '102' which 
-are the pull up/down resistors. On the back you will see resistors labeled '101' which 
-are the termination resistors. If you would like to send the card to us, we will gladly remove 
-them for you. Please note, removing them yourself will void the warranty. 
+Each receive differential pair is terminated with a 100 ohm resistor between 
+the + and - pins. These resistors are on the back of the card and are labeled '101'.
+
+Each single receive pin is either pulled up or pulled down by a 1k ohm resister 
+(+ is pulled up and - is pulled down).  This ensures that thereceiver will stay at 
+a logic 1 in the presence of transient noise andis weak enough to allow a real 
+signal through. These resistors are near the connector and are labeled '102'.
+
+If you would like to send the card to us, we will gladly remove them for you. 
+Please note, removing them yourself will void the warranty. 
 
 
 
