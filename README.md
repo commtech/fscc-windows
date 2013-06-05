@@ -3,8 +3,8 @@ This README file is best viewed on the [GitHub page](http://github.com/commtech/
 ### Installing Driver
 
 ##### Downloading Driver Package
-You can download a pre-built driver package from
-the [Commtech website](http://www.commtech-fastcom.com/CommtechSoftware.html).
+You can download a pre-built driver package directly from our
+[website](http://www.commtech-fastcom.com/CommtechSoftware.html).
 
 We recommend users install the driver using the pre-built package above. If you would like to
 make driver modifications there is a section later on in the guide that will walk you through
@@ -14,13 +14,13 @@ getting and building the driver source code.
 ### Programming Your Card
 
 ##### Quick Start Guide
-There is documentation for each specific function down below but lets get started
+There is documentation for each specific function listed below, but lets get started
 with a quick programming example for fun.
 
-_This tutorial has already been set up for you at_ `fscc/lib/fscc/c/tutorial/` _if you are in a rush!_
+_This tutorial has already been set up for you at_ `fscc/lib/fscc/c/tutorial/`.
 
 First, drop `cfscc.dll` and `cfscc.lib` into a test directory. These files can be found in the C
-library directory. Now that those are copied over, create a new C file (named tutorial.c) with 
+library directory. Now that those files are copied over, create a new C file (named tutorial.c) with 
 the following code.
 
 ```
@@ -73,7 +73,7 @@ Hello world!
 
 You have now transmitted and received an HDLC frame! 
 
-There is likely other configuration options you will need to set up for your 
+There are likely other configuration options you will need to set up for your 
 own program. All of these options are described below.
 
 
@@ -87,15 +87,15 @@ _For a complete listing of all of the configuration options please see the
 manual._
 
 There are multiple ways of modifying the card's registers varying from using
-the Windows API to an FSCC specific API. Here are a few ways of doing this.
+the Windows API to an FSCC specific API. Following are a few methods of doing this.
 
 In HDLC mode some settings are fixed at certain values. If you are in
 HDLC mode and after setting/getting your registers some bits don't look correct
-then they are likely fixed. For a complete list of the fixed values see the CCR0
+then they are likely fixed. A complete list of the fixed values can be found in the CCR0
 section of the manual.
 
-You should make sure and purge the data stream after changing registers.
-Settings like CCR0 will require being purged for the changed settings to take 
+You should purge the data stream after changing the registers.
+Settings like CCR0 will require being purged for the changes to take 
 effect.
 
 Use the `FSCC_SET_REGISTERS` ioctl to set the values of any registers you
@@ -177,7 +177,7 @@ port.registers.BGR = 10
 
 ##### Reading Register Values
 There are multiple ways of reading the card's registers varying from using
-the Windows API to an FSCC specific API. Here are a few ways of doing this.
+the Windows API to an FSCC specific API. Following are a few methods of doing this.
 
 Use the `FSCC_GET_REGISTERS` ioctl to get the values of any registers you
 need to read from within code. This ioctl can be found within
@@ -226,7 +226,7 @@ fscc_get_registers(h, &registers);
 ```
 
 NOTE: A complete example of how to do this can be found in the file
-      fscc\lib\fscc\c\examples\set-registers.c.
+      `fscc\lib\fscc\c\examples\set-registers.c`.
 
 ###### C++ Library
 ```cpp
@@ -261,15 +261,15 @@ The FSCC device has a programmable clock that can be set anywhere from
 FSCC port, only the range that the onboard clock can be set to.
 
 Using one of the synchronous modes you can only receive data consistently
-up to 30 MHz (when you are using a external clock). If you are transmitting
-data using an internal clock you can safely go up 50 MHz.
+up to 30 MHz (when you are using an external clock). If you are transmitting
+data using an internal clock, you can safely receive data consistently up to 50 MHz.
 
 Lower clock rates (less than 1 MHz for example) can take a long time for 
 the frequency generator to finish. If you run into this situation we 
 recommend using a larger frequency and then dividing it down to your 
 desired baud rate using the BGR register.
 
-Use the `FSCC_SET_CLOCK_BITS` ioctl to set the frequency from within code.
+Use the `FSCC_SET_CLOCK_BITS` ioctl to set the frequency from within your code.
 
 ```c
 /* 10 MHz */
@@ -339,12 +339,12 @@ TODO
 
 
 ##### Viewing/Setting Frame Status
-It is a good idea to pay attention to the status of each frame. For example if
-you want to see if the frame's CRC check succeeded or failed.
+It is a good idea to pay attention to the status of each frame. For example, you
+may want to see if the frame's CRC check succeeded or failed.
 
-The way the FSCC reports this data to you is by appending two additional bytes
-to each frame you read from the card if you opt in to see this data. There are
-a few of ways of enabling this additional data.
+The FSCC reports this data to you by appending two additional bytes
+to each frame you read from the card, if you opt in to see this data. There are
+a few methods of enabling this additional data.
 
 ###### Windows API
 ```c
@@ -383,8 +383,8 @@ fscc_get_append_status(h, &status);
 ```
 
 NOTE: A complete example of how to do this can be found in the files
-      fscc\lib\fscc\c\examples\set-append-status.c and 
-      fscc\lib\fscc\c\examples\get-append-status.c.
+      `fscc\lib\fscc\c\examples\set-append-status.c` and 
+      `fscc\lib\fscc\c\examples\get-append-status.c`.
 
 ###### C++ Library
 ```cpp
@@ -415,11 +415,11 @@ port.append_status = True;
 
 
 ##### Viewing/Setting Memory Constraints
-For systems with limited memory available to them there is safety checks in
+If your system has limited memory available, there are safety checks in
 place to prevent spurious incoming data from overrunning your system. Each port
 has an option for setting it's input and output memory cap.
 
-There are multiple ways of setting this value.
+There are multiple methods of setting this value.
 
 ###### Windows API
 ```c
@@ -507,7 +507,7 @@ memory_cap.output = 10000;
 ioctl(port_fd, FSCC_SET_MEMORY_CAP, &memory_cap);
 ```
 
-A complete example of how to do this can be found in the file
+A complete example of how to do this can be found in the files
 `fscc\lib\fscc\c\examples\set-memory-cap.c` and 
 `fscc\lib\fscc\c\examples\get-memory-cap.c`.
 
