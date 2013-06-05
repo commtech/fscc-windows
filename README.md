@@ -7,7 +7,7 @@ You can download a pre-built driver package directly from our
 [website](http://www.commtech-fastcom.com/CommtechSoftware.html).
 
 We recommend users install the driver using the pre-built package above. If you would like to
-make driver modifications there is a section later on in the guide that will walk you through
+make driver modifications, there is a section in the guide that will walk you through
 getting and building the driver source code.
 
 
@@ -57,7 +57,7 @@ int main(void)
 }
 ```
 
-For this example I will use the Visual Studio command line compiler but
+For this example I will use the Visual Studio command line compiler, but
 you can use your compiler of choice.
 
 ```
@@ -79,18 +79,18 @@ own program. All of these options are described below.
 
 ##### Changing Register Values
 The FSCC driver is a swiss army knife of sorts with communication. It can
-handle many different situations if configured correctly. Typically to
+handle many different situations, if configured correctly. Typically to
 configure it to handle your specific situation you need to modify the card's
 register values.
 
 _For a complete listing of all of the configuration options please see the 
 manual._
 
-There are multiple ways of modifying the card's registers varying from using
+There are multiple ways of modifying the card's registers, varying from using
 the Windows API to an FSCC specific API. Following are a few methods you can use.
 
 In HDLC mode some settings are fixed at certain values. If you are in
-HDLC mode and after setting/getting your registers some bits don't look correct
+HDLC mode and after setting/getting your registers some bits don't look correct,
 then they are likely fixed. A complete list of the fixed values can be found in the CCR0
 section of the manual.
 
@@ -176,11 +176,11 @@ port.registers.BGR = 10
 
 
 ##### Reading Register Values
-There are multiple ways of reading the card's registers varying from using
+There are multiple ways of reading the card's registers, varying from using
 the Windows API to an FSCC specific API. Following are a few methods you can use.
 
 Use the `FSCC_GET_REGISTERS` ioctl to get the values of any registers you
-need to read from within code. This ioctl can be found within
+need to read from within your code. This ioctl can be found within
 `<fscc/fscc.h>`.
 
 ```c
@@ -283,8 +283,8 @@ DeviceIoControl(h, FSCC_SET_CLOCK_BITS,
 				&temp, NULL);
 ```
 
-A complete example of how to do this along with how to calculate these 
-clock bits can be found in the file
+A complete example of how to do this, along with how to calculate these 
+clock bits, can be found in the file
 `fscc\lib\fscc\c\examples\set-clock-frequency.c`.
 
 Use the various APIs to easily get the values of any registers you need 
@@ -446,7 +446,7 @@ DeviceIoControl(h, FSCC_GET_MEMORY_CAP,
 You can set only 1 of the 2 values by running the `FSCC_MEMORY_CAP_INIT`
 macro on the `fscc_memory_cap` struct then setting only 1 of the values
 in the structure. The `FSCC_MEMORY_CAP_INIT` structure initializes both
-values to -1 which will be ignored in the driver.
+values to -1, which will be ignored in the driver.
 
 ###### C Library
 ```
@@ -463,9 +463,9 @@ fscc_get_memory_cap(h, &memcap);
 ```
 
 You can set only 1 of the 2 values by running the `FSCC_MEMORY_CAP_INIT`
-macro on the `fscc_memory_cap` struct then setting only 1 of the values
+macro on the `fscc_memory_cap` struct, then setting only 1 of the values
 in the structure. The `FSCC_MEMORY_CAP_INIT` structure initializes both
-values to -1 which will be ignored in the driver.
+values to -1, which will be ignored in the driver.
 
 ###### C++ Library
 ```cpp
@@ -725,7 +725,7 @@ result = WriteFile(handle, buf, count, (DWORD*)bytes_written, NULL);
 
 In in addition to the standard errors that the 
 [`WriteFile()`](http://msdn.microsoft.com/en-us/library/windows/desktop/aa365747.aspx)
-function returns, there are a couple errors specific to the FSCC you might encounter.
+function returns, there are a couple of errors specific to the FSCC you might encounter.
 
 STATUS_IO_TIMEOUT: If you are trying to use an FSCC port without a transmit clock present,
             this check can be turned off with the 'ignore_timeout' option.
@@ -757,12 +757,12 @@ waiting for a
 of a larger value. If a 
 [`ReadFile()`](http://msdn.microsoft.com/en-us/library/windows/desktop/aa365467.aspx)
 length is specified that is larger than the
-length of multiple frames in queue you will still only receive one frame per
+length of multiple frames in queue, you will still only receive one frame per
 [`ReadFile()`](http://msdn.microsoft.com/en-us/library/windows/desktop/aa365467.aspx)
 call.
 
 In streaming mode (no frame termination) the length argument specifies the
-maximum amount of data to return. If there is 100 bytes of streaming data
+maximum amount of data to return. If there are 100 bytes of streaming data
 in the card and you 
 [`ReadFile()`](http://msdn.microsoft.com/en-us/library/windows/desktop/aa365467.aspx)
 with a length of 50, you will receive 50 bytes.
@@ -782,7 +782,7 @@ mode and do a
 
 In in addition to the standard errors that the 
 [`ReadFile()`](http://msdn.microsoft.com/en-us/library/windows/desktop/aa365467.aspx)
-function returns, there are a couple errors specific to the FSCC you might encounter.
+function returns, there are a couple of errors specific to the FSCC you might encounter.
 
 STATUS_BUFFER_TOO_SMALL: If the size parameter passed into the read() function is smaller
           than the next frame (in a frame based mode).
@@ -798,7 +798,7 @@ bug developers introduce while trying to cancel I/O operations when using OVERLA
 The FSCC driver includes a slightly modified version of the Windows serial 
 driver for handling the asynchronous communication for our UARTs. The Windows
 serial driver is highly tested and likely more stable than anything we could 
-produce in any reasonably amount of time.
+produce in any reasonable amount of time.
 
 The FSCC and SerialFC drivers work together to automatically switch between 
 synchronous and asynchronous modes by modifying the FCR register for you. 
@@ -821,8 +821,8 @@ put it into clock mode 7, execute your purge, and then return to your other
 clock mode.
 
 
-##### The CRC-CCITT generated is not what I expect.
-There are many resources online that say they can calculate CRC-CCITT but most
+##### The CRC-CCITT generated is not what I expected.
+There are many resources online that say they can calculate CRC-CCITT, but most
 don't use the correct formula defined by the HDLC specification.
    
 An eample of one that doesn't is [lammertbies.nl](http://www.lammertbies.nl/comm/info/crc-calculation.html)
@@ -974,7 +974,7 @@ will not work correctly.
 
 ###### Status Bytes
 Getting the frame status has now been designed to be configurable. When using the
-1.x driver, you would always have the frame status appended to your data on a
+1.x driver, you will always have the frame status appended to your data on a
 read. When using the 2.x driver, this can be toggled and defaults to not appending
 the status to the data.
 
