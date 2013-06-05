@@ -17,7 +17,8 @@ getting and building the driver source code.
 There is documentation for each specific function listed below, but lets get started
 with a quick programming example for fun.
 
-_This tutorial has already been set up for you at_ `fscc/lib/fscc/c/tutorial/`.
+_This tutorial has already been set up for you at_ 
+[`fscc/lib/fscc/c/tutorial/`](https://github.com/commtech/fscc-windows/tree/master/lib/c/tutorial).
 
 First, drop `cfscc.dll` and `cfscc.lib` into a test directory. These files can be found in the C
 library directory. Now that those files are copied over, create a new C file (named tutorial.c) with 
@@ -139,7 +140,7 @@ fscc_set_registers(h, &registers);
 ```
 
 A complete example of how to do this can be found in the file
-`fscc\lib\fscc\c\examples\set-registers.c`.
+[`fscc\lib\fscc\c\examples\set-registers.c`](https://github.com/commtech/fscc-windows/blob/master/lib/c/examples/set-registers.c).
 
 ###### C++ Library
 ```cpp
@@ -204,9 +205,6 @@ DeviceIoControl(h, FSCC_GET_REGISTERS,
 At this point 'regs.BGR' and 'regs.FCR' would be set to their respective
 values.
 
-A complete example of how to do this can be found in the file
-`fscc\lib\fscc\c\examples\get-registers.c`.
-
 Use the various APIs to easily get the values of any registers you need 
 from within your code.
 
@@ -225,8 +223,8 @@ registers.BGR = FSCC_UPDATE_VALUE;
 fscc_get_registers(h, &registers);
 ```
 
-NOTE: A complete example of how to do this can be found in the file
-      `fscc\lib\fscc\c\examples\set-registers.c`.
+A complete example of how to do this can be found in the file
+[`fscc\lib\fscc\c\examples\get-registers.c`](https://github.com/commtech/fscc-windows/blob/master/lib/c/examples/get-registers.c).
 
 ###### C++ Library
 ```cpp
@@ -285,7 +283,7 @@ DeviceIoControl(h, FSCC_SET_CLOCK_BITS,
 
 A complete example of how to do this, along with how to calculate these 
 clock bits, can be found in the file
-`fscc\lib\fscc\c\examples\set-clock-frequency.c`.
+[`fscc\lib\fscc\c\examples\set-clock-frequency.c`](https://github.com/commtech/fscc-windows/blob/master/lib/c/examples/set-clock-frequency.c).
 
 Use the various APIs to easily get the values of any registers you need 
 from within your code.
@@ -382,9 +380,10 @@ fscc_disable_append_status(h);
 fscc_get_append_status(h, &status);
 ```
 
-NOTE: A complete example of how to do this can be found in the files
-      `fscc\lib\fscc\c\examples\set-append-status.c` and 
-      `fscc\lib\fscc\c\examples\get-append-status.c`.
+A complete example of how to do this can be found in the files
+[`fscc\lib\fscc\c\examples\set-append-status.c`](https://github.com/commtech/fscc-windows/blob/master/lib/c/examples/set-append-status.c)
+and 
+[`fscc\lib\fscc\c\examples\get-append-status.c`](https://github.com/commtech/fscc-windows/blob/master/lib/c/examples/get-append-status.c).
 
 ###### C++ Library
 ```cpp
@@ -508,8 +507,9 @@ ioctl(port_fd, FSCC_SET_MEMORY_CAP, &memory_cap);
 ```
 
 A complete example of how to do this can be found in the files
-`fscc\lib\fscc\c\examples\set-memory-cap.c` and 
-`fscc\lib\fscc\c\examples\get-memory-cap.c`.
+[`fscc\lib\fscc\c\examples\set-memory-cap.c`](https://github.com/commtech/fscc-windows/blob/master/lib/c/examples/set-memory-cap.c)
+and 
+[`fscc\lib\fscc\c\examples\get-memory-cap.c`](https://github.com/commtech/fscc-windows/blob/master/lib/c/examples/get-memory-cap.c).
 
 
 ##### Transmit Modifiers
@@ -678,7 +678,7 @@ there is an error specific to the FSCC you might encounter.
 | `STATUS_IO_TIMEOUT` | You are executing a command that requires a transmit clock present
 
 A complete example of how to do this can be found in the file
-`fscc\lib\fscc\c\examples\purge.c`.
+[`fscc\lib\fscc\c\examples\purge.c`](https://github.com/commtech/fscc-windows/blob/master/lib/c/examples/purge.c).
 
 ###### C++ Library
 ```cpp
@@ -870,7 +870,7 @@ You can view an up-to-date list of driver changes in our
 TODO
 
 
-##### How do I download and build the driver source code?
+##### How do I build a custom version of the driver source code?
 The source code for the Fastcom FSCC driver is hosted on Github code hosting.
 To check out the latest code you will need Git and to run the following command in a
 terminal:
@@ -879,10 +879,10 @@ terminal:
 git clone git://github.com/commtech/fscc-windows.git fscc
 ```
 
-NOTE: We prefer you use the above method for downloading the driver source code
-      (because it is the easiest way to stay up to date), but you can also get 
-      the driver source code from the
-      [download page](https://github.com/commtech/fscc-windows/tags/).
+We prefer you use the above method for downloading the driver source code
+(because it is the easiest way to stay up to date), but you can also get 
+the driver source code from the
+[download page](https://github.com/commtech/fscc-windows/tags/).
 
 Now that you have the latest code checked out, you will probably want
 to switch to a stable version within the code directory. You can do this by browsing
