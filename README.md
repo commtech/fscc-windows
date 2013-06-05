@@ -673,8 +673,9 @@ fscc_purge(h, TRUE, TRUE);
 In addition to the standard errors the DeviceIoControl() function returns,
 there is an error specific to the FSCC you might encounter.
 
-STATUS_IO_TIMEOUT: If you are trying to use an FSCC port without a transmit clock present,
-            this check can be turned off with the 'Ignore Timeout' parameter.
+| Error               | Cause
+| ------------------- | ----------------------------
+| `STATUS_IO_TIMEOUT` | You are executing a command that requires a transmit clock present
 
 A complete example of how to do this can be found in the file
 `fscc\lib\fscc\c\examples\purge.c`.
@@ -726,14 +727,10 @@ In in addition to the standard errors that the
 [`WriteFile()`](http://msdn.microsoft.com/en-us/library/windows/desktop/aa365747.aspx)
 function returns, there are a couple of errors specific to the FSCC you might encounter.
 
-STATUS_IO_TIMEOUT: If you are trying to use an FSCC port without a transmit clock present,
-            this check can be turned off with the 'Ignore Timeout' parameter.
-
-STATUS_BUFFER_TOO_SMALL: If the count parameter passed into the write() function 
-          is larger
-          than the output cap, or if the count parameter is less than the
-          output cap but the amount out of output space isn't enough, then the
-          driver will block instead of returning this error.
+| Error                     | Cause
+| ------------------------- | ----------------------------
+| `STATUS_IO_TIMEOUT`       | You are executing a command that requires a transmit clock present
+| `STATUS_BUFFER_TOO_SMALL` | The write size exceeds the output memory usage cap
 
 
 Reading data will typically be done within C code using the 
@@ -783,8 +780,9 @@ In in addition to the standard errors that the
 [`ReadFile()`](http://msdn.microsoft.com/en-us/library/windows/desktop/aa365467.aspx)
 function returns, there are a couple of errors specific to the FSCC you might encounter.
 
-STATUS_BUFFER_TOO_SMALL: This error occurs when the size parameter passed into the read() function is smaller
-          than the next frame (in a frame based mode).
+| Error                     | Cause
+| ------------------------- | ----------------------------
+| `STATUS_BUFFER_TOO_SMALL` | The read size is smaller than the next frame (in a frame based mode)
 
 Most users will want the advanced I/O capabilities included by using the 
 [Windows OVERLAPPED IO API](http://msdn.microsoft.com/en-us/library/windows/desktop/ms686358.aspx). We won't
