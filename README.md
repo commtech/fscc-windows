@@ -674,8 +674,7 @@ In addition to the standard errors the DeviceIoControl() function returns,
 there is an error specific to the FSCC you might encounter.
 
 STATUS_IO_TIMEOUT: If you are trying to use an FSCC port without a transmit clock present,
-            this check can be turned off with the 'ignore_timeout' command
-            line parameter.
+            this check can be turned off with the 'Ignore Timeout' parameter.
 
 A complete example of how to do this can be found in the file
 `fscc\lib\fscc\c\examples\purge.c`.
@@ -728,7 +727,7 @@ In in addition to the standard errors that the
 function returns, there are a couple of errors specific to the FSCC you might encounter.
 
 STATUS_IO_TIMEOUT: If you are trying to use an FSCC port without a transmit clock present,
-            this check can be turned off with the 'ignore_timeout' option.
+            this check can be turned off with the 'Ignore Timeout' parameter.
 
 STATUS_BUFFER_TOO_SMALL: If the count parameter passed into the write() function 
           is larger
@@ -784,11 +783,11 @@ In in addition to the standard errors that the
 [`ReadFile()`](http://msdn.microsoft.com/en-us/library/windows/desktop/aa365467.aspx)
 function returns, there are a couple of errors specific to the FSCC you might encounter.
 
-STATUS_BUFFER_TOO_SMALL: If the size parameter passed into the read() function is smaller
+STATUS_BUFFER_TOO_SMALL: This error occurs when the size parameter passed into the read() function is smaller
           than the next frame (in a frame based mode).
 
-Most users will want the advanced I/O capabilities included by using the [Windows OVERLAPPED IO
-API](http://msdn.microsoft.com/en-us/library/windows/desktop/ms686358(v=vs.85).aspx). We won't
+Most users will want the advanced I/O capabilities included by using the 
+[Windows OVERLAPPED IO API](http://msdn.microsoft.com/en-us/library/windows/desktop/ms686358.aspx). We won't
 duplicate the documentation here, but for your reference, here is an [article]
 (http://blogs.msdn.com/b/oldnewthing/archive/2011/02/02/10123392.aspx) on a common
 bug developers introduce while trying to cancel I/O operations when using OVERLAPPED IO.
@@ -889,7 +888,7 @@ NOTE: We prefer you use the above method for downloading the driver source code
 
 Now that you have the latest code checked out, you will probably want
 to switch to a stable version within the code directory. You can do this by browsing
-the various tags for one you would like to switch to. Version v1.0.0 is only
+the various tags for one you would like to switch to. Version v2.2.8 is only
 listed here as an example.
 
 ```
@@ -897,10 +896,8 @@ git tag
 git checkout v2.2.8
 ```
 
-Compiling the driver is relatively simple, provided you have all of the
-required dependencies. You will need Windows Driver Kit 7.1.0 at a 
-minimum. After assembling all of these things you can build the driver by
-simply running the BLD command from within the source code directory.
+Provided you have Windows Driver Kit 7.1.0 installed you can build the driver by
+running the BLD command from within the source code directory.
 
 ```
 cd fscc/src/
