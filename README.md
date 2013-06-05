@@ -644,8 +644,8 @@ port.ignore_timeout = True
 
 ##### Purging Data
 Between the hardware FIFO and the driver's software buffers there are multiple
-places data could be at excluding your application code. If you ever need to
-clear this data out and start out fresh there are a couple ways of doing this.
+places data could be stored, excluding your application code. If you ever need to
+clear this data and start fresh, there are a couple of methods you can use.
 
 ###### Windows API
 ```c
@@ -670,14 +670,14 @@ DeviceIoControl(h, FSCC_PURGE_RX,
 fscc_purge(h, TRUE, TRUE);
 ```
 
-In in addition to the standard errors that the DeviceIoControl() function returns
-there is an error specific to the FSCC you might run into.
+In addition to the standard errors the DeviceIoControl() function returns,
+there is an error specific to the FSCC you might encounter.
 
-STATUS_IO_TIMEOUT: If trying to use a FSCC port without a transmit clock present.
-            This check can be turned off with the 'ignore_timeout' command
+STATUS_IO_TIMEOUT: If you are trying to use an FSCC port without a transmit clock present,
+            this check can be turned off with the 'ignore_timeout' command
             line parameter.
 
-A complete example of how to do this can be found in the files
+A complete example of how to do this can be found in the file
 `fscc\lib\fscc\c\examples\purge.c`.
 
 ###### C++ Library
@@ -706,17 +706,17 @@ port.purge(True, True)
 
 
 ##### Sending/Receiving Data
-The FSCC driver typically (but not always) works in "frames". This means that
-data typically is packaged together in permanent chunks. If the card received
-two frames of data prior to you retrieving the data you will only get one chunk
+The FSCC driver typically (but not always) works in "frames". This means
+data is typically packaged together in permanent chunks. If the card received
+two frames of data prior to you retrieving the data, you will only get one chunk
 of data back at a time when you interface with the driver to get the data.
 
-There are multiple ways of reading/writing data to/from the card. Listed below
-are only the most common.
+There are multiple methods of reading/writing data to/from the card. Following
+are the most common methods.
 
 Writing data will typically be done within C code using the 
 [`WriteFile()`](http://msdn.microsoft.com/en-us/library/windows/desktop/aa365747.aspx)
-function found within 
+function found in 
 [`<windows.h>`](http://msdn.microsoft.com/en-us/library/windows/desktop/aa383745.aspx). 
 
 ```
@@ -725,16 +725,15 @@ result = WriteFile(handle, buf, count, (DWORD*)bytes_written, NULL);
 
 In in addition to the standard errors that the 
 [`WriteFile()`](http://msdn.microsoft.com/en-us/library/windows/desktop/aa365747.aspx)
-function returns there are a couple errors specific to the FSCC you might run 
-into.
+function returns, there are a couple errors specific to the FSCC you might encounter.
 
-STATUS_IO_TIMEOUT: If trying to use a FSCC port without a transmit clock present.
-            This check can be turned off with the 'ignore_timeout' option.
+STATUS_IO_TIMEOUT: If you are trying to use an FSCC port without a transmit clock present,
+            this check can be turned off with the 'ignore_timeout' option.
 
 STATUS_BUFFER_TOO_SMALL: If the count parameter passed into the write() function 
           is larger
-          than the output cap. If the count parameter is less than the
-          output cap but the amount out of output space isn't enough the
+          than the output cap, or if the count parameter is less than the
+          output cap but the amount out of output space isn't enough, then the
           driver will block instead of returning this error.
 
 
@@ -767,32 +766,32 @@ maximum amount of data to return. If there is 100 bytes of streaming data
 in the card and you 
 [`ReadFile()`](http://msdn.microsoft.com/en-us/library/windows/desktop/aa365467.aspx)
 with a length of 50, you will receive 50 bytes.
-If you were to do a 
+If you do a 
 [`ReadFile()`](http://msdn.microsoft.com/en-us/library/windows/desktop/aa365467.aspx)
-of 200 bytes you will receive the 100 bytes
+of 200 bytes, you will receive the 100 bytes
 available.
 
 Frame based data and streaming data are kept separate within the driver.
-To understand what this means first imagine this scenario. You are in a
+To understand what this means, first imagine the following scenario. You are in a
 frame based mode and receive a couple of frames. You then switch to
 streaming mode and receive a stream of data. When calling 
 [`ReadFile()`](http://msdn.microsoft.com/en-us/library/windows/desktop/aa365467.aspx)
 you will receive the the streaming data until you switch back into a frame based
-mode then do a 
+mode and do a 
 [`ReadFile()`](http://msdn.microsoft.com/en-us/library/windows/desktop/aa365467.aspx).
 
 In in addition to the standard errors that the 
 [`ReadFile()`](http://msdn.microsoft.com/en-us/library/windows/desktop/aa365467.aspx)
-function returns there are a couple errors specific to the FSCC you might run into.
+function returns, there are a couple errors specific to the FSCC you might encounter.
 
 STATUS_BUFFER_TOO_SMALL: If the size parameter passed into the read() function is smaller
           than the next frame (in a frame based mode).
 
-Most users will want the advanced IO capabilities included by using the [Windows OVERLAPPED IO
+Most users will want the advanced I/O capabilities included by using the [Windows OVERLAPPED IO
 API](http://msdn.microsoft.com/en-us/library/windows/desktop/ms686358(v=vs.85).aspx). We won't
-duplicate any of it's documentation here but for reference sake here is an [article]
+duplicate the documentation here, but for your reference, here is an [article]
 (http://blogs.msdn.com/b/oldnewthing/archive/2011/02/02/10123392.aspx) on a common
-bug developers introduce while trying to cancel IO operations while using OVERLAPPED IO.
+bug developers introduce while trying to cancel I/O operations when using OVERLAPPED IO.
 
 
 ##### Asynchronous Communication
@@ -806,8 +805,8 @@ synchronous and asynchronous modes by modifying the FCR register for you.
 All you need to do is open the FSCC handle to be in synchronous mode and the 
 COM handle to be in asychronous mode.
 
-For more information about using the UART's take a look at the 
-[SerialFC driver readme](https://github.com/commtech/serialfc-windows/blob/master/README.md).
+More information about using the UART's is available in the 
+[SerialFC driver readme](https://github.com/commtech/serialfc-windows/blob/master/README.md) file.
 
 
 ### FAQ
@@ -815,10 +814,10 @@ For more information about using the UART's take a look at the
 ##### Why does executing a purge without a clock put the card in a broken state?
 When executing a purge on either the transmitter or receiver there is
 a TRES or RRES (command from the CMDR register) happening behind the
-scenes. If there is no clock available the command will stall until
+scenes. If there isn't a clock available, the command will stall until
 a clock is available. This should work in theory but doesn't in
-practice. So whenever you need to execute a purge without a clock, first
-put it into clock mode 7, execute your purge then return to your other
+practice. So whenever you need to execute a purge without a clock: first
+put it into clock mode 7, execute your purge, and then return to your other
 clock mode.
 
 
@@ -835,12 +834,12 @@ to calculate the correct value and
 to use [these settings](http://i.imgur.com/G6zT87i.jpg).
    
 
-##### My port numbering is messed up, how do I fix them?
-It is possible, but unfortunately there isn't a good way at the moment. To do it
-you will need to modify the following registry keys.
+##### My port numbering is incorrect, how do I fix it?
+It is possible, but unfortunately there isn't a good way at the moment.  You 
+will need to modify the following registry keys.
    
-This is the key for setting the automaticall generated port numbering. If you want 
-the next number to be 8 then set this to 7. If you want it to be 0 then set to 0xffffffff 
+This is the key for setting automatically generated port numbering. If you want 
+the next number to be 8, then set this to 7. If you want it to be 0, then set to 0xffffffff 
 (actually -1).
 `HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\services\FSCC\Parameters\LastPortNumber`
  
@@ -851,8 +850,8 @@ This is the key for setting the port's specific number after it has already been
 ##### Which resitors are for termination?
 Near the connector on the front and back you will see resistors labeled '102' which 
 are the pull up/down resistors. On the back you will see resistors labeled '101' which 
-are the termination resistors. If you would like to send the card to us we will remove 
-them for you. If you decide to do it yourself you will void your warranty. 
+are the termination resistors. If you would like to send the card to us, we will gladly remove 
+them for you. Please note, removing them yourself will void the warranty. 
 
 
 
@@ -866,7 +865,7 @@ dependencies. The full dependency list is below.
 
 
 ##### What was changed in 2.X?
-You can view an up-to-date list of driver changes over at our 
+You can view an up-to-date list of driver changes in our 
 [ChangeLog](https://github.com/commtech/fscc-windows/blob/master/ChangeLog.txt).
 
 
@@ -876,20 +875,20 @@ TODO
 
 ##### How do I download and build the driver source code?
 The source code for the Fastcom FSCC driver is hosted on Github code hosting.
-To check out the latest code you will need Git and to run the following in a
-terminal.
+To check out the latest code you will need Git and to run the following command in a
+terminal:
 
 ```
 git clone git://github.com/commtech/fscc-windows.git fscc
 ```
 
 NOTE: We prefer you use the above method for downloading the driver source code
-      (because it is the easiest way to stay up to date) but you can also get 
+      (because it is the easiest way to stay up to date), but you can also get 
       the driver source code from the
       [download page](https://github.com/commtech/fscc-windows/tags/).
 
-Now that you have the latest code checked out you will more than likely want
-to switch to a stable version within the code directory. To do this browse
+Now that you have the latest code checked out, you will probably want
+to switch to a stable version within the code directory. You can do this by browsing
 the various tags for one you would like to switch to. Version v1.0.0 is only
 listed here as an example.
 
@@ -898,7 +897,7 @@ git tag
 git checkout v2.2.8
 ```
 
-Compiling the driver is relatively simple assuming you have all of the
+Compiling the driver is relatively simple, provided you have all of the
 required dependencies. You will need Windows Driver Kit 7.1.0 at a 
 minimum. After assembling all of these things you can build the driver by
 simply running the BLD command from within the source code directory.
@@ -912,10 +911,10 @@ BLD
 ##### Should I migrate from 1.x to 2.x?
 There are multiple benefits of using the 2.x driver: amd64 support, intuitive 
 [`DeviceIoControl`](http://msdn.microsoft.com/en-us/library/windows/desktop/aa363216.aspx)
-calls, backend support for multiple languages (C, C++, Python, .NET) and dynamic 
-memory management are some.
+calls, backend support for multiple languages (C, C++, Python, .NET), and dynamic 
+memory management, to name a few.
 
-The 1.x driver and the 2.x driver are very similar so porting from one to the
+The 1.x driver and the 2.x driver are very similar, so porting from one to the
 other should be rather painless.
 
 All `DeviceIoControl` values have changed even if their new names match their old
@@ -974,13 +973,13 @@ will not work correctly.
 
 
 ###### Status Bytes
-Getting the frame status has now been designed to be configurable. In the
-1.x driver you would always have the frame status appended to your data on a
-read. In the 2.x driver this can be toggled, and defaults to not appending
+Getting the frame status has now been designed to be configurable. When using the
+1.x driver, you would always have the frame status appended to your data on a
+read. When using the 2.x driver, this can be toggled and defaults to not appending
 the status to the data.
 
 All of the 2.2.X releases will not break API compatability. If a function in the 2.2.X
-series returns an incorrect value it could be fixed to return the correct value in a
+series returns an incorrect value, it can be fixed to return the correct value in a
 later release.
 
 When and if we switch to a 2.3 release there will only be minor API changes.
