@@ -87,7 +87,7 @@ _For a complete listing of all of the configuration options please see the
 manual._
 
 There are multiple ways of modifying the card's registers varying from using
-the Windows API to an FSCC specific API. Following are a few methods of doing this.
+the Windows API to an FSCC specific API. Following are a few methods you can use.
 
 In HDLC mode some settings are fixed at certain values. If you are in
 HDLC mode and after setting/getting your registers some bits don't look correct
@@ -177,7 +177,7 @@ port.registers.BGR = 10
 
 ##### Reading Register Values
 There are multiple ways of reading the card's registers varying from using
-the Windows API to an FSCC specific API. Following are a few methods of doing this.
+the Windows API to an FSCC specific API. Following are a few methods you can use.
 
 Use the `FSCC_GET_REGISTERS` ioctl to get the values of any registers you
 need to read from within code. This ioctl can be found within
