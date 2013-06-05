@@ -723,9 +723,8 @@ function found in
 result = WriteFile(handle, buf, count, (DWORD*)bytes_written, NULL);
 ```
 
-In in addition to the standard errors that the 
-[`WriteFile()`](http://msdn.microsoft.com/en-us/library/windows/desktop/aa365747.aspx)
-function returns, there are a couple of errors specific to the FSCC you might encounter.
+In in addition to the standard errors that the `WriteFile()` function returns, there are 
+a couple of errors specific to the FSCC you might encounter.
 
 | Error                     | Cause
 | ------------------------- | ----------------------------
@@ -735,7 +734,7 @@ function returns, there are a couple of errors specific to the FSCC you might en
 
 Reading data will typically be done within C code using the 
 [`ReadFile()`](http://msdn.microsoft.com/en-us/library/windows/desktop/aa365467.aspx)
-function found within the 
+function found in
 [`<windows.h>`](http://msdn.microsoft.com/en-us/library/windows/desktop/aa383745.aspx). 
 
 ```c
@@ -748,47 +747,34 @@ on the mode you are using.
 In a frame based mode the length argument specifies the maximum frame size
 to return. If the next queued frame is larger than the size you specified
 the error `STATUS_BUFFER_TOO_SMALL` is returned and the data will remain 
-waiting for a 
-[`ReadFile()`](http://msdn.microsoft.com/en-us/library/windows/desktop/aa365467.aspx)
-of a larger value. If a 
-[`ReadFile()`](http://msdn.microsoft.com/en-us/library/windows/desktop/aa365467.aspx)
-length is specified that is larger than the
-length of multiple frames in queue, you will still only receive one frame per
-[`ReadFile()`](http://msdn.microsoft.com/en-us/library/windows/desktop/aa365467.aspx)
-call.
+waiting for a `ReadFile()` of a larger value. If a `ReadFile()` length is specified 
+that is larger than the length of multiple frames in queue, you will still only receive 
+one frame per `ReadFile()` call.
 
 In streaming mode (no frame termination) the length argument specifies the
 maximum amount of data to return. If there are 100 bytes of streaming data
-in the card and you 
-[`ReadFile()`](http://msdn.microsoft.com/en-us/library/windows/desktop/aa365467.aspx)
-with a length of 50, you will receive 50 bytes.
-If you do a 
-[`ReadFile()`](http://msdn.microsoft.com/en-us/library/windows/desktop/aa365467.aspx)
-of 200 bytes, you will receive the 100 bytes
-available.
+in the card and you `ReadFile()` with a length of 50, you will receive 50 bytes.
+If you do a `ReadFile()` of 200 bytes, you will receive the 100 bytes available.
 
 Frame based data and streaming data are kept separate within the driver.
 To understand what this means, first imagine the following scenario. You are in a
 frame based mode and receive a couple of frames. You then switch to
-streaming mode and receive a stream of data. When calling 
-[`ReadFile()`](http://msdn.microsoft.com/en-us/library/windows/desktop/aa365467.aspx)
+streaming mode and receive a stream of data. When calling `ReadFile()`
 you will receive the the streaming data until you switch back into a frame based
-mode and do a 
-[`ReadFile()`](http://msdn.microsoft.com/en-us/library/windows/desktop/aa365467.aspx).
+mode and do a `ReadFile()`.
 
-In in addition to the standard errors that the 
-[`ReadFile()`](http://msdn.microsoft.com/en-us/library/windows/desktop/aa365467.aspx)
-function returns, there are a couple of errors specific to the FSCC you might encounter.
+In in addition to the standard errors that the `ReadFile()`function returns, there 
+are a couple of errors specific to the FSCC you might encounter.
 
 | Error                     | Cause
 | ------------------------- | ----------------------------
 | `STATUS_BUFFER_TOO_SMALL` | The read size is smaller than the next frame (in a frame based mode)
 
-Most users will want the advanced I/O capabilities included by using the 
-[Windows OVERLAPPED IO API](http://msdn.microsoft.com/en-us/library/windows/desktop/ms686358.aspx). We won't
-duplicate the documentation here, but for your reference, here is an [article]
+Most users will want the advanced I/O capabilities included by using the Windows
+[OVERLAPPED I/O API](http://msdn.microsoft.com/en-us/library/windows/desktop/ms686358.aspx). 
+We won't duplicate the documentation here, but for your reference, here is an [article]
 (http://blogs.msdn.com/b/oldnewthing/archive/2011/02/02/10123392.aspx) on a common
-bug developers introduce while trying to cancel I/O operations when using OVERLAPPED IO.
+bug developers introduce while trying to cancel I/O operations when using OVERLAPPED I/O.
 
 
 ##### Asynchronous Communication
@@ -803,7 +789,7 @@ All you need to do is open the FSCC handle to be in synchronous mode and the
 COM handle to be in asychronous mode.
 
 More information about using the UART's is available in the 
-[SerialFC driver readme](https://github.com/commtech/serialfc-windows/blob/master/README.md) file.
+[SerialFC driver README](https://github.com/commtech/serialfc-windows/blob/master/README.md) file.
 
 
 ### FAQ
