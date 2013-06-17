@@ -490,6 +490,7 @@ NTSTATUS FsccEvtDevicePrepareHardware(WDFDEVICE Device,
     fscc_port_set_append_status(port, DEFAULT_APPEND_STATUS_VALUE);
     fscc_port_set_ignore_timeout(port, DEFAULT_IGNORE_TIMEOUT_VALUE);
     fscc_port_set_tx_modifiers(port, DEFAULT_TX_MODIFIERS_VALUE);
+    fscc_port_set_rx_multiple(port, DEFAULT_RX_MULTIPLE_VALUE);
 
     memory_cap.input = DEFAULT_INPUT_MEMORY_CAP_VALUE;
     memory_cap.output = DEFAULT_OUTPUT_MEMORY_CAP_VALUE;
@@ -742,6 +743,30 @@ VOID FsccEvtIoDeviceControl(IN WDFQUEUE Queue, IN WDFREQUEST Request,
             bytes_returned = sizeof(*append_status);
         }
 
+    case FSCC_ENABLE_RX_MULTIPLE:
+        fscc_port_set_rx_multiple(port, TRUE);
+        break;
+
+    case FSCC_DISABLE_RX_MULTIPLE:
+        fscc_port_set_rx_multiple(port, FALSE);
+        break;
+
+    case FSCC_GET_RX_MULTIPLE: {
+            BOOLEAN *rx_multiple = 0;
+
+            status = WdfRequestRetrieveOutputBuffer(Request,
+                        sizeof(*rx_multiple), (PVOID *)&rx_multiple, NULL);
+            if (!NT_SUCCESS(status)) {
+                TraceEvents(TRACE_LEVEL_WARNING, TRACE_DEVICE,
+                    "WdfRequestRetrieveOutputBuffer failed %!STATUS!", status);
+                break;
+            }
+
+            *rx_multiple = fscc_port_get_rx_multiple(port);
+
+            bytes_returned = sizeof(*rx_multiple);
+        }
+
         break;
 
     case FSCC_SET_MEMORY_CAP: {
@@ -878,29 +903,36 @@ int fscc_port_frame_read(struct fscc_port *port, char *buf, size_t buf_length,
                          size_t *out_length)
 {
     struct fscc_frame *frame = 0;
-    unsigned max_data_length = 0;
+    unsigned remaining_data_length = 0;
+    unsigned current_frame_length = 0;
 
     return_val_if_untrue(port, 0);
+    
+    *out_length = 0;
+    
+    do {
+        remaining_data_length = buf_length - *out_length;
+        remaining_data_length += (!port->append_status) ? 2 : 0;
+        
+        frame = fscc_flist_remove_frame_if_lte(&port->iframes, remaining_data_length);
 
-    max_data_length = buf_length;
-    max_data_length += (!port->append_status) ? 2 : 0;
+        if (!frame)
+            break;
 
-    frame = fscc_flist_remove_frame_if_lte(&port->iframes, max_data_length);
+        current_frame_length = fscc_frame_get_length(frame);
+        current_frame_length -= (!port->append_status) ? 2 : 0;
+        
+        *out_length += current_frame_length;
 
-    //TODO: This should never occur but it would be nice to have it in there
-    //if (!frame)
-    //    return 0;
+        fscc_frame_remove_data(frame, buf, current_frame_length);
 
-    if (!frame)
+        fscc_frame_delete(frame);
+    }
+    while (port->rx_multiple);
+    
+    if (*out_length == 0)
         return STATUS_BUFFER_TOO_SMALL;
-
-    *out_length = fscc_frame_get_length(frame);
-    *out_length -= (!port->append_status) ? 2 : 0;
-
-    fscc_frame_remove_data(frame, buf, (unsigned)(*out_length));
-
-    fscc_frame_delete(frame);
-
+        
     return STATUS_SUCCESS;
 }
 
@@ -1360,6 +1392,30 @@ BOOLEAN fscc_port_get_ignore_timeout(struct fscc_port *port)
     return_val_if_untrue(port, 0);
 
     return port->ignore_timeout;
+}
+
+void fscc_port_set_rx_multiple(struct fscc_port *port, BOOLEAN value)
+{
+    return_if_untrue(port);
+
+    if (port->rx_multiple != value) {
+        TraceEvents(TRACE_LEVEL_INFORMATION, TRACE_DEVICE,
+                    "Receive multiple %i => %i",
+                    port->rx_multiple, value);
+    }
+    else {
+        TraceEvents(TRACE_LEVEL_VERBOSE, TRACE_DEVICE,
+                    "Receive multiple = %i", value);
+    }
+
+    port->rx_multiple = (value) ? 1 : 0;
+}
+
+BOOLEAN fscc_port_get_rx_multiple(struct fscc_port *port)
+{
+    return_val_if_untrue(port, 0);
+
+    return port->rx_multiple;
 }
 
 /* Returns -EINVAL if you set an incorrect transmit modifier */

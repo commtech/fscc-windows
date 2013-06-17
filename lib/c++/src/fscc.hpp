@@ -34,6 +34,9 @@ namespace FSCC {
 		bool GetIgnoreTimeout(void) throw(SystemException);
 		void EnableIgnoreTimeout(void) throw(SystemException);
 		void DisableIgnoreTimeout(void) throw(SystemException);
+		bool GetRxMultiple(void) throw(SystemException);
+		void EnableRxMultiple(void) throw(SystemException);
+		void DisableRxMultiple(void) throw(SystemException);
 		void Purge(bool tx, bool rx) throw(SystemException);
 
 		unsigned Write(const char *buf, unsigned size, OVERLAPPED *o) throw(SystemException);

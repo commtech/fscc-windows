@@ -34,6 +34,10 @@ extern "C"
 #define FSCC_SET_TX_MODIFIERS CTL_CODE(FSCC_IOCTL_MAGIC, 0x80C, METHOD_BUFFERED, FILE_ANY_ACCESS)
 #define FSCC_GET_TX_MODIFIERS CTL_CODE(FSCC_IOCTL_MAGIC, 0x80E, METHOD_BUFFERED, FILE_ANY_ACCESS)
 
+#define FSCC_ENABLE_RX_MULTIPLE CTL_CODE(FSCC_IOCTL_MAGIC, 0x810, METHOD_BUFFERED, FILE_ANY_ACCESS)
+#define FSCC_DISABLE_RX_MULTIPLE CTL_CODE(FSCC_IOCTL_MAGIC, 0x811, METHOD_BUFFERED, FILE_ANY_ACCESS)
+#define FSCC_GET_RX_MULTIPLE CTL_CODE(FSCC_IOCTL_MAGIC, 0x812, METHOD_BUFFERED, FILE_ANY_ACCESS)
+
 enum transmit_modifiers { XF=0, XREP=1, TXT=2, TXEXT=4 };
 		
 typedef INT64 fscc_register;
@@ -102,6 +106,9 @@ __declspec(dllexport) int fscc_disable_append_status(HANDLE h);
 __declspec(dllexport) int fscc_get_ignore_timeout(HANDLE h, BOOL *status);
 __declspec(dllexport) int fscc_enable_ignore_timeout(HANDLE h);
 __declspec(dllexport) int fscc_disable_ignore_timeout(HANDLE h);
+__declspec(dllexport) int fscc_get_rx_multiple(HANDLE h, BOOL *status);
+__declspec(dllexport) int fscc_enable_rx_multiple(HANDLE h);
+__declspec(dllexport) int fscc_disable_rx_multiple(HANDLE h);
 __declspec(dllexport) int fscc_purge(HANDLE h, BOOL tx, BOOL rx);
 __declspec(dllexport) int fscc_write(HANDLE h, char *buf, unsigned size, unsigned *bytes_written, OVERLAPPED *o);
 __declspec(dllexport) int fscc_read(HANDLE h, char *buf, unsigned size, unsigned *bytes_read, OVERLAPPED *o);

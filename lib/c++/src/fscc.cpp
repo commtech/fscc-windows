@@ -237,6 +237,34 @@ void Port::DisableIgnoreTimeout(void) throw(SystemException)
 		throw SystemException(e);
 }
 
+bool Port::GetRxMultiple(void) throw(SystemException)
+{
+	BOOL rx_multiple;
+
+	int e = fscc_get_rx_multiple(_h, &rx_multiple);
+
+	if (e)
+		throw SystemException(e);
+
+	return rx_multiple != 0;
+}
+
+void Port::EnableRxMultiple(void) throw(SystemException)
+{
+	int e = fscc_enable_rx_multiple(_h);
+
+	if (e)
+		throw SystemException(e);
+}
+
+void Port::DisableRxMultiple(void) throw(SystemException)
+{
+	int e = fscc_disable_rx_multiple(_h);
+
+	if (e)
+		throw SystemException(e);
+}
+
 void Port::Purge(bool tx, bool rx) throw(SystemException)
 {
 	int e = fscc_purge(_h, tx, rx);

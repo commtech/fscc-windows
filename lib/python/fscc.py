@@ -55,6 +55,10 @@ FSCC_GET_IGNORE_TIMEOUT = CTL_CODE(FSCC_IOCTL_MAGIC, 0x80F, METHOD_BUFFERED, FIL
 FSCC_SET_TX_MODIFIERS = CTL_CODE(FSCC_IOCTL_MAGIC, 0x80C, METHOD_BUFFERED, FILE_ANY_ACCESS)
 FSCC_GET_TX_MODIFIERS = CTL_CODE(FSCC_IOCTL_MAGIC, 0x80E, METHOD_BUFFERED, FILE_ANY_ACCESS)
 
+FSCC_ENABLE_RX_MULTIPLE = CTL_CODE(FSCC_IOCTL_MAGIC, 0x810, METHOD_BUFFERED, FILE_ANY_ACCESS)
+FSCC_DISABLE_RX_MULTIPLE = CTL_CODE(FSCC_IOCTL_MAGIC, 0x811, METHOD_BUFFERED, FILE_ANY_ACCESS)
+FSCC_GET_RX_MULTIPLE = CTL_CODE(FSCC_IOCTL_MAGIC, 0x812, METHOD_BUFFERED, FILE_ANY_ACCESS)
+
 FSCC_UPDATE_VALUE = -2
 
 XF, XREP, TXT, TXEXT = 0, 1, 2, 4
@@ -353,6 +357,24 @@ class Port(io.FileIO):
         return value[0]
 
     tx_modifiers = property(fset=_set_tx_modifiers, fget=_get_tx_modifiers)
+
+    def _set_rx_multiple(self, rx_multiple):
+        """Sets the value of the ignore timeout setting."""
+        if rx_multiple:
+            win32file.DeviceIoControl(self.hComPort, FSCC_ENABLE_RX_MULTIPLE, None, 0, None)
+        else:
+            win32file.DeviceIoControl(self.hComPort, FSCC_DISABLE_RX_MULTIPLE, None, 0, None)
+
+    def _get_rx_multiple(self):
+        """Gets the value of the ignore timeout setting."""
+        buf_size = struct.calcsize("?")
+        buf = win32file.DeviceIoControl(self.hComPort, FSCC_GET_RX_MULTIPLE, None, buf_size, None)
+        value = struct.unpack("?", buf)
+
+        return value[0]
+
+    rx_multiple = property(fset=_set_rx_multiple,
+                              fget=_get_rx_multiple)
 
     def read(self, max_bytes=4096):
         """Reads data from the card."""

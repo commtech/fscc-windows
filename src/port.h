@@ -94,6 +94,7 @@ typedef struct fscc_port {
     struct fscc_registers register_storage; /* Only valid on suspend/resume */
     BOOLEAN append_status;
     BOOLEAN ignore_timeout;
+    BOOLEAN rx_multiple;
     int tx_modifiers;
     unsigned last_isr_value;
     unsigned open_counter;
@@ -175,6 +176,9 @@ BOOLEAN fscc_port_get_append_status(struct fscc_port *port);
 void fscc_port_set_ignore_timeout(struct fscc_port *port,
                                   BOOLEAN ignore_timeout);
 BOOLEAN fscc_port_get_ignore_timeout(struct fscc_port *port);
+void fscc_port_set_rx_multiple(struct fscc_port *port,
+                                  BOOLEAN rx_multiple);
+BOOLEAN fscc_port_get_rx_multiple(struct fscc_port *port);
 NTSTATUS fscc_port_set_tx_modifiers(struct fscc_port *port, int value);
 unsigned fscc_port_get_tx_modifiers(struct fscc_port *port);
 

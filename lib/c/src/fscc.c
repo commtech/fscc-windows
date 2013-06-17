@@ -451,6 +451,92 @@ int fscc_disable_ignore_timeout(HANDLE h)
 /******************************************************************************/
 /*!
 
+  \brief Gets a port's rx multiple value.
+
+  \param[in] h 
+    HANDLE to the port
+  \param[out] status
+    the rx multiple value
+      
+  \return 0 
+    if the operation completed successfully
+  \return >= 1 
+    if the operation failed (see MSDN 'System Error Codes')
+
+*/
+/******************************************************************************/
+int fscc_get_rx_multiple(HANDLE h, BOOL *status)
+{
+	DWORD temp;
+	BOOL result;
+
+	result = DeviceIoControl(h, (DWORD)FSCC_GET_RX_MULTIPLE, 
+		                     NULL, 0, 
+							 status, sizeof(*status), 
+							 &temp, (LPOVERLAPPED)NULL);
+
+	return (result == TRUE) ? ERROR_SUCCESS : GetLastError();
+}
+
+/******************************************************************************/
+/*!
+
+  \brief Receive multiple frames per read call.
+
+  \param[in] h 
+    HANDLE to the port
+      
+  \return 0 
+    if the operation completed successfully
+  \return >= 1 
+    if the operation failed (see MSDN 'System Error Codes')
+
+*/
+/******************************************************************************/
+int fscc_enable_rx_multiple(HANDLE h)
+{
+	DWORD temp;
+	BOOL result;
+
+	result = DeviceIoControl(h, (DWORD)FSCC_ENABLE_RX_MULTIPLE, 
+		                     NULL, 0, 
+							 NULL, 0, 
+							 &temp, (LPOVERLAPPED)NULL);
+
+	return (result == TRUE) ? ERROR_SUCCESS : GetLastError();
+}
+
+/******************************************************************************/
+/*!
+
+  \brief Disable rx multiple.
+
+  \param[in] h 
+    HANDLE to the port
+      
+  \return 0 
+    if the operation completed successfully
+  \return >= 1 
+    if the operation failed (see MSDN 'System Error Codes')
+
+*/
+/******************************************************************************/
+int fscc_disable_rx_multiple(HANDLE h)
+{
+	DWORD temp;
+	BOOL result;
+
+	result = DeviceIoControl(h, (DWORD)FSCC_DISABLE_RX_MULTIPLE, 
+		                     NULL, 0, 
+							 NULL, 0, 
+							 &temp, (LPOVERLAPPED)NULL);
+
+	return (result == TRUE) ? ERROR_SUCCESS : GetLastError();
+}
+
+/******************************************************************************/
+/*!
+
   \brief Clears the transmit and/or receive data out of the card.
 
   \param[in] h 
