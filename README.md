@@ -641,6 +641,71 @@ import fscc
 port.ignore_timeout = True
 ```
 
+##### Rx Multiple
+
+###### Windows API
+```c
+#include <fscc.h>
+...
+
+BOOL status;
+
+DeviceIoControl(h, FSCC_ENABLE_RX_MULTIPLE, 
+                NULL, 0, 
+                NULL, 0, 
+                &temp, NULL);
+
+DeviceIoControl(h, FSCC_DISABLE_RX_MULTIPLE, 
+                NULL, 0, 
+                NULL, 0, 
+                &temp, NULL);
+				
+DeviceIoControl(h, FSCC_GET_RX_MULTIPLE, 
+                NULL, 0, 
+                &status, sizeof(status), 
+                &temp, NULL);
+```
+
+###### C Library
+```c
+#include <fscc.h>
+...
+
+BOOL status;
+
+fscc_enable_rx_multiple(h);
+fscc_disable_rx_multiple(h);
+
+fscc_get_rx_multiple(h, &status);
+```
+
+###### C++ Library
+```cpp
+#include <fscc.hpp>
+...
+
+port.EnableRxMultiple();
+port.DisableRxMultiple();
+
+bool status = port.GetRxMultiple();
+```
+
+###### .NET Library
+```csharp
+using FSCC;
+...
+
+port.RxMultiple = true;
+```
+
+###### Python Library
+```python
+import fscc
+...
+
+port.rx_multiple = True
+```
+
 
 ##### Purging Data
 Between the hardware FIFO and the driver's software buffers there are multiple
