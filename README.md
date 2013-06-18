@@ -641,7 +641,16 @@ import fscc
 port.ignore_timeout = True
 ```
 
-##### Rx Multiple
+##### Retrieving Multiple Frames At Once
+_Added in version 2.2.9_
+
+Most of the time it is sufficient, and preferred, to retrieve only one
+frame from the driver at a time. If you would like to return multiple
+frames per `ReadFile()` call you can do so by enabling `RX_MULTIPLE`.
+
+When you pass in a buffer to your `ReadFile()` call the driver will fill
+it up with as many _full_ frames as it can fit (until there isn't room or
+their is no more frames).
 
 ###### Windows API
 ```c
