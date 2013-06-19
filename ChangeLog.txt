@@ -1,3 +1,12 @@
+version 2.2.9 (6/20/2013)
+--------------------------------------------------------------------------------
+    * Add support for returning multiple frames per read call
+    * Add support for new card ID's (0x23, 0x24, 0x25)
+    * Fixed a bug that allowed users to incorrectly be in a stream based mode
+      when only terminating using NTB
+    * Update SerialFC to v2.1.5
+      (https://github.com/commtech/serialfc-windows/blob/master/ChangeLog.txt)
+
 version 2.2.8 (5/21/2013)
 --------------------------------------------------------------------------------
     * Fixed a bug that allowed users to reset another port's FCR settings
