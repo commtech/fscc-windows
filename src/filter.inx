@@ -39,13 +39,16 @@ ExcludeFromSelect=*
 %FSCC232.DeviceDesc%=FSCC_Device, PCI\VEN_18F7&DEV_0016
 %SuperFSCC104.DeviceDesc%=FSCC_Device, PCI\VEN_18F7&DEV_0017
 %SuperFSCC4.DeviceDesc%=FSCC_Device, PCI\VEN_18F7&DEV_0018
-%SuperFSCC.DeviceDesc%=FSCC_Device, PCI\VEN_18F7&DEV_0019
+%SuperFSCC_UA.DeviceDesc%=FSCC_Device, PCI\VEN_18F7&DEV_0019
 %SuperFSCCLVDS.DeviceDesc%=FSCC_Device, PCI\VEN_18F7&DEV_001A
 %FSCC4.DeviceDesc%=FSCC_Device, PCI\VEN_18F7&DEV_001B
 %SuperFSCC4LVDS.DeviceDesc%=FSCC_Device, PCI\VEN_18F7&DEV_001C
-%FSCC.DeviceDesc%=FSCC_Device, PCI\VEN_18F7&DEV_001D
+%FSCC_UA.DeviceDesc%=FSCC_Device, PCI\VEN_18F7&DEV_001D
 %SuperFSCC4PCIe.DeviceDesc%=FSCC_Device, PCI\VEN_18F7&DEV_001E
 %SuperFSCC4cPCI.DeviceDesc%=FSCC_Device, PCI\VEN_18F7&DEV_001F
+%SuperFSCC4_UA_cPCI.DeviceDesc%=FSCC_Device, PCI\VEN_18F7&DEV_0023
+%SuperFSCCLVDS_UA.DeviceDesc%=FSCC_Device, PCI\VEN_18F7&DEV_0024
+%SuperFSCC4LVDS_UA.DeviceDesc%=FSCC_Device, PCI\VEN_18F7&DEV_0025
 
 
 
@@ -80,9 +83,11 @@ HKR,Child03,ResourceMap,1,04,06
 ManufacturerName = "Commtech, Inc."
 
 FSCC.DeviceDesc = "Commtech FSCC Controller"
+FSCC_UA.DeviceDesc = "Commtech FSCC Controller"
 FSCC4.DeviceDesc = "Commtech FSCC/4 Controller"
 FSCC232.DeviceDesc = "Commtech FSCC-232 Controller"
 SuperFSCC.DeviceDesc = "Commtech SuperFSCC Controller"
+SuperFSCC_UA.DeviceDesc = "Commtech SuperFSCC Controller"
 SuperFSCC104.DeviceDesc = "Commtech SuperFSCC-104 Controller"
 SuperFSCC104LVDS.DeviceDesc = "Commtech SuperFSCC-104-LVDS Controller"
 SuperFSCCLVDS.DeviceDesc = "Commtech SuperFSCC-LVDS Controller"
@@ -90,3 +95,6 @@ SuperFSCC4.DeviceDesc = "Commtech SuperFSCC/4 Controller"
 SuperFSCC4LVDS.DeviceDesc = "Commtech SuperFSCC/4-LVDS Controller"
 SuperFSCC4PCIe.DeviceDesc = "Commtech SuperFSCC/4-PCIe Controller"
 SuperFSCC4cPCI.DeviceDesc = "Commtech SuperFSCC/4 cPCI Controller"
+SuperFSCC4_UA_cPCI.DeviceDesc = "Commtech SuperFSCC/4 cPCI Controller"
+SuperFSCCLVDS_UA.DeviceDesc = "Commtech SuperFSCC-LVDS Controller"
+SuperFSCC4LVDS_UA.DeviceDesc = "Commtech SuperFSCC/4-LVDS Controller"

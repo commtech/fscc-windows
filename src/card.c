@@ -308,12 +308,15 @@ char *fscc_card_get_name(struct fscc_card *card)
     case FSCC_4_UA_ID:
         return "FSCC/4 PCI";
     case SFSCC_4_LVDS_ID:
+    case SFSCC_4_UA_LVDS_ID:
         return "SuperFSCC/4-LVDS PCI";
     case SFSCC_LVDS_ID:
+    case SFSCC_UA_LVDS_ID:
         return "SuperFSCC-LVDS PCI";
     case SFSCCe_4_ID:
         return "SuperFSCC/4 PCIe";
     case SFSCC_4_CPCI_ID:
+    case SFSCC_4_UA_CPCI_ID:
         return "SuperFSCC/4 cPCI";
     }
 
