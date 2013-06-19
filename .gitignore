@@ -27,3 +27,5 @@ lib/c/test/*.exe
 *.pdb
 *.manifest
 *.zip*
+*.pnps
+*.pnproj
