@@ -921,12 +921,11 @@ int fscc_port_frame_read(struct fscc_port *port, char *buf, size_t buf_length,
 
         current_frame_length = fscc_frame_get_length(frame);
         current_frame_length -= (!port->append_status) ? 2 : 0;
-        
-        *out_length += current_frame_length;
 
-        fscc_frame_remove_data(frame, buf, current_frame_length);
-
+        fscc_frame_remove_data(frame, buf + *out_length, current_frame_length);
         fscc_frame_delete(frame);
+
+        *out_length += current_frame_length;
     }
     while (port->rx_multiple);
     
