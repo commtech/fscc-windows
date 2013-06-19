@@ -3,24 +3,25 @@ This README file is best viewed on the [GitHub page](http://github.com/commtech/
 ### Installing Driver
 
 ##### Downloading Driver Package
-You can download a pre-built driver package from
-the [Commtech website](http://www.commtech-fastcom.com/CommtechSoftware.html).
+You can download a pre-built driver package directly from our
+[website](http://www.commtech-fastcom.com/CommtechSoftware.html).
 
 We recommend users install the driver using the pre-built package above. If you would like to
-make driver modifications there is a section later on in the guide that will walk you through
+make driver modifications, there is a section in the guide that will walk you through
 getting and building the driver source code.
 
 
 ### Programming Your Card
 
 ##### Quick Start Guide
-There is documentation for each specific function down below but lets get started
+There is documentation for each specific function listed below, but lets get started
 with a quick programming example for fun.
 
-_This tutorial has already been set up for you at_ `fscc/lib/fscc/c/tutorial/` _if you are in a rush!_
+_This tutorial has already been set up for you at_ 
+[`fscc/lib/fscc/c/tutorial/`](https://github.com/commtech/fscc-windows/tree/master/lib/c/tutorial).
 
 First, drop `cfscc.dll` and `cfscc.lib` into a test directory. These files can be found in the C
-library directory. Now that those are copied over, create a new C file (named tutorial.c) with 
+library directory. Now that those files are copied over, create a new C file (named tutorial.c) with 
 the following code.
 
 ```
@@ -57,7 +58,7 @@ int main(void)
 }
 ```
 
-For this example I will use the Visual Studio command line compiler but
+For this example I will use the Visual Studio command line compiler, but
 you can use your compiler of choice.
 
 ```
@@ -73,29 +74,29 @@ Hello world!
 
 You have now transmitted and received an HDLC frame! 
 
-There is likely other configuration options you will need to set up for your 
+There are likely other configuration options you will need to set up for your 
 own program. All of these options are described below.
 
 
 ##### Changing Register Values
 The FSCC driver is a swiss army knife of sorts with communication. It can
-handle many different situations if configured correctly. Typically to
+handle many different situations, if configured correctly. Typically to
 configure it to handle your specific situation you need to modify the card's
 register values.
 
 _For a complete listing of all of the configuration options please see the 
 manual._
 
-There are multiple ways of modifying the card's registers varying from using
-the Windows API to an FSCC specific API. Here are a few ways of doing this.
+There are multiple ways of modifying the card's registers, varying from using
+the Windows API to an FSCC specific API. Following are a few methods you can use.
 
 In HDLC mode some settings are fixed at certain values. If you are in
-HDLC mode and after setting/getting your registers some bits don't look correct
-then they are likely fixed. For a complete list of the fixed values see the CCR0
+HDLC mode and after setting/getting your registers some bits don't look correct,
+then they are likely fixed. A complete list of the fixed values can be found in the CCR0
 section of the manual.
 
-You should make sure and purge the data stream after changing registers.
-Settings like CCR0 will require being purged for the changed settings to take 
+You should purge the data stream after changing the registers.
+Settings like CCR0 will require being purged for the changes to take 
 effect.
 
 Use the `FSCC_SET_REGISTERS` ioctl to set the values of any registers you
@@ -139,7 +140,7 @@ fscc_set_registers(h, &registers);
 ```
 
 A complete example of how to do this can be found in the file
-`fscc\lib\fscc\c\examples\set-registers.c`.
+[`fscc\lib\fscc\c\examples\set-registers.c`](https://github.com/commtech/fscc-windows/blob/master/lib/c/examples/set-registers.c).
 
 ###### C++ Library
 ```cpp
@@ -176,11 +177,11 @@ port.registers.BGR = 10
 
 
 ##### Reading Register Values
-There are multiple ways of reading the card's registers varying from using
-the Windows API to an FSCC specific API. Here are a few ways of doing this.
+There are multiple ways of reading the card's registers, varying from using
+the Windows API to an FSCC specific API. Following are a few methods you can use.
 
 Use the `FSCC_GET_REGISTERS` ioctl to get the values of any registers you
-need to read from within code. This ioctl can be found within
+need to read from within your code. This ioctl can be found within
 `<fscc/fscc.h>`.
 
 ```c
@@ -204,9 +205,6 @@ DeviceIoControl(h, FSCC_GET_REGISTERS,
 At this point 'regs.BGR' and 'regs.FCR' would be set to their respective
 values.
 
-A complete example of how to do this can be found in the file
-`fscc\lib\fscc\c\examples\get-registers.c`.
-
 Use the various APIs to easily get the values of any registers you need 
 from within your code.
 
@@ -225,8 +223,8 @@ registers.BGR = FSCC_UPDATE_VALUE;
 fscc_get_registers(h, &registers);
 ```
 
-NOTE: A complete example of how to do this can be found in the file
-      fscc\lib\fscc\c\examples\set-registers.c.
+A complete example of how to do this can be found in the file
+[`fscc\lib\fscc\c\examples\get-registers.c`](https://github.com/commtech/fscc-windows/blob/master/lib/c/examples/get-registers.c).
 
 ###### C++ Library
 ```cpp
@@ -261,15 +259,15 @@ The FSCC device has a programmable clock that can be set anywhere from
 FSCC port, only the range that the onboard clock can be set to.
 
 Using one of the synchronous modes you can only receive data consistently
-up to 30 MHz (when you are using a external clock). If you are transmitting
-data using an internal clock you can safely go up 50 MHz.
+up to 30 MHz (when you are using an external clock). If you are transmitting
+data using an internal clock, you can safely receive data consistently up to 50 MHz.
 
 Lower clock rates (less than 1 MHz for example) can take a long time for 
 the frequency generator to finish. If you run into this situation we 
 recommend using a larger frequency and then dividing it down to your 
 desired baud rate using the BGR register.
 
-Use the `FSCC_SET_CLOCK_BITS` ioctl to set the frequency from within code.
+Use the `FSCC_SET_CLOCK_BITS` ioctl to set the frequency from within your code.
 
 ```c
 /* 10 MHz */
@@ -283,9 +281,9 @@ DeviceIoControl(h, FSCC_SET_CLOCK_BITS,
 				&temp, NULL);
 ```
 
-A complete example of how to do this along with how to calculate these 
-clock bits can be found in the file
-`fscc\lib\fscc\c\examples\set-clock-frequency.c`.
+A complete example of how to do this, along with how to calculate these 
+clock bits, can be found in the file
+[`fscc\lib\fscc\c\examples\set-clock-frequency.c`](https://github.com/commtech/fscc-windows/blob/master/lib/c/examples/set-clock-frequency.c).
 
 Use the various APIs to easily get the values of any registers you need 
 from within your code.
@@ -339,12 +337,12 @@ TODO
 
 
 ##### Viewing/Setting Frame Status
-It is a good idea to pay attention to the status of each frame. For example if
-you want to see if the frame's CRC check succeeded or failed.
+It is a good idea to pay attention to the status of each frame. For example, you
+may want to see if the frame's CRC check succeeded or failed.
 
-The way the FSCC reports this data to you is by appending two additional bytes
-to each frame you read from the card if you opt in to see this data. There are
-a few of ways of enabling this additional data.
+The FSCC reports this data to you by appending two additional bytes
+to each frame you read from the card, if you opt in to see this data. There are
+a few methods of enabling this additional data.
 
 ###### Windows API
 ```c
@@ -382,9 +380,10 @@ fscc_disable_append_status(h);
 fscc_get_append_status(h, &status);
 ```
 
-NOTE: A complete example of how to do this can be found in the files
-      fscc\lib\fscc\c\examples\set-append-status.c and 
-      fscc\lib\fscc\c\examples\get-append-status.c.
+A complete example of how to do this can be found in the files
+[`fscc\lib\fscc\c\examples\set-append-status.c`](https://github.com/commtech/fscc-windows/blob/master/lib/c/examples/set-append-status.c)
+and 
+[`fscc\lib\fscc\c\examples\get-append-status.c`](https://github.com/commtech/fscc-windows/blob/master/lib/c/examples/get-append-status.c).
 
 ###### C++ Library
 ```cpp
@@ -415,11 +414,11 @@ port.append_status = True;
 
 
 ##### Viewing/Setting Memory Constraints
-For systems with limited memory available to them there is safety checks in
+If your system has limited memory available, there are safety checks in
 place to prevent spurious incoming data from overrunning your system. Each port
 has an option for setting it's input and output memory cap.
 
-There are multiple ways of setting this value.
+There are multiple methods of setting this value.
 
 ###### Windows API
 ```c
@@ -446,7 +445,7 @@ DeviceIoControl(h, FSCC_GET_MEMORY_CAP,
 You can set only 1 of the 2 values by running the `FSCC_MEMORY_CAP_INIT`
 macro on the `fscc_memory_cap` struct then setting only 1 of the values
 in the structure. The `FSCC_MEMORY_CAP_INIT` structure initializes both
-values to -1 which will be ignored in the driver.
+values to -1, which will be ignored in the driver.
 
 ###### C Library
 ```
@@ -463,9 +462,9 @@ fscc_get_memory_cap(h, &memcap);
 ```
 
 You can set only 1 of the 2 values by running the `FSCC_MEMORY_CAP_INIT`
-macro on the `fscc_memory_cap` struct then setting only 1 of the values
+macro on the `fscc_memory_cap` struct, then setting only 1 of the values
 in the structure. The `FSCC_MEMORY_CAP_INIT` structure initializes both
-values to -1 which will be ignored in the driver.
+values to -1, which will be ignored in the driver.
 
 ###### C++ Library
 ```cpp
@@ -507,9 +506,10 @@ memory_cap.output = 10000;
 ioctl(port_fd, FSCC_SET_MEMORY_CAP, &memory_cap);
 ```
 
-A complete example of how to do this can be found in the file
-`fscc\lib\fscc\c\examples\set-memory-cap.c` and 
-`fscc\lib\fscc\c\examples\get-memory-cap.c`.
+A complete example of how to do this can be found in the files
+[`fscc\lib\fscc\c\examples\set-memory-cap.c`](https://github.com/commtech/fscc-windows/blob/master/lib/c/examples/set-memory-cap.c)
+and 
+[`fscc\lib\fscc\c\examples\get-memory-cap.c`](https://github.com/commtech/fscc-windows/blob/master/lib/c/examples/get-memory-cap.c).
 
 
 ##### Transmit Modifiers
@@ -641,11 +641,85 @@ import fscc
 port.ignore_timeout = True
 ```
 
+##### Retrieving Multiple Frames At Once
+_Added in version 2.2.9_
+
+Most of the time it is sufficient, and preferred, to retrieve only one
+frame from the driver at a time. If you would like to return multiple
+frames per `ReadFile()` call you can do so by enabling `RX_MULTIPLE`.
+
+When you pass in a buffer to your `ReadFile()` call the driver will fill
+it up with as many _full_ frames as it can fit (until there isn't room or
+their is no more frames).
+
+###### Windows API
+```c
+#include <fscc.h>
+...
+
+BOOL status;
+
+DeviceIoControl(h, FSCC_ENABLE_RX_MULTIPLE, 
+                NULL, 0, 
+                NULL, 0, 
+                &temp, NULL);
+
+DeviceIoControl(h, FSCC_DISABLE_RX_MULTIPLE, 
+                NULL, 0, 
+                NULL, 0, 
+                &temp, NULL);
+				
+DeviceIoControl(h, FSCC_GET_RX_MULTIPLE, 
+                NULL, 0, 
+                &status, sizeof(status), 
+                &temp, NULL);
+```
+
+###### C Library
+```c
+#include <fscc.h>
+...
+
+BOOL status;
+
+fscc_enable_rx_multiple(h);
+fscc_disable_rx_multiple(h);
+
+fscc_get_rx_multiple(h, &status);
+```
+
+###### C++ Library
+```cpp
+#include <fscc.hpp>
+...
+
+port.EnableRxMultiple();
+port.DisableRxMultiple();
+
+bool status = port.GetRxMultiple();
+```
+
+###### .NET Library
+```csharp
+using FSCC;
+...
+
+port.RxMultiple = true;
+```
+
+###### Python Library
+```python
+import fscc
+...
+
+port.rx_multiple = True
+```
+
 
 ##### Purging Data
 Between the hardware FIFO and the driver's software buffers there are multiple
-places data could be at excluding your application code. If you ever need to
-clear this data out and start out fresh there are a couple ways of doing this.
+places data could be stored, excluding your application code. If you ever need to
+clear this data and start fresh, there are a couple of methods you can use.
 
 ###### Windows API
 ```c
@@ -670,15 +744,15 @@ DeviceIoControl(h, FSCC_PURGE_RX,
 fscc_purge(h, TRUE, TRUE);
 ```
 
-In in addition to the standard errors that the DeviceIoControl() function returns
-there is an error specific to the FSCC you might run into.
+In addition to the standard errors the DeviceIoControl() function returns,
+there is an error specific to the FSCC you might encounter.
 
-STATUS_IO_TIMEOUT: If trying to use a FSCC port without a transmit clock present.
-            This check can be turned off with the 'ignore_timeout' command
-            line parameter.
+| Error               | Cause
+| ------------------- | ----------------------------
+| `STATUS_IO_TIMEOUT` | You are executing a command that requires a transmit clock present
 
-A complete example of how to do this can be found in the files
-`fscc\lib\fscc\c\examples\purge.c`.
+A complete example of how to do this can be found in the file
+[`fscc\lib\fscc\c\examples\purge.c`](https://github.com/commtech/fscc-windows/blob/master/lib/c/examples/purge.c).
 
 ###### C++ Library
 ```cpp
@@ -706,41 +780,35 @@ port.purge(True, True)
 
 
 ##### Sending/Receiving Data
-The FSCC driver typically (but not always) works in "frames". This means that
-data typically is packaged together in permanent chunks. If the card received
-two frames of data prior to you retrieving the data you will only get one chunk
+The FSCC driver typically (but not always) works in "frames". This means
+data is typically packaged together in permanent chunks. If the card received
+two frames of data prior to you retrieving the data, you will only get one chunk
 of data back at a time when you interface with the driver to get the data.
 
-There are multiple ways of reading/writing data to/from the card. Listed below
-are only the most common.
+There are multiple methods of reading/writing data to/from the card. Following
+are the most common methods.
 
 Writing data will typically be done within C code using the 
 [`WriteFile()`](http://msdn.microsoft.com/en-us/library/windows/desktop/aa365747.aspx)
-function found within 
+function found in 
 [`<windows.h>`](http://msdn.microsoft.com/en-us/library/windows/desktop/aa383745.aspx). 
 
 ```
 result = WriteFile(handle, buf, count, (DWORD*)bytes_written, NULL);
 ```
 
-In in addition to the standard errors that the 
-[`WriteFile()`](http://msdn.microsoft.com/en-us/library/windows/desktop/aa365747.aspx)
-function returns there are a couple errors specific to the FSCC you might run 
-into.
+In in addition to the standard errors that the `WriteFile()` function returns, there are 
+a couple of errors specific to the FSCC you might encounter.
 
-STATUS_IO_TIMEOUT: If trying to use a FSCC port without a transmit clock present.
-            This check can be turned off with the 'ignore_timeout' option.
-
-STATUS_BUFFER_TOO_SMALL: If the count parameter passed into the write() function 
-          is larger
-          than the output cap. If the count parameter is less than the
-          output cap but the amount out of output space isn't enough the
-          driver will block instead of returning this error.
+| Error                     | Cause
+| ------------------------- | ----------------------------
+| `STATUS_IO_TIMEOUT`       | You are executing a command that requires a transmit clock present
+| `STATUS_BUFFER_TOO_SMALL` | The write size exceeds the output memory usage cap
 
 
 Reading data will typically be done within C code using the 
 [`ReadFile()`](http://msdn.microsoft.com/en-us/library/windows/desktop/aa365467.aspx)
-function found within the 
+function found in
 [`<windows.h>`](http://msdn.microsoft.com/en-us/library/windows/desktop/aa383745.aspx). 
 
 ```c
@@ -753,61 +821,49 @@ on the mode you are using.
 In a frame based mode the length argument specifies the maximum frame size
 to return. If the next queued frame is larger than the size you specified
 the error `STATUS_BUFFER_TOO_SMALL` is returned and the data will remain 
-waiting for a 
-[`ReadFile()`](http://msdn.microsoft.com/en-us/library/windows/desktop/aa365467.aspx)
-of a larger value. If a 
-[`ReadFile()`](http://msdn.microsoft.com/en-us/library/windows/desktop/aa365467.aspx)
-length is specified that is larger than the
-length of multiple frames in queue you will still only receive one frame per
-[`ReadFile()`](http://msdn.microsoft.com/en-us/library/windows/desktop/aa365467.aspx)
-call.
+waiting for a `ReadFile()` of a larger value. If a `ReadFile()` length is specified 
+that is larger than the length of multiple frames in queue, you will still only receive 
+one frame per `ReadFile()` call.
 
 In streaming mode (no frame termination) the length argument specifies the
-maximum amount of data to return. If there is 100 bytes of streaming data
-in the card and you 
-[`ReadFile()`](http://msdn.microsoft.com/en-us/library/windows/desktop/aa365467.aspx)
-with a length of 50, you will receive 50 bytes.
-If you were to do a 
-[`ReadFile()`](http://msdn.microsoft.com/en-us/library/windows/desktop/aa365467.aspx)
-of 200 bytes you will receive the 100 bytes
-available.
+maximum amount of data to return. If there are 100 bytes of streaming data
+in the card and you `ReadFile()` with a length of 50, you will receive 50 bytes.
+If you do a `ReadFile()` of 200 bytes, you will receive the 100 bytes available.
 
 Frame based data and streaming data are kept separate within the driver.
-To understand what this means first imagine this scenario. You are in a
+To understand what this means, first imagine the following scenario. You are in a
 frame based mode and receive a couple of frames. You then switch to
-streaming mode and receive a stream of data. When calling 
-[`ReadFile()`](http://msdn.microsoft.com/en-us/library/windows/desktop/aa365467.aspx)
+streaming mode and receive a stream of data. When calling `ReadFile()`
 you will receive the the streaming data until you switch back into a frame based
-mode then do a 
-[`ReadFile()`](http://msdn.microsoft.com/en-us/library/windows/desktop/aa365467.aspx).
+mode and do a `ReadFile()`.
 
-In in addition to the standard errors that the 
-[`ReadFile()`](http://msdn.microsoft.com/en-us/library/windows/desktop/aa365467.aspx)
-function returns there are a couple errors specific to the FSCC you might run into.
+In in addition to the standard errors that the `ReadFile()`function returns, there 
+are a couple of errors specific to the FSCC you might encounter.
 
-STATUS_BUFFER_TOO_SMALL: If the size parameter passed into the read() function is smaller
-          than the next frame (in a frame based mode).
+| Error                     | Cause
+| ------------------------- | ----------------------------
+| `STATUS_BUFFER_TOO_SMALL` | The read size is smaller than the next frame (in a frame based mode)
 
-Most users will want the advanced IO capabilities included by using the [Windows OVERLAPPED IO
-API](http://msdn.microsoft.com/en-us/library/windows/desktop/ms686358(v=vs.85).aspx). We won't
-duplicate any of it's documentation here but for reference sake here is an [article]
+Most users will want the advanced I/O capabilities included by using the Windows
+[OVERLAPPED I/O API](http://msdn.microsoft.com/en-us/library/windows/desktop/ms686358.aspx). 
+We won't duplicate the documentation here, but for your reference, here is an [article]
 (http://blogs.msdn.com/b/oldnewthing/archive/2011/02/02/10123392.aspx) on a common
-bug developers introduce while trying to cancel IO operations while using OVERLAPPED IO.
+bug developers introduce while trying to cancel I/O operations when using OVERLAPPED I/O.
 
 
 ##### Asynchronous Communication
 The FSCC driver includes a slightly modified version of the Windows serial 
 driver for handling the asynchronous communication for our UARTs. The Windows
 serial driver is highly tested and likely more stable than anything we could 
-produce in any reasonably amount of time.
+produce in any reasonable amount of time.
 
 The FSCC and SerialFC drivers work together to automatically switch between 
 synchronous and asynchronous modes by modifying the FCR register for you. 
 All you need to do is open the FSCC handle to be in synchronous mode and the 
 COM handle to be in asychronous mode.
 
-For more information about using the UART's take a look at the 
-[SerialFC driver readme](https://github.com/commtech/serialfc-windows/blob/master/README.md).
+More information about using the UART's is available in the 
+[SerialFC driver README](https://github.com/commtech/serialfc-windows/blob/master/README.md) file.
 
 
 ### FAQ
@@ -815,15 +871,15 @@ For more information about using the UART's take a look at the
 ##### Why does executing a purge without a clock put the card in a broken state?
 When executing a purge on either the transmitter or receiver there is
 a TRES or RRES (command from the CMDR register) happening behind the
-scenes. If there is no clock available the command will stall until
+scenes. If there isn't a clock available, the command will stall until
 a clock is available. This should work in theory but doesn't in
-practice. So whenever you need to execute a purge without a clock, first
-put it into clock mode 7, execute your purge then return to your other
+practice. So whenever you need to execute a purge without a clock: first
+put it into clock mode 7, execute your purge, and then return to your other
 clock mode.
 
 
-##### The CRC-CCITT generated is not what I expect.
-There are many resources online that say they can calculate CRC-CCITT but most
+##### The CRC-CCITT generated is not what I expected.
+There are many resources online that say they can calculate CRC-CCITT, but most
 don't use the correct formula defined by the HDLC specification.
    
 An eample of one that doesn't is [lammertbies.nl](http://www.lammertbies.nl/comm/info/crc-calculation.html)
@@ -835,12 +891,12 @@ to calculate the correct value and
 to use [these settings](http://i.imgur.com/G6zT87i.jpg).
    
 
-##### My port numbering is messed up, how do I fix them?
-It is possible, but unfortunately there isn't a good way at the moment. To do it
-you will need to modify the following registry keys.
+##### My port numbering is incorrect, how do I fix it?
+It is possible, but unfortunately there isn't a good way at the moment.  You 
+will need to modify the following registry keys.
    
-This is the key for setting the automaticall generated port numbering. If you want 
-the next number to be 8 then set this to 7. If you want it to be 0 then set to 0xffffffff 
+This is the key for setting automatically generated port numbering. If you want 
+the next number to be 8, then set this to 7. If you want it to be 0, then set to 0xffffffff 
 (actually -1).
 `HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\services\FSCC\Parameters\LastPortNumber`
  
@@ -849,10 +905,16 @@ This is the key for setting the port's specific number after it has already been
 
 
 ##### Which resitors are for termination?
-Near the connector on the front and back you will see resistors labeled '102' which 
-are the pull up/down resistors. On the back you will see resistors labeled '101' which 
-are the termination resistors. If you would like to send the card to us we will remove 
-them for you. If you decide to do it yourself you will void your warranty. 
+Each receive differential pair is terminated with a 100 ohm resistor between 
+the + and - pins. These resistors are on the back of the card and are labeled '101'.
+
+Each single receive pin is either pulled up or pulled down by a 1k ohm resister 
+(+ is pulled up and - is pulled down).  This ensures that thereceiver will stay at 
+a logic 1 in the presence of transient noise andis weak enough to allow a real 
+signal through. These resistors are near the connector and are labeled '102'.
+
+If you would like to send the card to us, we will gladly remove them for you. 
+Please note, removing them yourself will void the warranty. 
 
 
 
@@ -866,7 +928,7 @@ dependencies. The full dependency list is below.
 
 
 ##### What was changed in 2.X?
-You can view an up-to-date list of driver changes over at our 
+You can view an up-to-date list of driver changes in our 
 [ChangeLog](https://github.com/commtech/fscc-windows/blob/master/ChangeLog.txt).
 
 
@@ -874,23 +936,23 @@ You can view an up-to-date list of driver changes over at our
 TODO
 
 
-##### How do I download and build the driver source code?
+##### How do I build a custom version of the driver source code?
 The source code for the Fastcom FSCC driver is hosted on Github code hosting.
-To check out the latest code you will need Git and to run the following in a
-terminal.
+To check out the latest code you will need Git and to run the following command in a
+terminal:
 
 ```
 git clone git://github.com/commtech/fscc-windows.git fscc
 ```
 
-NOTE: We prefer you use the above method for downloading the driver source code
-      (because it is the easiest way to stay up to date) but you can also get 
-      the driver source code from the
-      [download page](https://github.com/commtech/fscc-windows/tags/).
+We prefer you use the above method for downloading the driver source code
+(because it is the easiest way to stay up to date), but you can also get 
+the driver source code from the
+[download page](https://github.com/commtech/fscc-windows/tags/).
 
-Now that you have the latest code checked out you will more than likely want
-to switch to a stable version within the code directory. To do this browse
-the various tags for one you would like to switch to. Version v1.0.0 is only
+Now that you have the latest code checked out, you will probably want
+to switch to a stable version within the code directory. You can do this by browsing
+the various tags for one you would like to switch to. Version v2.2.8 is only
 listed here as an example.
 
 ```
@@ -898,10 +960,8 @@ git tag
 git checkout v2.2.8
 ```
 
-Compiling the driver is relatively simple assuming you have all of the
-required dependencies. You will need Windows Driver Kit 7.1.0 at a 
-minimum. After assembling all of these things you can build the driver by
-simply running the BLD command from within the source code directory.
+Provided you have Windows Driver Kit 7.1.0 installed you can build the driver by
+running the BLD command from within the source code directory.
 
 ```
 cd fscc/src/
@@ -912,10 +972,10 @@ BLD
 ##### Should I migrate from 1.x to 2.x?
 There are multiple benefits of using the 2.x driver: amd64 support, intuitive 
 [`DeviceIoControl`](http://msdn.microsoft.com/en-us/library/windows/desktop/aa363216.aspx)
-calls, backend support for multiple languages (C, C++, Python, .NET) and dynamic 
-memory management are some.
+calls, backend support for multiple languages (C, C++, Python, .NET), and dynamic 
+memory management, to name a few.
 
-The 1.x driver and the 2.x driver are very similar so porting from one to the
+The 1.x driver and the 2.x driver are very similar, so porting from one to the
 other should be rather painless.
 
 All `DeviceIoControl` values have changed even if their new names match their old
@@ -974,13 +1034,13 @@ will not work correctly.
 
 
 ###### Status Bytes
-Getting the frame status has now been designed to be configurable. In the
-1.x driver you would always have the frame status appended to your data on a
-read. In the 2.x driver this can be toggled, and defaults to not appending
+Getting the frame status has now been designed to be configurable. When using the
+1.x driver, you will always have the frame status appended to your data on a
+read. When using the 2.x driver, this can be toggled and defaults to not appending
 the status to the data.
 
 All of the 2.2.X releases will not break API compatability. If a function in the 2.2.X
-series returns an incorrect value it could be fixed to return the correct value in a
+series returns an incorrect value, it can be fixed to return the correct value in a
 later release.
 
 When and if we switch to a 2.3 release there will only be minor API changes.
