@@ -1,10 +1,10 @@
 version 2.2.9 (6/21/2013)
 --------------------------------------------------------------------------------
-    * Add support for returning multiple frames per read call
-    * Add support for new card ID's (0x23, 0x24, 0x25)
+    * Added support for returning multiple frames per read call
+    * Added support for new card ID's
     * Fixed a bug that allowed users to incorrectly be in a stream based mode
       when only terminating using NTB
-    * Update SerialFC to v2.1.5
+    * Updated SerialFC to v2.1.5
       (https://github.com/commtech/serialfc-windows/blob/master/ChangeLog.txt)
 
 version 2.2.8 (5/21/2013)
@@ -16,12 +16,12 @@ version 2.2.7 (5/8/2013)
 --------------------------------------------------------------------------------
     * Fixed a bug that allowed the user to open the FSCC and COM ports at the
       same time by manually clearing the FCR register
-    * Update SerialFC to v2.1.4 
+    * Updated SerialFC to v2.1.4 
       (https://github.com/commtech/serialfc-windows/blob/master/ChangeLog.txt)
 
 version 2.2.6 (4/26/2013)
 --------------------------------------------------------------------------------
-    * Fix a memory leak when using a frame based reception mode
+    * Fixed a memory leak when using a frame based reception mode
     * General memory improvements
 
 version 2.2.5 (4/19/2013)
