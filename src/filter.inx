@@ -47,8 +47,8 @@ ExcludeFromSelect=*
 %SuperFSCC4PCIe.DeviceDesc%=FSCC_Device, PCI\VEN_18F7&DEV_001E
 %SuperFSCC4cPCI.DeviceDesc%=FSCC_Device, PCI\VEN_18F7&DEV_001F
 %SuperFSCC4_UA_cPCI.DeviceDesc%=FSCC_Device, PCI\VEN_18F7&DEV_0023
-%SuperFSCCLVDS_UA.DeviceDesc%=FSCC_Device, PCI\VEN_18F7&DEV_0024
 %SuperFSCC4LVDS_UA.DeviceDesc%=FSCC_Device, PCI\VEN_18F7&DEV_0025
+%SuperFSCCLVDS_UA.DeviceDesc%=FSCC_Device, PCI\VEN_18F7&DEV_0026
 
 
 
