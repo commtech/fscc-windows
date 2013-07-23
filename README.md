@@ -931,6 +931,16 @@ of your data. This is not erroneous data bit and will be outside of your normal 
 and will not be confused as valid data.
 
 
+##### How do I get past the 'Windows Logo testing' check?
+
+1. Right-click on My Computer and click Properties
+2. Click the Hardware tab, then click Driver Signing under Drivers
+3. Select 'Warn: Prompt me each time to choose an action'
+
+Once you're done, restart the workstation and install the driver as usual. Windows shouldn't 
+bother you about logo testing this time.
+
+
 ##### What are the project's dependencies?
 For 99% of our customers you will be able to install the driver without any additional
 dependencies. The full dependency list is below.
