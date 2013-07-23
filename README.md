@@ -941,6 +941,71 @@ Once you're done, restart the workstation and install the driver as usual. Windo
 bother you about logo testing this time.
 
 
+##### How do I receive parse raw data without any framing or sync signal?
+The difficulty in using transparent mode without a data sync signal,
+is that you have no idea where valid receive data starts and stops.  You must 
+shift through the bit stream until you find valid data.  Once you have found 
+valid data and noted the correct bit alignment, if the data reception remains 
+constant, you should be able to shift all incoming data by the correct number 
+of bits and you will then have correct data.
+
+Lets start by sending `0xa5a5` (`10100101` `10100101`) with LSB being transmitted 
+first.
+`10100101` `10100101`
+
+Now the idle is 1's so the message will be received (depending on how many 1's 
+are clocked in prior to the actual data) the possibilities are:
+```
+11111111 10100101 10100101 11111111
+1111111 10100101 10100101 111111111
+111111 10100101 10100101 1111111111
+11111 10100101 10100101 11111111111
+1111 10100101 10100101 111111111111
+111 10100101 10100101 1111111111111
+11 10100101 10100101 11111111111111
+1 10100101 10100101 111111111111111
+```
+
+Re-aligning this to byte boundaries:
+```
+11111111 10100101 10100101 11111111
+11111111 01001011 01001011 11111111
+11111110 10010110 10010111 11111111
+11111101 00101101 00101111 11111111
+11111010 01011010 01011111 11111111
+11110100 10110100 10111111 11111111
+11101001 01101001 01111111 11111111
+11010010 11010010 11111111 11111111
+```
+
+Remembering that LSB was transmitted first, changing it to "normal" (MSB) gives
+possible received messages
+```
+11111111 10100101 10100101 11111111 = 0xffa5a5ff
+11111111 11010010 11010010 11111111 = 0xffd2d2ff
+01111111 01101001 11101001 11111111 = 0x7f69e9ff
+10111111 10110100 11110100 11111111 = 0xbfb4f4ff
+01011111 01011010 11111010 11111111 = 0x5f5afaff
+00101111 00101101 11111101 11111111 = 0x2f2dfdff
+10010111 10010110 11111110 11111111 = 0x9796feff
+01001011 01001011 11111111 11111111 = 0x4b4bffff
+```
+
+They are all representative of the original 0xa5a5 that was sent, however only 1 of 
+them directly shows that upon receive without shifting.
+
+And once you determine how many bits you need to shift to get valid data,
+everything that you read in will need to be shifted by that number of bits
+until you stop transmitting data.  If you stop transmitting, then you have
+to do the same thing over again once you start transmitting data again.
+
+This can be avoided by utilizing a receive data strobe in an appropriate clock 
+mode.  If the transmitting device can supply a strobe signal that activates at 
+the beginning of the of the data and deactivates at the end, the receiver will 
+only be activated during the active phase of this signal, and hopefully the 
+data will have the correct alignment.
+
+
 ##### What are the project's dependencies?
 For 99% of our customers you will be able to install the driver without any additional
 dependencies. The full dependency list is below.
