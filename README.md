@@ -95,6 +95,10 @@ HDLC mode and after setting/getting your registers some bits don't look correct,
 then they are likely fixed. A complete list of the fixed values can be found in the CCR0
 section of the manual.
 
+All of the registers, except FCR, are tied to a single port. FCR on the other hand is shared
+between two ports on a card. You can differentiate between which FCR settings affects what port
+by the A/B labels. A for port 0 and B for port 1.
+
 You should purge the data stream after changing the registers.
 Settings like CCR0 will require being purged for the changes to take 
 effect.
