@@ -202,7 +202,7 @@ DeviceIoControl(h, FSCC_GET_REGISTERS,
 				&temp, NULL);				
 ```
 
-At this point 'regs.BGR' and 'regs.FCR' would be set to their respective
+At this point `regs.BGR` and `regs.FCR` would be set to their respective
 values.
 
 Use the various APIs to easily get the values of any registers you need 
