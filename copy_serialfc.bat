@@ -7,3 +7,5 @@ copy %SERIALFC%\bin\serialfc\64\serialfc.inf redist\production\amd64\serial\ /y
 copy %SERIALFC%\bin\serialfc\64\serialfc.sys redist\production\amd64\serial\ /y
 
 xcopy %SERIALFC%\bin\serialfc\lib\* redist\production\serial\lib\ /e /i /y
+xcopy %SERIALFC%\bin\serialfc\terminal\* redist\production\serial\terminal\ /e /i /y
+xcopy %SERIALFC%\bin\serialfc\gui\* redist\production\serial\gui\ /e /i /y
