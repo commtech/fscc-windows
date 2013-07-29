@@ -1,5 +1,6 @@
 set NAME=fscc
 set TOP=bin\%NAME%
+set PYFSCC=..\pyfscc\dist
 
 echo off
 
@@ -24,7 +25,7 @@ if %errorlevel% neq 0 exit /b %errorlevel%
 
 :create_directories
 echo Creating Directories...
-for %%A in (32, 64, lib, test) do mkdir %TOP%\%%A\
+for %%A in (32, 64, lib, terminal, gui, test) do mkdir %TOP%\%%A\
 for %%A in (fscc, serialfc) do mkdir %TOP%\lib\%%A\
 for %%A in (c, c++, net, python) do mkdir %TOP%\lib\fscc\%%A\
 
@@ -45,8 +46,9 @@ copy lib\net\netfscc*.dll %TOP%\lib\fscc\net\ > nul
 copy lib\c\cfscc*.dll %TOP%\lib\fscc\net\ > nul
 copy lib\net\src\*.cs %TOP%\lib\fscc\net\ > nul
 copy lib\net\makefile %TOP%\lib\fscc\net\ > nul
-copy lib\python\fscc.py %TOP%\lib\fscc\python\ > nul
-xcopy redist\production\serial\lib\* %TOP%\lib\serialfc\ /e /i > nul
+xcopy redist\production\serial\lib\* %TOP%\lib\serialfc\ /e /i > nulnul
+xcopy redist\production\serial\terminal\* %TOP%\terminal\serialfc\ /e /i > nul
+xcopy redist\production\serial\gui\* %TOP%\gui\serialfc\ /e /i > nul
 
 :copy_loop_files
 xcopy lib\c\loop\loop.exe %TOP%\lib\fscc\c\loop\ /i > nul
@@ -67,6 +69,10 @@ copy lib\c\cfscc.dll %TOP%\test\ > nul
 echo Copying Driver Files...
 copy tmp\production\i386\* %TOP%\32\ > nul
 copy tmp\production\amd64\* %TOP%\64\ > nul
+
+:copy_python_files
+echo Copying Python Files...
+copy %PYFSCC%\pyfscc*.exe* %TOP%\lib\fscc\python\ > nul
 
 :copy_setup_files
 :echo Copying Setup Files...
