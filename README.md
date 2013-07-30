@@ -934,6 +934,8 @@ of data and one clock period after the last bit of data. As a result you will se
 of your data. This is not erroneous data bit and will be outside of your normal data frame 
 and will not be confused as valid data.
 
+##### How long after CTS until the data is transmitted?
+Transmission happens within a fixed time frame after CTS of around 1 - 1.5 clock cycles.
 
 ##### How do I get past the 'Windows Logo testing' check?
 
