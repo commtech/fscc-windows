@@ -1376,7 +1376,7 @@ void fscc_port_set_ignore_timeout(struct fscc_port *port,
     if (port->ignore_timeout != value) {
         TraceEvents(TRACE_LEVEL_INFORMATION, TRACE_DEVICE,
                     "Ignore timeout %i => %i",
-                    port->append_status, value);
+                    port->ignore_timeout, value);
     }
     else {
         TraceEvents(TRACE_LEVEL_VERBOSE, TRACE_DEVICE,
