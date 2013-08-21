@@ -46,9 +46,11 @@ ExcludeFromSelect=*
 %FSCC_UA.DeviceDesc%=FSCC_Device, PCI\VEN_18F7&DEV_001D
 %SuperFSCC4PCIe.DeviceDesc%=FSCC_Device, PCI\VEN_18F7&DEV_001E
 %SuperFSCC4cPCI.DeviceDesc%=FSCC_Device, PCI\VEN_18F7&DEV_001F
+%SuperFSCC4LVDSPCIe_UA.DeviceDesc%=FSCC_Device, PCI\VEN_18F7&DEV_0022
 %SuperFSCC4_UA_cPCI.DeviceDesc%=FSCC_Device, PCI\VEN_18F7&DEV_0023
 %SuperFSCC4LVDS_UA.DeviceDesc%=FSCC_Device, PCI\VEN_18F7&DEV_0025
 %SuperFSCCLVDS_UA.DeviceDesc%=FSCC_Device, PCI\VEN_18F7&DEV_0026
+%FSCC4PCIe_UA.DeviceDesc%=FSCC_Device, PCI\VEN_18F7&DEV_0027
 
 
 
@@ -93,8 +95,10 @@ SuperFSCC104LVDS.DeviceDesc = "Commtech SuperFSCC-104-LVDS Controller"
 SuperFSCCLVDS.DeviceDesc = "Commtech SuperFSCC-LVDS Controller"
 SuperFSCC4.DeviceDesc = "Commtech SuperFSCC/4 Controller"
 SuperFSCC4LVDS.DeviceDesc = "Commtech SuperFSCC/4-LVDS Controller"
-SuperFSCC4PCIe.DeviceDesc = "Commtech SuperFSCC/4-PCIe Controller"
+SuperFSCC4PCIe.DeviceDesc = "Commtech SuperFSCC/4 PCIe Controller"
 SuperFSCC4cPCI.DeviceDesc = "Commtech SuperFSCC/4 cPCI Controller"
 SuperFSCC4_UA_cPCI.DeviceDesc = "Commtech SuperFSCC/4 cPCI Controller"
 SuperFSCCLVDS_UA.DeviceDesc = "Commtech SuperFSCC-LVDS Controller"
 SuperFSCC4LVDS_UA.DeviceDesc = "Commtech SuperFSCC/4-LVDS Controller"
+SuperFSCC4LVDSPCIe_UA.DeviceDesc = "Commtech SuperFSCC/4-LVDS PCIe Controller"
+FSCC4PCIe.DeviceDesc = "Commtech FSCC/4 PCIe Controller"
