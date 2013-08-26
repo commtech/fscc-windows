@@ -209,6 +209,34 @@ void Port::DisableAppendStatus(void) throw(SystemException)
 		throw SystemException(e);
 }
 
+bool Port::GetAppendTimestamp(void) throw(SystemException)
+{
+	BOOL append_timestamp;
+
+	int e = fscc_get_append_timestamp(_h, &append_timestamp);
+
+	if (e)
+		throw SystemException(e);
+
+	return append_timestamp != 0;
+}
+
+void Port::EnableAppendTimestamp(void) throw(SystemException)
+{
+	int e = fscc_enable_append_timestamp(_h);
+
+	if (e)
+		throw SystemException(e);
+}
+
+void Port::DisableAppendTimestamp(void) throw(SystemException)
+{
+	int e = fscc_disable_append_timestamp(_h);
+
+	if (e)
+		throw SystemException(e);
+}
+
 bool Port::GetIgnoreTimeout(void) throw(SystemException)
 {
 	BOOL ignore_timeout;

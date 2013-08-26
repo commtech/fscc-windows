@@ -186,6 +186,43 @@ namespace Fscc
         }
 
         [DllImport(DLL_PATH, CallingConvention = CallingConvention.Cdecl)]
+        private static extern int fscc_enable_append_timestamp(IntPtr h);
+
+        [DllImport(DLL_PATH, CallingConvention = CallingConvention.Cdecl)]
+        private static extern int fscc_disable_append_timestamp(IntPtr h);
+
+        [DllImport(DLL_PATH, CallingConvention = CallingConvention.Cdecl)]
+        private static extern int fscc_get_append_timestamp(IntPtr h, out bool timestamp);
+
+        public bool AppendTimestamp
+        {
+            set
+            {
+                int e = 0;
+
+                if (value == true)
+                    e = fscc_enable_append_timestamp(this.Handle);
+                else
+                    e = fscc_disable_append_timestamp(this.Handle);
+
+                if (e >= 1)
+                    throw new Exception(e.ToString());
+            }
+
+            get
+            {
+                bool timestamp;
+
+                int e = fscc_get_append_timestamp(this.Handle, out timestamp);
+
+                if (e >= 1)
+                    throw new Exception(e.ToString());
+
+                return timestamp;
+            }
+        }
+
+        [DllImport(DLL_PATH, CallingConvention = CallingConvention.Cdecl)]
         private static extern int fscc_enable_ignore_timeout(IntPtr h);
 
         [DllImport(DLL_PATH, CallingConvention = CallingConvention.Cdecl)]

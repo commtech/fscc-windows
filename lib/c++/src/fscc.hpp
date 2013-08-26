@@ -31,6 +31,9 @@ namespace FSCC {
 		bool GetAppendStatus(void) throw(SystemException);
 		void EnableAppendStatus(void) throw(SystemException);
 		void DisableAppendStatus(void) throw(SystemException);
+		bool GetAppendTimestamp(void) throw(SystemException);
+		void EnableAppendTimestamp(void) throw(SystemException);
+		void DisableAppendTimestamp(void) throw(SystemException);
 		bool GetIgnoreTimeout(void) throw(SystemException);
 		void EnableIgnoreTimeout(void) throw(SystemException);
 		void DisableIgnoreTimeout(void) throw(SystemException);

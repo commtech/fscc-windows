@@ -488,6 +488,7 @@ NTSTATUS FsccEvtDevicePrepareHardware(WDFDEVICE Device,
                 port->channel);
 
     fscc_port_set_append_status(port, DEFAULT_APPEND_STATUS_VALUE);
+    fscc_port_set_append_timestamp(port, DEFAULT_APPEND_TIMESTAMP_VALUE);
     fscc_port_set_ignore_timeout(port, DEFAULT_IGNORE_TIMEOUT_VALUE);
     fscc_port_set_tx_modifiers(port, DEFAULT_TX_MODIFIERS_VALUE);
     fscc_port_set_rx_multiple(port, DEFAULT_RX_MULTIPLE_VALUE);
@@ -743,6 +744,34 @@ VOID FsccEvtIoDeviceControl(IN WDFQUEUE Queue, IN WDFREQUEST Request,
             bytes_returned = sizeof(*append_status);
         }
 
+        break;
+
+    case FSCC_ENABLE_APPEND_TIMESTAMP:
+        fscc_port_set_append_timestamp(port, TRUE);
+        break;
+
+    case FSCC_DISABLE_APPEND_TIMESTAMP:
+        fscc_port_set_append_timestamp(port, FALSE);
+        break;
+
+    case FSCC_GET_APPEND_TIMESTAMP: {
+            BOOLEAN *append_timestamp = 0;
+
+            status = WdfRequestRetrieveOutputBuffer(Request,
+                        sizeof(*append_timestamp), (PVOID *)&append_timestamp, NULL);
+            if (!NT_SUCCESS(status)) {
+                TraceEvents(TRACE_LEVEL_WARNING, TRACE_DEVICE,
+                    "WdfRequestRetrieveOutputBuffer failed %!STATUS!", status);
+                break;
+            }
+
+            *append_timestamp = fscc_port_get_append_timestamp(port);
+
+            bytes_returned = sizeof(*append_timestamp);
+        }
+
+        break;
+
     case FSCC_ENABLE_RX_MULTIPLE:
         fscc_port_set_rx_multiple(port, TRUE);
         break;
@@ -913,6 +942,7 @@ int fscc_port_frame_read(struct fscc_port *port, char *buf, size_t buf_length,
     do {
         remaining_data_length = buf_length - *out_length;
         remaining_data_length += (!port->append_status) ? 2 : 0;
+        remaining_data_length += (!port->append_timestamp) ? sizeof(frame->timestamp) : 0;
         
         frame = fscc_flist_remove_frame_if_lte(&port->iframes, remaining_data_length);
 
@@ -923,9 +953,15 @@ int fscc_port_frame_read(struct fscc_port *port, char *buf, size_t buf_length,
         current_frame_length -= (!port->append_status) ? 2 : 0;
 
         fscc_frame_remove_data(frame, buf + *out_length, current_frame_length);
-        fscc_frame_delete(frame);
-
         *out_length += current_frame_length;
+
+        if (port->append_timestamp) {
+            memcpy(buf + *out_length, &frame->timestamp, sizeof(frame->timestamp));
+            current_frame_length += sizeof(frame->timestamp);
+            *out_length += sizeof(frame->timestamp);
+        }
+
+        fscc_frame_delete(frame);
     }
     while (port->rx_multiple);
     
@@ -1366,6 +1402,30 @@ BOOLEAN fscc_port_get_append_status(struct fscc_port *port)
     return_val_if_untrue(port, 0);
 
     return port->append_status;
+}
+
+void fscc_port_set_append_timestamp(struct fscc_port *port, BOOLEAN value)
+{
+    return_if_untrue(port);
+
+    if (port->append_timestamp != value) {
+        TraceEvents(TRACE_LEVEL_INFORMATION, TRACE_DEVICE,
+                    "Append timestamp %i => %i",
+                    port->append_timestamp, value);
+    }
+    else {
+        TraceEvents(TRACE_LEVEL_VERBOSE, TRACE_DEVICE,
+                    "Append timestamp = %i", value);
+    }
+
+    port->append_timestamp = (value) ? 1 : 0;
+}
+
+BOOLEAN fscc_port_get_append_timestamp(struct fscc_port *port)
+{
+    return_val_if_untrue(port, 0);
+
+    return port->append_timestamp;
 }
 
 void fscc_port_set_ignore_timeout(struct fscc_port *port,

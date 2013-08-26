@@ -93,6 +93,7 @@ typedef struct fscc_port {
     unsigned channel;
     struct fscc_registers register_storage; /* Only valid on suspend/resume */
     BOOLEAN append_status;
+    BOOLEAN append_timestamp;
     BOOLEAN ignore_timeout;
     BOOLEAN rx_multiple;
     int tx_modifiers;
@@ -172,6 +173,9 @@ NTSTATUS fscc_port_purge_rx(struct fscc_port *port);
 
 void fscc_port_set_append_status(struct fscc_port *port, BOOLEAN value);
 BOOLEAN fscc_port_get_append_status(struct fscc_port *port);
+
+void fscc_port_set_append_timestamp(struct fscc_port *port, BOOLEAN value);
+BOOLEAN fscc_port_get_append_timestamp(struct fscc_port *port);
 
 void fscc_port_set_ignore_timeout(struct fscc_port *port,
                                   BOOLEAN ignore_timeout);

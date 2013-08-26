@@ -358,6 +358,92 @@ int fscc_disable_append_status(HANDLE h)
 /******************************************************************************/
 /*!
 
+  \brief Gets a port's append timestamp value.
+
+  \param[in] h 
+    HANDLE to the port
+  \param[out] timestamp
+    the append timestamp value
+      
+  \return 0 
+    if the operation completed successfully
+  \return >= 1 
+    if the operation failed (see MSDN 'System Error Codes')
+
+*/
+/******************************************************************************/
+int fscc_get_append_timestamp(HANDLE h, BOOL *timestamp)
+{
+	DWORD temp;
+	BOOL result;
+
+	result = DeviceIoControl(h, (DWORD)FSCC_GET_APPEND_TIMESTAMP, 
+		                     NULL, 0, 
+							 timestamp, sizeof(*timestamp), 
+							 &temp, (LPOVERLAPPED)NULL);
+
+	return (result == TRUE) ? ERROR_SUCCESS : GetLastError();
+}
+
+/******************************************************************************/
+/*!
+
+  \brief Enable appending the timestamp to the received data.
+
+  \param[in] h 
+    HANDLE to the port
+      
+  \return 0 
+    if the operation completed successfully
+  \return >= 1 
+    if the operation failed (see MSDN 'System Error Codes')
+
+*/
+/******************************************************************************/
+int fscc_enable_append_timestamp(HANDLE h)
+{
+	DWORD temp;
+	BOOL result;
+
+	result = DeviceIoControl(h, (DWORD)FSCC_ENABLE_APPEND_TIMESTAMP, 
+		                     NULL, 0, 
+							 NULL, 0, 
+							 &temp, (LPOVERLAPPED)NULL);
+
+	return (result == TRUE) ? ERROR_SUCCESS : GetLastError();
+}
+
+/******************************************************************************/
+/*!
+
+  \brief Disable appending the timestamp to the received data.
+
+  \param[in] h 
+    HANDLE to the port
+      
+  \return 0 
+    if the operation completed successfully
+  \return >= 1 
+    if the operation failed (see MSDN 'System Error Codes')
+
+*/
+/******************************************************************************/
+int fscc_disable_append_timestamp(HANDLE h)
+{
+	DWORD temp;
+	BOOL result;
+
+	result = DeviceIoControl(h, (DWORD)FSCC_DISABLE_APPEND_TIMESTAMP, 
+		                     NULL, 0, 
+							 NULL, 0, 
+							 &temp, (LPOVERLAPPED)NULL);
+
+	return (result == TRUE) ? ERROR_SUCCESS : GetLastError();
+}
+
+/******************************************************************************/
+/*!
+
   \brief Gets a port's ignore timeout value.
 
   \param[in] h 

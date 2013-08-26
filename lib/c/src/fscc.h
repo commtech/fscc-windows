@@ -38,6 +38,10 @@ extern "C"
 #define FSCC_DISABLE_RX_MULTIPLE CTL_CODE(FSCC_IOCTL_MAGIC, 0x811, METHOD_BUFFERED, FILE_ANY_ACCESS)
 #define FSCC_GET_RX_MULTIPLE CTL_CODE(FSCC_IOCTL_MAGIC, 0x812, METHOD_BUFFERED, FILE_ANY_ACCESS)
 
+#define FSCC_ENABLE_APPEND_TIMESTAMP CTL_CODE(FSCC_IOCTL_MAGIC, 0x813, METHOD_BUFFERED, FILE_ANY_ACCESS)
+#define FSCC_DISABLE_APPEND_TIMESTAMP CTL_CODE(FSCC_IOCTL_MAGIC, 0x814, METHOD_BUFFERED, FILE_ANY_ACCESS)
+#define FSCC_GET_APPEND_TIMESTAMP CTL_CODE(FSCC_IOCTL_MAGIC, 0x815, METHOD_BUFFERED, FILE_ANY_ACCESS)
+
 enum transmit_modifiers { XF=0, XREP=1, TXT=2, TXEXT=4 };
 		
 typedef INT64 fscc_register;
@@ -103,6 +107,9 @@ __declspec(dllexport) int fscc_get_registers(HANDLE h, struct fscc_registers *re
 __declspec(dllexport) int fscc_get_append_status(HANDLE h, BOOL *status);
 __declspec(dllexport) int fscc_enable_append_status(HANDLE h);
 __declspec(dllexport) int fscc_disable_append_status(HANDLE h);
+__declspec(dllexport) int fscc_get_append_timestamp(HANDLE h, BOOL *timestamp);
+__declspec(dllexport) int fscc_enable_append_timestamp(HANDLE h);
+__declspec(dllexport) int fscc_disable_append_timestamp(HANDLE h);
 __declspec(dllexport) int fscc_get_ignore_timeout(HANDLE h, BOOL *status);
 __declspec(dllexport) int fscc_enable_ignore_timeout(HANDLE h);
 __declspec(dllexport) int fscc_disable_ignore_timeout(HANDLE h);
