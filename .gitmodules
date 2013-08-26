@@ -1,0 +1,3 @@
+[submodule "lib/python"]
+	path = lib/python
+	url = git://github.com/commtech/pyfscc.git
