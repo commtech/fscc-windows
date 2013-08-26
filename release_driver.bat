@@ -46,7 +46,7 @@ copy lib\net\netfscc*.dll %TOP%\lib\fscc\net\ > nul
 copy lib\c\cfscc*.dll %TOP%\lib\fscc\net\ > nul
 copy lib\net\src\*.cs %TOP%\lib\fscc\net\ > nul
 copy lib\net\makefile %TOP%\lib\fscc\net\ > nul
-xcopy redist\production\serial\lib\* %TOP%\lib\serialfc\ /e /i > nulnul
+xcopy redist\production\serial\lib\* %TOP%\lib\serialfc\ /e /i > nul
 xcopy redist\production\serial\terminal\* %TOP%\terminal\serialfc\ /e /i > nul
 xcopy redist\production\serial\gui\* %TOP%\gui\serialfc\ /e /i > nul
 
