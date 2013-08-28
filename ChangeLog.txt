@@ -1,3 +1,8 @@
+version 2.4.1 (8/28/2013)
+--------------------------------------------------------------------------------
+    * Fixed a bug that would allow you to return more data than your buffer
+      size (introduced in 2.4.0)
+
 version 2.4.0 (8/27/2013)
 --------------------------------------------------------------------------------
     * Added support for timestamps
