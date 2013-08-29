@@ -51,18 +51,18 @@ xcopy redist\production\serial\terminal\* %TOP%\terminal\serialfc\ /e /i > nul
 xcopy redist\production\serial\gui\* %TOP%\gui\serialfc\ /e /i > nul
 
 :copy_loop_files
-xcopy lib\c\loop\loop.exe %TOP%\lib\fscc\c\loop\ /i > nul
-xcopy lib\c\loop\loop.c %TOP%\lib\fscc\c\loop\ /i > nul
-xcopy lib\c\loop\makefile %TOP%\lib\fscc\c\loop\ /i > nul
+xcopy lib\c\utils\loop\loop.exe %TOP%\lib\fscc\c\loop\ /i > nul
+xcopy lib\c\utils\loop\loop.c %TOP%\lib\fscc\c\loop\ /i > nul
+xcopy lib\c\utils\loop\makefile %TOP%\lib\fscc\c\loop\ /i > nul
 xcopy lib\c\cfscc.dll %TOP%\lib\fscc\c\loop\ /i > nul
 
 :copy_tutorial_files
-xcopy lib\c\tutorial\tutorial.c %TOP%\lib\fscc\c\tutorial\ /i > nul
-xcopy lib\c\tutorial\makefile %TOP%\lib\fscc\c\tutorial\ /i > nul
+xcopy lib\c\utils\tutorial\tutorial.c %TOP%\lib\fscc\c\tutorial\ /i > nul
+xcopy lib\c\utils\tutorial\makefile %TOP%\lib\fscc\c\tutorial\ /i > nul
 xcopy lib\c\cfscc.dll %TOP%\lib\fscc\c\tutorial\ /i > nul
 
 :copy_test_files
-copy lib\c\test\test.exe %TOP%\test\ > nul
+copy lib\c\utils\test\test.exe %TOP%\test\ > nul
 copy lib\c\cfscc.dll %TOP%\test\ > nul
 
 :copy_sys_files
@@ -81,7 +81,6 @@ copy %PYFSCC%\pyfscc*.exe* %TOP%\lib\fscc\python\ > nul
 
 :copy_docs
 echo Copying Docs...
-xcopy lib\c\docs %TOP%\lib\fscc\c\docs /e /i > nul
 xcopy lib\c\examples %TOP%\lib\fscc\c\examples /e /i > nul
 
 :copy_changelog
