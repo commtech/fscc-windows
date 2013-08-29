@@ -183,7 +183,7 @@ void Port::SetClockFrequency(unsigned frequency, unsigned ppm) throw(SystemExcep
 
 bool Port::GetAppendStatus(void) throw(SystemException)
 {
-	BOOL append_status;
+	unsigned append_status;
 
 	int e = fscc_get_append_status(_h, &append_status);
 
@@ -211,7 +211,7 @@ void Port::DisableAppendStatus(void) throw(SystemException)
 
 bool Port::GetAppendTimestamp(void) throw(SystemException)
 {
-	BOOL append_timestamp;
+	unsigned append_timestamp;
 
 	int e = fscc_get_append_timestamp(_h, &append_timestamp);
 
@@ -239,7 +239,7 @@ void Port::DisableAppendTimestamp(void) throw(SystemException)
 
 bool Port::GetIgnoreTimeout(void) throw(SystemException)
 {
-	BOOL ignore_timeout;
+	unsigned ignore_timeout;
 
 	int e = fscc_get_ignore_timeout(_h, &ignore_timeout);
 
@@ -267,7 +267,7 @@ void Port::DisableIgnoreTimeout(void) throw(SystemException)
 
 bool Port::GetRxMultiple(void) throw(SystemException)
 {
-	BOOL rx_multiple;
+	unsigned rx_multiple;
 
 	int e = fscc_get_rx_multiple(_h, &rx_multiple);
 
