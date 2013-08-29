@@ -13,8 +13,7 @@ redist/production/i386/serial/
 bin/
 htm/
 lib/c/docs
-lib/c/loop/*.exe
-lib/c/test/*.exe
+lib/net/loop/*.exe
 *.exp
 *.obj
 *.lib
