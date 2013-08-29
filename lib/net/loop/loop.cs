@@ -69,6 +69,7 @@ public class Loop
 		System.Console.WriteLine("Restoring to default settings.");
 
 		p.AppendStatus = false;
+		p.AppendTimestamp = false;
 		p.TxModifiers = TransmitModifiers.XF;
 		p.IgnoreTimeout = false;
 
