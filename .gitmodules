@@ -1,6 +1,6 @@
 [submodule "lib/python"]
 	path = lib/python
 	url = git://github.com/commtech/pyfscc.git
-[submodule "lib\\c"]
-	path = lib\\c
+[submodule "lib/c"]
+	path = lib/c
 	url = git://github.com/commtech/cfscc.git
