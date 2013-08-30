@@ -7,3 +7,6 @@
 [submodule "lib\\net"]
 	path = lib\\net
 	url = git://github.com/commtech/netfscc.git
+[submodule "lib\\c++"]
+	path = lib\\c++
+	url = git://github.com/commtech/cppfscc.git
