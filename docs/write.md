@@ -24,4 +24,4 @@ WriteFile(h, odata, sizeof(odata), (DWORD*)bytes_written, NULL);
 
 
 ### Additional Resources
-- Complete example: [`examples\tutorial.c`](https://github.com/commtech/cfscc/blob/master/examples/tutorial/tutorial.c)
+- Complete example: [`examples\tutorial.c`](https://github.com/commtech/fscc-windows/blob/master/examples/tutorial.c)

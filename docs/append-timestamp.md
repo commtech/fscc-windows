@@ -60,4 +60,4 @@ DeviceIoControl(h, FSCC_DISABLE_APPEND_STATUS,
 
 
 ### Additional Resources
-- Complete example: [`examples\append-timestamp.c`](https://github.com/commtech/fscc-windows/blob/master/examples/append-timestamp/append-timestamp.c)
+- Complete example: [`examples\append-timestamp.c`](https://github.com/commtech/fscc-windows/blob/master/examples/append-timestamp.c)

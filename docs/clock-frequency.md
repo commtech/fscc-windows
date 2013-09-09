@@ -42,4 +42,4 @@ DeviceIoControl(h, FSCC_SET_CLOCK_BITS,
 
 
 ### Additional Resources
-- Complete example: [`examples\clock-frequency.c`](https://github.com/commtech/cfscc/blob/master/examples/clock-frequency/clock-frequency.c)
+- Complete example: [`examples\clock-frequency.c`](https://github.com/commtech/fscc-windows/blob/master/examples/clock-frequency.c)

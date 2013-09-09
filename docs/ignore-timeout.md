@@ -60,4 +60,4 @@ DeviceIoControl(h, FSCC_DISABLE_IGNORE_TIMEOUT,
 
 
 ### Additional Resources
-- Complete example: [`examples\ignore-timeout.c`](https://github.com/commtech/fscc-windows/blob/master/examples/ignore-timeout/ignore-timeout.c)
+- Complete example: [`examples\ignore-timeout.c`](https://github.com/commtech/fscc-windows/blob/master/examples/ignore-timeout.c)

@@ -82,4 +82,4 @@ DeviceIoControl(port, FSCC_GET_MEMORY_CAP,
 
 
 ### Additional Resources
-- Complete example: [`examples\memory-cap.c`](https://github.com/commtech/cfscc/blob/master/examples/memory-cap/memory-cap.c)
+- Complete example: [`examples\memory-cap.c`](https://github.com/commtech/fscc-windows/blob/master/examples/memory-cap.c)

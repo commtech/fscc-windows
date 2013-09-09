@@ -39,4 +39,4 @@ DeviceIoControl(h, FSCC_PURGE_RX,
 
 
 ### Additional Resources
-- Complete example: [`examples\purge.c`](https://github.com/commtech/cfscc/blob/master/examples/purge/purge.c)
+- Complete example: [`examples\purge.c`](https://github.com/commtech/fscc-windows/blob/master/examples/purge.c)

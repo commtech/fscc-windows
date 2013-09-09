@@ -130,4 +130,4 @@ values.
 
 
 ### Additional Resources
-- Complete example: [`examples\registers.c`](https://github.com/commtech/cfscc/blob/master/examples/registers/registers.c)
+- Complete example: [`examples\registers.c`](https://github.com/commtech/fscc-windows/blob/master/examples/registers.c)

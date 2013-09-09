@@ -70,4 +70,4 @@ DeviceIoControl(h, FSCC_DISABLE_RX_MULTIPLE,
 
 
 ### Additional Resources
-- Complete example: [`examples\rx-multiple.c`](https://github.com/commtech/cfscc/blob/master/examples/rx-multiple/rx-multiple.c)
+- Complete example: [`examples\rx-multiple.c`](https://github.com/commtech/fscc-windows/blob/master/examples/rx-multiple.c)

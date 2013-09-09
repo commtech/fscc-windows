@@ -67,4 +67,4 @@ DeviceIoControl(h, FSCC_DISABLE_APPEND_STATUS,
 
 
 ### Additional Resources
-- Complete example: [`examples\append-status.c`](https://github.com/commtech/fscc-windows/blob/master/examples/append-status/append-status.c)
+- Complete example: [`examples\append-status.c`](https://github.com/commtech/fscc-windows/blob/master/examples/append-status.c)
