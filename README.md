@@ -17,7 +17,7 @@ There is documentation for each specific function listed below, but lets get sta
 with a quick programming example for fun.
 
 _This tutorial has already been set up for you at_ 
-[`fscc/lib/fscc/c/tutorial/`](https://github.com/commtech/fscc-windows/tree/master/lib/c/tutorial).
+[`fscc/lib/fscc/c/tutorial/`](https://github.com/commtech/fscc-windows/tree/master/examples/tutorial.c).
 
 Create a new C file (named tutorial.c) with the following code.
 
