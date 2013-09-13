@@ -19,9 +19,7 @@ with a quick programming example for fun.
 _This tutorial has already been set up for you at_ 
 [`fscc/lib/fscc/c/tutorial/`](https://github.com/commtech/fscc-windows/tree/master/lib/c/tutorial).
 
-First, drop `cfscc.dll` and `cfscc.lib` into a test directory. These files can be found in the C
-library directory. Now that those files are copied over, create a new C file (named tutorial.c) with 
-the following code.
+Create a new C file (named tutorial.c) with the following code.
 
 ```
 #include <stdio.h>
@@ -63,7 +61,7 @@ For this example I will use the Visual Studio command line compiler, but
 you can use your compiler of choice.
 
 ```
-# cl /W4 /MT tutorial.c cfscc.lib /I fscc\lib\fscc\c\
+# cl tutorial.c
 ```
 
 Now attach the included loopback connector.
