@@ -9,7 +9,7 @@
 
 ## Disconnect
 The Windows [`CloseHandle`](http://msdn.microsoft.com/en-us/library/windows/apps/ms724211.aspx)
-is used to connect to the port.
+is used to disconnect from the port.
 
 
 ###### Examples

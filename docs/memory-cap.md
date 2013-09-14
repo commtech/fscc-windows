@@ -47,9 +47,9 @@ struct fscc_memory_cap memcap;
 
 FSCC_MEMORY_CAP_INIT(memcap);
 
-DeviceIoControl(port, FSCC_SET_MEMORY_CAP, 
+DeviceIoControl(port, FSCC_GET_MEMORY_CAP, 
                 NULL, 0, 
-                &memory_cap, sizeof(memory_cap), 
+                &memcap, sizeof(memcap), 
                 &tmp, (LPOVERLAPPED)NULL);
 ```
 
@@ -59,7 +59,7 @@ values.
 
 ## Set
 ```c
-FSCC_GET_MEMORY_CAP
+FSCC_SET_MEMORY_CAP
 ```
 
 ###### Examples
@@ -74,8 +74,8 @@ FSCC_MEMORY_CAP_INIT(memcap);
 memcap.input = 1000000; /* 1 MB */
 memcap.output = 2000000; /* 2 MB */
 
-DeviceIoControl(port, FSCC_GET_MEMORY_CAP, 
-                &memory_cap, sizeof(memory_cap), 
+DeviceIoControl(port, FSCC_SET_MEMORY_CAP, 
+                &memcap, sizeof(memcap), 
                 NULL, 0, 
                 &tmp, (LPOVERLAPPED)NULL);
 ```

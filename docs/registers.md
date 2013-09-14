@@ -88,15 +88,15 @@ FSCC_SET_REGISTERS
 #include <fscc.h>
 ...
 
-struct fscc_registers registers;
+struct fscc_registers regs;
 
-FSCC_REGISTERS_INIT(registers);
+FSCC_REGISTERS_INIT(regs);
 
-registers.CCR0 = 0x0011201c;
-registers.BGR = 10;
+regs.CCR0 = 0x0011201c;
+regs.BGR = 10;
 
 DeviceIoControl(h, FSCC_SET_REGISTERS, 
-				&registers, sizeof(registers), 
+				&regs, sizeof(regs), 
 				NULL, 0, 
 				&temp, NULL);	
 ```
@@ -112,16 +112,16 @@ FSCC_GET_REGISTERS
 #include <fscc.h>
 ...
 
-struct fscc_registers registers;
+struct fscc_registers regs;
 
-FSCC_REGISTERS_INIT(registers);
+FSCC_REGISTERS_INIT(regs);
 
-registers.CCR0 = FSCC_UPDATE_VALUE;
-registers.BGR = FSCC_UPDATE_VALUE;
+regs.CCR0 = FSCC_UPDATE_VALUE;
+regs.BGR = FSCC_UPDATE_VALUE;
 
 DeviceIoControl(h, FSCC_GET_REGISTERS, 
-				&registers, sizeof(registers), 
-				&registers, sizeof(registers), 
+				&regs, sizeof(regs), 
+				&regs, sizeof(regs), 
 				&temp, NULL);	
 ```
 
