@@ -1,6 +1,6 @@
 # Append Timestamp
 
-###### Driver Support
+###### Support
 | Code           | Version
 | -------------- | --------
 | `fscc-windows` | `v2.4.0` 

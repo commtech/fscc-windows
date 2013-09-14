@@ -21,7 +21,7 @@ You should purge the data stream after changing the registers.
 Settings like CCR0 will require being purged for the changes to take 
 effect.
 
-###### Driver Support
+###### Support
 | Code           | Version
 | -------------- | --------
 | `fscc-windows` | `v2.0.0` 

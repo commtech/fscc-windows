@@ -27,7 +27,7 @@ We won't duplicate the documentation here, but for your reference, here is an [a
 (http://blogs.msdn.com/b/oldnewthing/archive/2011/02/02/10123392.aspx) on a common
 bug developers introduce while trying to cancel I/O operations when using OVERLAPPED I/O.
 
-###### Driver Support
+###### Support
 | Code           | Version
 | -------------- | --------
 | `fscc-windows` | `v2.0.0` 

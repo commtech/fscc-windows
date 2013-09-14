@@ -3,7 +3,7 @@ Between the hardware FIFO and the driver's software buffers there are multiple p
 be stored, excluding your application code. If you ever need to clear this data and start fresh, 
 there are a couple of methods you can use.
 
-###### Driver Support
+###### Support
 | Code           | Version
 | -------------- | --------
 | `fscc-windows` | `v2.0.0` 

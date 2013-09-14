@@ -7,7 +7,7 @@ The FSCC reports this data to you by appending two additional bytes
 to each frame you read from the card, if you opt-in to see this data. There are
 a few methods of enabling this additional data.
 
-###### Driver Support
+###### Support
 | Code           | Version
 | -------------- | --------
 | `fscc-windows` | `v2.0.0` 

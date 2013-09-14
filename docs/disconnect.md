@@ -1,7 +1,7 @@
 # Disconnect
 
 
-###### Driver Support
+###### Support
 | Code           | Version
 | -------------- | --------
 | `fscc-windows` | `v2.0.0` 

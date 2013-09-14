@@ -4,7 +4,7 @@ prevent spurious incoming data from overrunning your system. Each port has an
 option for setting it's input and output memory cap.
 
 
-###### Driver Support
+###### Support
 | Code           | Version
 | -------------- | --------
 | `fscc-windows` | `v2.0.0` 

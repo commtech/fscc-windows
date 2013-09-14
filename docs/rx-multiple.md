@@ -1,6 +1,6 @@
 # RX Multiple
 
-###### Driver Support
+###### Support
 | Code           | Version
 | -------------- | --------
 | `fscc-windows` | `v2.2.9` 
@@ -41,11 +41,6 @@ DeviceIoControl(h, FSCC_ENABLE_RX_MULTIPLE,
                 &temp, NULL);
 ```
 
-###### Support
-| Code           | Version
-| -------------- | --------
-| `cfscc`        | `v1.0.0`
-
 
 ## Disable
 ```c
@@ -62,11 +57,6 @@ DeviceIoControl(h, FSCC_DISABLE_RX_MULTIPLE,
                 NULL, 0, 
                 &temp, NULL);
 ```
-
-###### Support
-| Code           | Version
-| -------------- | --------
-| `cfscc`        | `v1.0.0`
 
 
 ### Additional Resources
