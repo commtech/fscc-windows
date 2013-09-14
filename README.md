@@ -31,9 +31,9 @@ int main(void)
 	HANDLE h = 0;
 	DWORD tmp;
 	char odata[] = "Hello world!";
-    char idata[20];
+	char idata[20];
 	
-    /* Open port 0 in a blocking IO mode */
+	/* Open port 0 in a blocking IO mode */
 	h = CreateFile("\\\\.\\FSCC0", GENERIC_READ | GENERIC_WRITE, 0, NULL, 
 	                  OPEN_EXISTING, 0, NULL);
 
@@ -42,13 +42,13 @@ int main(void)
 		return EXIT_FAILURE; 
 	}
 	
-    /* Send "Hello world!" text */
-    WriteFile(h, odata, sizeof(odata), &tmp, NULL);
+	/* Send "Hello world!" text */
+	WriteFile(h, odata, sizeof(odata), &tmp, NULL);
 
-    /* Read the data back in (with our loopback connector) */
-    ReadFile(h, idata, sizeof(idata), &tmp, NULL);
+	/* Read the data back in (with our loopback connector) */
+	ReadFile(h, idata, sizeof(idata), &tmp, NULL);
 
-    fprintf(stdout, "%s\n", idata);
+	fprintf(stdout, "%s\n", idata);
 	
 	CloseHandle(h);
 	
