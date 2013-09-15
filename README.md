@@ -7,17 +7,13 @@ This README file is best viewed [online](http://github.com/commtech/fscc-windows
 You can download a pre-built driver package directly from our
 [website](http://www.commtech-fastcom.com/CommtechSoftware.html).
 
-We recommend users install the driver using the pre-built package above. If you would like to
-make driver modifications, there is a section in the guide that will walk you through
-getting and building the driver source code.
-
 
 ## Quick Start Guide
 There is documentation for each specific function listed below, but lets get started
 with a quick programming example for fun.
 
 _This tutorial has already been set up for you at_ 
-[`fscc/lib/fscc/c/tutorial/`](https://github.com/commtech/fscc-windows/tree/master/examples/tutorial.c).
+[`fscc/examples/tutorial.c`](https://github.com/commtech/fscc-windows/tree/master/examples/tutorial.c).
 
 Create a new C file (named tutorial.c) with the following code.
 
@@ -257,15 +253,6 @@ only be activated during the active phase of this signal, and hopefully the
 data will have the correct alignment.
 
 
-##### What are the project's dependencies?
-For 99% of our customers you will be able to install the driver without any additional
-dependencies. The full dependency list is below.
-
-- Driver Package: Windows (32 and 64) staring with XP
-- Driver Source Code: Windows Driver Kit 7.1.0 (Only required when building from source)
-- Python Library: Python, pySerial
-
-
 ##### What was changed in 2.X?
 You can view an up-to-date list of driver changes in our 
 [ChangeLog](https://github.com/commtech/fscc-windows/blob/master/ChangeLog.txt).
@@ -385,7 +372,16 @@ later release.
 When and if we switch to a 2.3 release there will only be minor API changes.
 
 
-### License
+## Dependencies
+- OS: Windows (32 and 64) staring with XP
+- Build Source Code: Windows Driver Kit 7.1.0 (Only required when building from source)
+
+
+## API Compatibility
+We follow [Semantic Versioning](http://semver.org/) when creating releases.
+
+
+## License
 
 Copyright (C) 2013 [Commtech, Inc.](http://commtech-fastcom.com)
 
