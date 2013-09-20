@@ -17,7 +17,7 @@ _This tutorial has already been set up for you at_
 
 Create a new C file (named tutorial.c) with the following code.
 
-```
+```c
 #include <stdio.h>
 #include <stdlib.h>
 #include <Windows.h>
