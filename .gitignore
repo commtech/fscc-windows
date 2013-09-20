@@ -29,3 +29,4 @@ lib/net/loop/*.exe
 *.pnps
 *.pnproj
 *~
+examples/*.exe
