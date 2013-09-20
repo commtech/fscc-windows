@@ -59,7 +59,7 @@ xcopy lib\c\utils\loop\makefile %TOP%\lib\fscc\c\loop\ /i > nul
 xcopy lib\c\cfscc.dll %TOP%\lib\fscc\c\loop\ /i > nul
 
 :copy_example_files
-echo Copying Loop Files...
+echo Copying Example Files...
 xcopy examples\*.c %TOP%\examples\fscc\ /e /i > nul
 
 :copy_test_files
