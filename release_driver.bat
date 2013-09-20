@@ -27,10 +27,11 @@ if %errorlevel% neq 0 exit /b %errorlevel%
 echo Creating Directories...
 for %%A in (32, 64, lib, terminal, gui, test) do mkdir %TOP%\%%A\
 for %%A in (fscc, serialfc) do mkdir %TOP%\lib\%%A\
-for %%A in (c, c++, net, python) do mkdir %TOP%\lib\fscc\%%A\
+for %%A in (c, c++, net, python, raw) do mkdir %TOP%\lib\fscc\%%A\
 
 :copy_dll_files
 echo Copying DLL Files...
+copy lib\raw\*.h %TOP%\lib\fscc\raw\ > nul
 copy lib\c\cfscc*.dll %TOP%\lib\fscc\c\ > nul
 copy lib\c\cfscc*.lib %TOP%\lib\fscc\c\ > nul
 copy lib\c\src\*.c %TOP%\lib\fscc\c\ > nul
@@ -51,17 +52,18 @@ xcopy redist\production\serial\terminal\* %TOP%\terminal\serialfc\ /e /i > nul
 xcopy redist\production\serial\gui\* %TOP%\gui\serialfc\ /e /i > nul
 
 :copy_loop_files
+echo Copying Loop Files...
 xcopy lib\c\utils\loop\loop.exe %TOP%\lib\fscc\c\loop\ /i > nul
 xcopy lib\c\utils\loop\loop.c %TOP%\lib\fscc\c\loop\ /i > nul
 xcopy lib\c\utils\loop\makefile %TOP%\lib\fscc\c\loop\ /i > nul
 xcopy lib\c\cfscc.dll %TOP%\lib\fscc\c\loop\ /i > nul
 
-:copy_tutorial_files
-xcopy lib\c\utils\tutorial\tutorial.c %TOP%\lib\fscc\c\tutorial\ /i > nul
-xcopy lib\c\utils\tutorial\makefile %TOP%\lib\fscc\c\tutorial\ /i > nul
-xcopy lib\c\cfscc.dll %TOP%\lib\fscc\c\tutorial\ /i > nul
+:copy_example_files
+echo Copying Loop Files...
+xcopy examples\*.c %TOP%\examples\fscc\ /e /i > nul
 
 :copy_test_files
+echo Copying Test Files...
 copy lib\c\utils\test\test.exe %TOP%\test\ > nul
 copy lib\c\cfscc.dll %TOP%\test\ > nul
 
