@@ -1,3 +1,9 @@
+version 2.4.2 (9/20/2013)
+--------------------------------------------------------------------------------
+    * Updated SerialFC to v2.2.2
+      (https://github.com/commtech/serialfc-windows/blob/master/ChangeLog.txt)
+    * Switch to using external code libraries
+
 version 2.4.1 (8/28/2013)
 --------------------------------------------------------------------------------
     * Fixed a bug that would allow you to return more data than your buffer
