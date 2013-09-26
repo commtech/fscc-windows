@@ -33,13 +33,6 @@ void fscc_flist_init(struct fscc_flist *flist)
 {
     NTSTATUS status = STATUS_SUCCESS;
 
-    status = WdfSpinLockCreate(WDF_NO_OBJECT_ATTRIBUTES, &flist->spinlock);
-    if (!NT_SUCCESS(status)) {
-        TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE,
-            "WdfSpinLockCreate failed %!STATUS!", status);
-        return;
-    }
-
     InitializeListHead(&flist->frames);
 }
 
@@ -52,29 +45,19 @@ void fscc_flist_delete(struct fscc_flist *flist)
 
 void fscc_flist_add_frame(struct fscc_flist *flist, struct fscc_frame *frame)
 {
-    WdfSpinLockAcquire(flist->spinlock);
-
     InsertTailList(&flist->frames, &frame->list);
-
-    WdfSpinLockRelease(flist->spinlock);
 }
 
 struct fscc_frame *fscc_flist_remove_frame(struct fscc_flist *flist)
 {
     struct fscc_frame *frame = 0;
 
-    WdfSpinLockAcquire(flist->spinlock);
-
-    if (IsListEmpty(&flist->frames)) {
-        WdfSpinLockRelease(flist->spinlock);
+    if (IsListEmpty(&flist->frames))
         return 0;
-    }
 
     frame = CONTAINING_RECORD(flist->frames.Flink, FSCC_FRAME, list);
 
     RemoveHeadList(&flist->frames);
-
-    WdfSpinLockRelease(flist->spinlock);
 
     return frame;
 }
@@ -84,31 +67,21 @@ struct fscc_frame *fscc_flist_remove_frame_if_lte(struct fscc_flist *flist,
 {
     struct fscc_frame *frame = 0;
 
-    WdfSpinLockAcquire(flist->spinlock);
-
-    if (IsListEmpty(&flist->frames)) {
-        WdfSpinLockRelease(flist->spinlock);
+    if (IsListEmpty(&flist->frames))
         return 0;
-    }
 
     frame = CONTAINING_RECORD(flist->frames.Flink, FSCC_FRAME, list);
 
-    if (fscc_frame_get_length(frame) > size) {
-        WdfSpinLockRelease(flist->spinlock);
+    if (fscc_frame_get_length(frame) > size)
         return 0;
-    }
 
     RemoveHeadList(&flist->frames);
-
-    WdfSpinLockRelease(flist->spinlock);
 
     return frame;
 }
 
 void fscc_flist_clear(struct fscc_flist *flist)
 {
-    WdfSpinLockAcquire(flist->spinlock);
-
     while (!IsListEmpty(&flist->frames)) {
         LIST_ENTRY *frame_iter = 0;
         struct fscc_frame *frame = 0;
@@ -118,8 +91,6 @@ void fscc_flist_clear(struct fscc_flist *flist)
 
         fscc_frame_delete(frame);
     }
-
-    WdfSpinLockRelease(flist->spinlock);
 }
 
 BOOLEAN fscc_flist_is_empty(struct fscc_flist *flist)
@@ -132,8 +103,6 @@ unsigned fscc_flist_calculate_memory_usage(struct fscc_flist *flist)
     LIST_ENTRY *frame_iter = 0;
     unsigned memory = 0;
 
-    WdfSpinLockAcquire(flist->spinlock);
-
     frame_iter = flist->frames.Flink;
     while (frame_iter != flist->frames.Blink) {
         struct fscc_frame *current_frame = 0;
@@ -143,8 +112,6 @@ unsigned fscc_flist_calculate_memory_usage(struct fscc_flist *flist)
 
         frame_iter = frame_iter->Flink;
     }
-
-    WdfSpinLockRelease(flist->spinlock);
 
     return memory;
 }

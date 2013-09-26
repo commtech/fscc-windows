@@ -320,30 +320,6 @@ struct fscc_port *fscc_port_new(WDFDRIVER Driver,
     WDF_OBJECT_ATTRIBUTES_INIT(&attributes);
     attributes.ParentObject = port->device;
 
-    status = WdfSpinLockCreate(&attributes, &port->istream_spinlock);
-    if (!NT_SUCCESS(status)) {
-        WdfObjectDelete(port->device);
-        TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE,
-            "WdfSpinLockCreate failed %!STATUS!", status);
-        return 0;
-    }
-
-    status = WdfSpinLockCreate(&attributes, &port->pending_oframe_spinlock);
-    if (!NT_SUCCESS(status)) {
-        WdfObjectDelete(port->device);
-        TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE,
-            "WdfSpinLockCreate failed %!STATUS!", status);
-        return 0;
-    }
-
-    status = WdfSpinLockCreate(&attributes, &port->pending_iframe_spinlock);
-    if (!NT_SUCCESS(status)) {
-        WdfObjectDelete(port->device);
-        TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE,
-            "WdfSpinLockCreate failed %!STATUS!", status);
-        return 0;
-    }
-
     status = WdfSpinLockCreate(&attributes, &port->board_settings_spinlock);
     if (!NT_SUCCESS(status)) {
         WdfObjectDelete(port->device);
@@ -368,8 +344,57 @@ struct fscc_port *fscc_port_new(WDFDRIVER Driver,
         return 0;
     }
 
-    fscc_flist_init(&port->oframes);
-    fscc_flist_init(&port->iframes);
+    status = WdfSpinLockCreate(&attributes, &port->istream_spinlock);
+    if (!NT_SUCCESS(status)) {
+        WdfObjectDelete(port->device);
+        TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE,
+            "WdfSpinLockCreate failed %!STATUS!", status);
+        return 0;
+    }
+
+    status = WdfSpinLockCreate(&attributes, &port->pending_iframe_spinlock);
+    if (!NT_SUCCESS(status)) {
+        WdfObjectDelete(port->device);
+        TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE,
+            "WdfSpinLockCreate failed %!STATUS!", status);
+        return 0;
+    }
+
+    status = WdfSpinLockCreate(&attributes, &port->pending_oframe_spinlock);
+    if (!NT_SUCCESS(status)) {
+        WdfObjectDelete(port->device);
+        TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE,
+            "WdfSpinLockCreate failed %!STATUS!", status);
+        return 0;
+    }
+
+    status = WdfSpinLockCreate(&attributes, &port->sent_oframes_spinlock);
+    if (!NT_SUCCESS(status)) {
+        WdfObjectDelete(port->device);
+        TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE,
+            "WdfSpinLockCreate failed %!STATUS!", status);
+        return 0;
+    }
+
+    status = WdfSpinLockCreate(&attributes, &port->queued_oframes_spinlock);
+    if (!NT_SUCCESS(status)) {
+        WdfObjectDelete(port->device);
+        TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE,
+            "WdfSpinLockCreate failed %!STATUS!", status);
+        return 0;
+    }
+
+    status = WdfSpinLockCreate(&attributes, &port->queued_iframes_spinlock);
+    if (!NT_SUCCESS(status)) {
+        WdfObjectDelete(port->device);
+        TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE,
+            "WdfSpinLockCreate failed %!STATUS!", status);
+        return 0;
+    }
+
+    fscc_flist_init(&port->queued_oframes);
+    fscc_flist_init(&port->sent_oframes);
+    fscc_flist_init(&port->queued_iframes);
 
     WDF_DPC_CONFIG_INIT(&dpcConfig, &oframe_worker);
     dpcConfig.AutomaticSerialization = TRUE;
@@ -559,9 +584,20 @@ NTSTATUS FsccEvtDeviceReleaseHardware(WDFDEVICE Device,
 
     port = WdfObjectGet_FSCC_PORT(Device);
 
+    //TODO: Spinlock
     fscc_frame_delete(port->istream);
-    fscc_flist_delete(&port->iframes);
-    fscc_flist_delete(&port->oframes);
+
+    WdfSpinLockAcquire(port->queued_iframes_spinlock);
+    fscc_flist_delete(&port->queued_iframes);
+    WdfSpinLockRelease(port->queued_iframes_spinlock);
+
+    WdfSpinLockAcquire(port->queued_oframes_spinlock);
+    fscc_flist_delete(&port->queued_oframes);
+    WdfSpinLockRelease(port->queued_oframes_spinlock);
+
+    WdfSpinLockAcquire(port->sent_oframes_spinlock);
+    fscc_flist_delete(&port->sent_oframes);
+    WdfSpinLockRelease(port->sent_oframes_spinlock);
 
     //WdfTimerStop(port->timer, FALSE);
 
@@ -939,7 +975,7 @@ int fscc_port_frame_read(struct fscc_port *port, char *buf, size_t buf_length,
     return_val_if_untrue(port, 0);
     
     *out_length = 0;
-    
+
     do {
         remaining_buf_length = buf_length - *out_length;
         
@@ -952,7 +988,9 @@ int fscc_port_frame_read(struct fscc_port *port, char *buf, size_t buf_length,
         else
             max_frame_length = remaining_buf_length + 2; // Status length
 
-        frame = fscc_flist_remove_frame_if_lte(&port->iframes, max_frame_length);
+        WdfSpinLockAcquire(port->queued_iframes_spinlock);
+        frame = fscc_flist_remove_frame_if_lte(&port->queued_iframes, max_frame_length);
+        WdfSpinLockRelease(port->queued_iframes_spinlock);
 
         if (!frame)
             break;
@@ -991,8 +1029,10 @@ int fscc_port_stream_read(struct fscc_port *port, char *buf, size_t buf_length,
     WdfSpinLockAcquire(port->istream_spinlock);
 
     *out_length = min(buf_length, (size_t)fscc_frame_get_length(port->istream));
-
+    
+    WdfSpinLockAcquire(port->istream_spinlock);
     fscc_frame_remove_data(port->istream, buf, (unsigned)(*out_length));
+    WdfSpinLockRelease(port->istream_spinlock);
 
     WdfSpinLockRelease(port->istream_spinlock);
 
@@ -1121,7 +1161,10 @@ VOID FsccEvtIoWrite(IN WDFQUEUE Queue, IN WDFREQUEST Request, IN size_t Length)
     }
 
     fscc_frame_add_data(frame, data_buffer, Length);
-    fscc_flist_add_frame(&port->oframes, frame);
+
+    WdfSpinLockAcquire(port->queued_oframes_spinlock);
+    fscc_flist_add_frame(&port->queued_oframes, frame);
+    WdfSpinLockRelease(port->queued_oframes_spinlock);
 
     WdfDpcEnqueue(port->oframe_dpc);
 
@@ -1341,7 +1384,9 @@ NTSTATUS fscc_port_purge_rx(struct fscc_port *port)
         return status;
     }
 
-    fscc_flist_clear(&port->iframes);
+    WdfSpinLockAcquire(port->queued_iframes_spinlock);
+    fscc_flist_clear(&port->queued_iframes);
+    WdfSpinLockRelease(port->queued_iframes_spinlock);
 
     WdfSpinLockAcquire(port->istream_spinlock);
     fscc_frame_clear(port->istream);
@@ -1373,7 +1418,13 @@ NTSTATUS fscc_port_purge_tx(struct fscc_port *port)
     if (error_code < 0)
         return error_code;
 
-    fscc_flist_clear(&port->oframes);
+    WdfSpinLockAcquire(port->queued_oframes_spinlock);
+    fscc_flist_clear(&port->queued_oframes);
+    WdfSpinLockRelease(port->queued_oframes_spinlock);
+
+    WdfSpinLockAcquire(port->sent_oframes_spinlock);
+    fscc_flist_clear(&port->sent_oframes);
+    WdfSpinLockRelease(port->sent_oframes_spinlock);
 
     WdfSpinLockAcquire(port->pending_oframe_spinlock);
     if (port->pending_oframe) {
@@ -1687,7 +1738,9 @@ unsigned fscc_port_get_output_memory_usage(struct fscc_port *port)
 
     return_val_if_untrue(port, 0);
 
-    value = fscc_flist_calculate_memory_usage(&port->oframes);
+    WdfSpinLockAcquire(port->queued_oframes_spinlock);
+    value = fscc_flist_calculate_memory_usage(&port->queued_oframes);
+    WdfSpinLockRelease(port->queued_oframes_spinlock);
 
     WdfSpinLockAcquire(port->pending_oframe_spinlock);
     if (port->pending_oframe)
@@ -1703,7 +1756,9 @@ unsigned fscc_port_get_input_memory_usage(struct fscc_port *port)
 
     return_val_if_untrue(port, 0);
 
-    value = fscc_flist_calculate_memory_usage(&port->iframes);
+    WdfSpinLockAcquire(port->queued_iframes_spinlock);
+    value = fscc_flist_calculate_memory_usage(&port->queued_iframes);
+    WdfSpinLockRelease(port->queued_iframes_spinlock);
 
     WdfSpinLockAcquire(port->istream_spinlock);
     value += fscc_frame_get_length(port->istream);
@@ -1836,11 +1891,15 @@ unsigned fscc_port_has_incoming_data(struct fscc_port *port)
 
     return_val_if_untrue(port, 0);
 
-    if (fscc_port_is_streaming(port))
+    if (fscc_port_is_streaming(port)) {
         status = (fscc_frame_is_empty(port->istream)) ? 0 : 1;
-    else if (fscc_flist_is_empty(&port->iframes) == FALSE)
-        status = 1;
-
+    }
+    else {
+        WdfSpinLockAcquire(port->queued_iframes_spinlock);
+        if (fscc_flist_is_empty(&port->queued_iframes) == FALSE)
+            status = 1;
+        WdfSpinLockRelease(port->queued_iframes_spinlock);
+    }
     return status;
 }
 

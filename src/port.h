@@ -111,8 +111,14 @@ typedef struct fscc_port {
     WDFSPINLOCK board_rx_spinlock; /* Anything that will alter the state of rx at a board level */
     WDFSPINLOCK board_tx_spinlock; /* Anything that will alter the state of rx at a board level */
 
-    struct fscc_flist iframes; /* Frames already retrieved from the FIFO */
-    struct fscc_flist oframes; /* Frames not yet in the FIFO yet */
+    WDFSPINLOCK queued_iframes_spinlock;
+    struct fscc_flist queued_iframes; /* Frames already retrieved from the FIFO */
+
+    WDFSPINLOCK queued_oframes_spinlock;
+    struct fscc_flist queued_oframes; /* Frames not yet in the FIFO yet */
+
+    WDFSPINLOCK sent_oframes_spinlock;
+    struct fscc_flist sent_oframes; /* Frames sent but not yet cleared */
 
     WDFSPINLOCK istream_spinlock;
     struct fscc_frame *istream; /* Transparent stream */

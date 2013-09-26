@@ -29,7 +29,6 @@
 
 struct fscc_flist {
     LIST_ENTRY frames;
-    WDFSPINLOCK spinlock;
 };
 
 void fscc_flist_init(struct fscc_flist *flist);

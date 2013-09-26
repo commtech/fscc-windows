@@ -210,7 +210,9 @@ void iframe_worker(WDFDPC Dpc)
 
     if (port->pending_iframe) {
         KeQuerySystemTime(&port->pending_iframe->timestamp);
-        fscc_flist_add_frame(&port->iframes, port->pending_iframe);
+        WdfSpinLockAcquire(port->queued_iframes_spinlock);
+        fscc_flist_add_frame(&port->queued_iframes, port->pending_iframe);
+        WdfSpinLockRelease(port->queued_iframes_spinlock);
     }
 
     rejected_last_frame = 0; /* Track that we received a frame to reset the
@@ -317,7 +319,9 @@ void oframe_worker(WDFDPC Dpc)
 
     /* Check if exists and if so, grabs the frame to transmit. */
     if (!port->pending_oframe) {
-        port->pending_oframe = fscc_flist_remove_frame(&port->oframes);
+        WdfSpinLockAcquire(port->queued_oframes_spinlock);
+        port->pending_oframe = fscc_flist_remove_frame(&port->queued_oframes);
+        WdfSpinLockRelease(port->queued_oframes_spinlock);
 
         /* No frames in queue to transmit */
         if (!port->pending_oframe) {
