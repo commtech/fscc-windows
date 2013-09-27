@@ -96,6 +96,7 @@ typedef struct fscc_port {
     BOOLEAN append_timestamp;
     BOOLEAN ignore_timeout;
     BOOLEAN rx_multiple;
+    BOOLEAN wait_on_write;
     int tx_modifiers;
     unsigned last_isr_value;
     unsigned open_counter;
@@ -190,6 +191,9 @@ BOOLEAN fscc_port_get_ignore_timeout(struct fscc_port *port);
 void fscc_port_set_rx_multiple(struct fscc_port *port,
                                   BOOLEAN rx_multiple);
 BOOLEAN fscc_port_get_rx_multiple(struct fscc_port *port);
+void fscc_port_set_wait_on_write(struct fscc_port *port,
+                                  BOOLEAN wait_on_write);
+BOOLEAN fscc_port_get_wait_on_write(struct fscc_port *port);
 NTSTATUS fscc_port_set_tx_modifiers(struct fscc_port *port, int value);
 unsigned fscc_port_get_tx_modifiers(struct fscc_port *port);
 

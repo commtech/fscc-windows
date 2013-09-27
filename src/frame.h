@@ -36,9 +36,10 @@ typedef struct fscc_frame {
     unsigned dma_initialized;
     unsigned fifo_initialized;
     struct fscc_port *port;
+    WDFREQUEST request;
 } FSCC_FRAME;
 
-struct fscc_frame *fscc_frame_new(struct fscc_port *port);
+struct fscc_frame *fscc_frame_new(struct fscc_port *port, WDFREQUEST request);
 void fscc_frame_delete(struct fscc_frame *frame);
 
 unsigned fscc_frame_get_length(struct fscc_frame *frame);

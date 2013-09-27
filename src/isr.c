@@ -71,20 +71,6 @@ BOOLEAN fscc_isr(WDFINTERRUPT Interrupt, ULONG MessageID)
     if (isr_value & ALLS)
         WdfDpcEnqueue(port->clear_oframe_dpc);
 
-#if 0
-    /* We have to wait until an ALLS to delete a DMA frame because if we
-        delete the frame right away the DMA engine will lose the data to
-        transfer. */
-    if (fscc_port_has_dma(port) && isr_value & ALLS) {
-        if (port->pending_oframe) { //TODO: Synchronization
-            fscc_frame_delete(port->pending_oframe); //TODO: This free might not be allowed at this IRQL
-            port->pending_oframe = 0;
-        }
-
-        WdfDpcEnqueue(port->oframe_dpc);
-    }
-#endif
-
 #ifdef DEBUG
     WdfDpcEnqueue(port->print_dpc);
 #endif
@@ -107,121 +93,124 @@ void iframe_worker(WDFDPC Dpc)
 
     return_if_untrue(port);
 
-    current_memory = fscc_port_get_input_memory_usage(port);
-    memory_cap = fscc_port_get_input_memory_cap(port);
+    do {
+        current_memory = fscc_port_get_input_memory_usage(port);
+        memory_cap = fscc_port_get_input_memory_cap(port);
 
-    WdfSpinLockAcquire(port->board_rx_spinlock);
-    WdfSpinLockAcquire(port->pending_iframe_spinlock);
+        WdfSpinLockAcquire(port->board_rx_spinlock);
+        WdfSpinLockAcquire(port->pending_iframe_spinlock);
 
-    finished_frame = (fscc_port_get_RFCNT(port) > 0) ? 1 : 0;
+        finished_frame = (fscc_port_get_RFCNT(port) > 0) ? 1 : 0;
 
-    if (finished_frame) {
-        unsigned bc_fifo_l = 0;
-        unsigned current_length = 0;
+        if (finished_frame) {
+            unsigned bc_fifo_l = 0;
+            unsigned current_length = 0;
 
-        bc_fifo_l = fscc_port_get_register(port, 0, BC_FIFO_L_OFFSET);
+            bc_fifo_l = fscc_port_get_register(port, 0, BC_FIFO_L_OFFSET);
 
-        if (port->pending_iframe)
-            current_length = fscc_frame_get_length(port->pending_iframe);
-        else
-            current_length = 0;
+            if (port->pending_iframe)
+                current_length = fscc_frame_get_length(port->pending_iframe);
+            else
+                current_length = 0;
 
-        receive_length = bc_fifo_l - current_length;
-    } else {
-        unsigned rxcnt = 0;
+            receive_length = bc_fifo_l - current_length;
+        } else {
+            unsigned rxcnt = 0;
 
-        rxcnt = fscc_port_get_RXCNT(port);
+            rxcnt = fscc_port_get_RXCNT(port);
 
-        /* We choose a safe amount to read due to more data coming in after we
-           get our values. The rest will be read on the next interrupt. */
-        receive_length = rxcnt - STATUS_LENGTH - MAX_LEFTOVER_BYTES;
-        receive_length -= receive_length % 4;
-    }
-
-    /* Leave the interrupt handler if there is no data to read. */
-    if (receive_length <= 0) {
-        WdfSpinLockRelease(port->pending_iframe_spinlock);
-        WdfSpinLockRelease(port->board_rx_spinlock);
-        return;
-    }
-
-    /* Make sure we don't go over the user's memory constraint. */
-    if (current_memory + receive_length > memory_cap) {
-        if (rejected_last_frame == 0) {
-            TraceEvents(TRACE_LEVEL_WARNING, TRACE_DEVICE,
-                        "Rejecting frames (memory constraint)");
-            rejected_last_frame = 1; /* Track that we dropped a frame so we
-                                    don't have to warn the user again. */
+            /* We choose a safe amount to read due to more data coming in after we
+               get our values. The rest will be read on the next interrupt. */
+            receive_length = rxcnt - STATUS_LENGTH - MAX_LEFTOVER_BYTES;
+            receive_length -= receive_length % 4;
         }
 
-        if (port->pending_iframe) {
-            fscc_frame_delete(port->pending_iframe);
-            port->pending_iframe = 0;
-        }
-
-        WdfSpinLockRelease(port->pending_iframe_spinlock);
-        WdfSpinLockRelease(port->board_rx_spinlock);
-        return;
-    }
-
-    if (!port->pending_iframe) {
-        port->pending_iframe = fscc_frame_new(port);
-
-        if (!port->pending_iframe) {
+        /* Leave the interrupt handler if there is no data to read. */
+        if (receive_length <= 0) {
             WdfSpinLockRelease(port->pending_iframe_spinlock);
             WdfSpinLockRelease(port->board_rx_spinlock);
             return;
         }
-    }
 
-    status = fscc_frame_add_data_from_port(port->pending_iframe, port, receive_length);
-    if (status == FALSE) {
-        TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE,
-            "Error adding stream data");
+        /* Make sure we don't go over the user's memory constraint. */
+        if (current_memory + receive_length > memory_cap) {
+            if (rejected_last_frame == 0) {
+                TraceEvents(TRACE_LEVEL_WARNING, TRACE_DEVICE,
+                            "Rejecting frames (memory constraint)");
+                rejected_last_frame = 1; /* Track that we dropped a frame so we
+                                        don't have to warn the user again. */
+            }
+
+            if (port->pending_iframe) {
+                fscc_frame_delete(port->pending_iframe);
+                port->pending_iframe = 0;
+            }
+
+            WdfSpinLockRelease(port->pending_iframe_spinlock);
+            WdfSpinLockRelease(port->board_rx_spinlock);
+            return;
+        }
+
+        if (!port->pending_iframe) {
+            port->pending_iframe = fscc_frame_new(port, 0);
+
+            if (!port->pending_iframe) {
+                WdfSpinLockRelease(port->pending_iframe_spinlock);
+                WdfSpinLockRelease(port->board_rx_spinlock);
+                return;
+            }
+        }
+
+        status = fscc_frame_add_data_from_port(port->pending_iframe, port, receive_length);
+        if (status == FALSE) {
+            TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE,
+                "Error adding stream data");
+            WdfSpinLockRelease(port->pending_iframe_spinlock);
+            WdfSpinLockRelease(port->board_rx_spinlock);
+            return;
+        }
+
+    #ifdef __BIG_ENDIAN
+        {
+            char status[STATUS_LENGTH];
+
+            /* Moves the status bytes to the end. */
+            memmove(&status, port->pending_iframe->data, STATUS_LENGTH);
+            memmove(port->pending_iframe->data, port->pending_iframe->data + STATUS_LENGTH, port->pending_iframe->current_length - STATUS_LENGTH);
+            memmove(port->pending_iframe->data + port->pending_iframe->current_length - STATUS_LENGTH, &status, STATUS_LENGTH);
+        }
+    #endif
+
+        TraceEvents(TRACE_LEVEL_VERBOSE, TRACE_DEVICE,
+            "F#%i <= %i byte%s (%sfinished)",
+            port->pending_iframe->number, receive_length,
+            (receive_length == 1) ? "" : "s",
+            (finished_frame) ? "" : "un");
+
+        if (!finished_frame) {
+            WdfSpinLockRelease(port->pending_iframe_spinlock);
+            WdfSpinLockRelease(port->board_rx_spinlock);
+            return;
+        }
+
+        if (port->pending_iframe) {
+            KeQuerySystemTime(&port->pending_iframe->timestamp);
+            WdfSpinLockAcquire(port->queued_iframes_spinlock);
+            fscc_flist_add_frame(&port->queued_iframes, port->pending_iframe);
+            WdfSpinLockRelease(port->queued_iframes_spinlock);
+        }
+
+        rejected_last_frame = 0; /* Track that we received a frame to reset the
+                                memory constraint warning print message. */
+
+        port->pending_iframe = 0;
+
         WdfSpinLockRelease(port->pending_iframe_spinlock);
         WdfSpinLockRelease(port->board_rx_spinlock);
-        return;
+
+        WdfDpcEnqueue(port->process_read_dpc);
     }
-
-#ifdef __BIG_ENDIAN
-    {
-        char status[STATUS_LENGTH];
-
-        /* Moves the status bytes to the end. */
-        memmove(&status, port->pending_iframe->data, STATUS_LENGTH);
-        memmove(port->pending_iframe->data, port->pending_iframe->data + STATUS_LENGTH, port->pending_iframe->current_length - STATUS_LENGTH);
-        memmove(port->pending_iframe->data + port->pending_iframe->current_length - STATUS_LENGTH, &status, STATUS_LENGTH);
-    }
-#endif
-
-    TraceEvents(TRACE_LEVEL_VERBOSE, TRACE_DEVICE,
-        "F#%i <= %i byte%s (%sfinished)",
-        port->pending_iframe->number, receive_length,
-        (receive_length == 1) ? "" : "s",
-        (finished_frame) ? "" : "un");
-
-    if (!finished_frame) {
-        WdfSpinLockRelease(port->pending_iframe_spinlock);
-        WdfSpinLockRelease(port->board_rx_spinlock);
-        return;
-    }
-
-    if (port->pending_iframe) {
-        KeQuerySystemTime(&port->pending_iframe->timestamp);
-        WdfSpinLockAcquire(port->queued_iframes_spinlock);
-        fscc_flist_add_frame(&port->queued_iframes, port->pending_iframe);
-        WdfSpinLockRelease(port->queued_iframes_spinlock);
-    }
-
-    rejected_last_frame = 0; /* Track that we received a frame to reset the
-                            memory constraint warning print message. */
-
-    port->pending_iframe = 0;
-
-    WdfDpcEnqueue(port->process_read_dpc);
-
-    WdfSpinLockRelease(port->pending_iframe_spinlock);
-    WdfSpinLockRelease(port->board_rx_spinlock);
+    while (receive_length);
 }
 
 /* This function is syncronized so we don't have to worry about it being ran in

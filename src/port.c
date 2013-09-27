@@ -160,7 +160,7 @@ struct fscc_port *fscc_port_new(WDFDRIVER Driver,
     port = WdfObjectGet_FSCC_PORT(device);
 
     port->device = device;
-    port->istream = fscc_frame_new(port);
+    port->istream = fscc_frame_new(port, 0);
     port->open_counter = 0;
 
 
@@ -531,6 +531,7 @@ NTSTATUS FsccEvtDevicePrepareHardware(WDFDEVICE Device,
     fscc_port_set_ignore_timeout(port, DEFAULT_IGNORE_TIMEOUT_VALUE);
     fscc_port_set_tx_modifiers(port, DEFAULT_TX_MODIFIERS_VALUE);
     fscc_port_set_rx_multiple(port, DEFAULT_RX_MULTIPLE_VALUE);
+    fscc_port_set_wait_on_write(port, DEFAULT_WAIT_ON_WRITE_VALUE);
 
     memory_cap.input = DEFAULT_INPUT_MEMORY_CAP_VALUE;
     memory_cap.output = DEFAULT_OUTPUT_MEMORY_CAP_VALUE;
@@ -963,6 +964,32 @@ VOID FsccEvtIoDeviceControl(IN WDFQUEUE Queue, IN WDFREQUEST Request,
             bytes_returned = sizeof(*tx_modifiers);
         }
 
+    case FSCC_GET_WAIT_ON_WRITE: {
+            BOOLEAN *wait_on_write = 0;
+
+            status = WdfRequestRetrieveOutputBuffer(Request,
+                        sizeof(*wait_on_write), (PVOID *)&wait_on_write, NULL);
+            if (!NT_SUCCESS(status)) {
+                TraceEvents(TRACE_LEVEL_WARNING, TRACE_DEVICE,
+                    "WdfRequestRetrieveOutputBuffer failed %!STATUS!", status);
+                break;
+            }
+
+            *wait_on_write = fscc_port_get_wait_on_write(port);
+
+            bytes_returned = sizeof(*wait_on_write);
+        }
+
+        break;
+
+    case FSCC_ENABLE_WAIT_ON_WRITE:
+        fscc_port_set_wait_on_write(port, TRUE);
+        break;
+
+    case FSCC_DISABLE_WAIT_ON_WRITE:
+        fscc_port_set_wait_on_write(port, FALSE);
+        break;
+
         break;
 
     default:
@@ -1167,7 +1194,10 @@ VOID FsccEvtIoWrite(IN WDFQUEUE Queue, IN WDFREQUEST Request, IN size_t Length)
         return;
     }
 
-    frame = fscc_frame_new(port);
+    if (port->wait_on_write)
+        frame = fscc_frame_new(port, Request);
+    else
+        frame = fscc_frame_new(port, 0);
 
     if (!frame) {
         WdfRequestComplete(Request, STATUS_INSUFFICIENT_RESOURCES);
@@ -1182,9 +1212,8 @@ VOID FsccEvtIoWrite(IN WDFQUEUE Queue, IN WDFREQUEST Request, IN size_t Length)
 
     WdfDpcEnqueue(port->oframe_dpc);
 
-    //TODO: In a later version we need to post pone this until later
-    //so in a non overlapped mode the Write blocks until ALLS
-    WdfRequestCompleteWithInformation(Request, STATUS_SUCCESS, Length);
+    if (!port->wait_on_write)
+        WdfRequestCompleteWithInformation(Request, STATUS_SUCCESS, Length);
 }
 
 UINT32 fscc_port_get_register(struct fscc_port *port, unsigned bar,
@@ -1548,6 +1577,30 @@ BOOLEAN fscc_port_get_rx_multiple(struct fscc_port *port)
     return_val_if_untrue(port, 0);
 
     return port->rx_multiple;
+}
+
+void fscc_port_set_wait_on_write(struct fscc_port *port, BOOLEAN value)
+{
+    return_if_untrue(port);
+
+    if (port->wait_on_write != value) {
+        TraceEvents(TRACE_LEVEL_INFORMATION, TRACE_DEVICE,
+                    "Wait on Write %i => %i",
+                    port->wait_on_write, value);
+    }
+    else {
+        TraceEvents(TRACE_LEVEL_VERBOSE, TRACE_DEVICE,
+                    "Wait on Write = %i", value);
+    }
+
+    port->wait_on_write = (value) ? 1 : 0;
+}
+
+BOOLEAN fscc_port_get_wait_on_write(struct fscc_port *port)
+{
+    return_val_if_untrue(port, 0);
+
+    return port->wait_on_write;
 }
 
 /* Returns -EINVAL if you set an incorrect transmit modifier */
