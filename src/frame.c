@@ -31,7 +31,7 @@ static unsigned frame_counter = 1;
 
 int fscc_frame_update_buffer_size(struct fscc_frame *frame, unsigned size);
 
-struct fscc_frame *fscc_frame_new(unsigned dma)
+struct fscc_frame *fscc_frame_new(struct fscc_port *port)
 {
     NTSTATUS status = STATUS_SUCCESS;
     struct fscc_frame *frame = 0;
@@ -45,6 +45,9 @@ struct fscc_frame *fscc_frame_new(unsigned dma)
     frame->data_length = 0;
     frame->buffer_size = 0;
     frame->buffer = 0;
+    frame->fifo_initialized = 0;
+    frame->dma_initialized = 0;
+    frame->port = port;
 
     frame->number = frame_counter;
     frame_counter += 1;
@@ -212,4 +215,20 @@ int fscc_frame_update_buffer_size(struct fscc_frame *frame, unsigned size)
     frame->buffer_size = size;
 
     return TRUE;
+}
+
+// TODO
+int fscc_frame_setup_descriptors(struct fscc_frame *frame)
+{
+	return 1;
+}
+
+unsigned fscc_frame_is_dma(struct fscc_frame *frame)
+{
+    return (frame->dma_initialized);
+}
+
+unsigned fscc_frame_is_fifo(struct fscc_frame *frame)
+{
+    return (frame->fifo_initialized);
 }

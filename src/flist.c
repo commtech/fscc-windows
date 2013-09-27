@@ -48,6 +48,18 @@ void fscc_flist_add_frame(struct fscc_flist *flist, struct fscc_frame *frame)
     InsertTailList(&flist->frames, &frame->list);
 }
 
+struct fscc_frame *fscc_flist_peak_front(struct fscc_flist *flist)
+{
+	struct fscc_frame *frame = 0;
+
+    if (IsListEmpty(&flist->frames))
+        return 0;
+
+    return CONTAINING_RECORD(flist->frames.Flink, FSCC_FRAME, list);
+
+	return frame;
+}
+
 struct fscc_frame *fscc_flist_remove_frame(struct fscc_flist *flist)
 {
     struct fscc_frame *frame = 0;

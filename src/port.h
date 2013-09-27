@@ -130,6 +130,7 @@ typedef struct fscc_port {
     struct fscc_frame *pending_oframe; /* Frame being put in the FIFO */
 
     WDFDPC oframe_dpc;
+    WDFDPC clear_oframe_dpc;
     WDFDPC iframe_dpc;
     WDFDPC istream_dpc;
     WDFDPC print_dpc;
@@ -215,7 +216,6 @@ BOOLEAN fscc_port_has_dma(struct fscc_port *port);
 
 UINT32 fscc_port_get_TXCNT(struct fscc_port *port);
 
-void fscc_port_execute_transmit(struct fscc_port *port);
 unsigned fscc_port_is_streaming(struct fscc_port *port);
 
 unsigned fscc_port_get_RFCNT(struct fscc_port *port);
@@ -224,5 +224,6 @@ unsigned fscc_port_get_RXCNT(struct fscc_port *port);
 unsigned fscc_port_get_input_memory_usage(struct fscc_port *port);
 void fscc_port_reset_timer(struct fscc_port *port);
 unsigned fscc_port_has_incoming_data(struct fscc_port *port);
+unsigned fscc_port_transmit_frame(struct fscc_port *port, struct fscc_frame *frame);
 
 #endif

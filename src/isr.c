@@ -65,8 +65,11 @@ BOOLEAN fscc_isr(WDFINTERRUPT Interrupt, ULONG MessageID)
             WdfDpcEnqueue(port->iframe_dpc);
     }
 
-    if (isr_value & TFT && !fscc_port_has_dma(port))
+    if (isr_value & TFT)
         WdfDpcEnqueue(port->oframe_dpc);
+
+    if (isr_value & ALLS)
+        WdfDpcEnqueue(port->clear_oframe_dpc);
 
 #if 0
     /* We have to wait until an ALLS to delete a DMA frame because if we
@@ -96,7 +99,6 @@ void iframe_worker(WDFDPC Dpc)
     int receive_length = 0; /* Needs to be signed */
     unsigned finished_frame = 0;
     static int rejected_last_frame = 0;
-//    static unsigned last_frame_size = 0;
     unsigned current_memory = 0;
     unsigned memory_cap = 0;
     int status;
@@ -108,9 +110,6 @@ void iframe_worker(WDFDPC Dpc)
     current_memory = fscc_port_get_input_memory_usage(port);
     memory_cap = fscc_port_get_input_memory_cap(port);
 
-//    if (current_memory + last_frame_size > memory_cap)
-//        return;
-
     WdfSpinLockAcquire(port->board_rx_spinlock);
     WdfSpinLockAcquire(port->pending_iframe_spinlock);
 
@@ -121,7 +120,6 @@ void iframe_worker(WDFDPC Dpc)
         unsigned current_length = 0;
 
         bc_fifo_l = fscc_port_get_register(port, 0, BC_FIFO_L_OFFSET);
-//        last_frame_size = bc_fifo_l;
 
         if (port->pending_iframe)
             current_length = fscc_frame_get_length(port->pending_iframe);
@@ -167,7 +165,7 @@ void iframe_worker(WDFDPC Dpc)
     }
 
     if (!port->pending_iframe) {
-        port->pending_iframe = fscc_frame_new(fscc_port_has_dma(port));
+        port->pending_iframe = fscc_frame_new(port);
 
         if (!port->pending_iframe) {
             WdfSpinLockRelease(port->pending_iframe_spinlock);
@@ -300,6 +298,39 @@ void istream_worker(WDFDPC Dpc)
     WdfDpcEnqueue(port->process_read_dpc);
 }
 
+void clear_oframe_worker(WDFDPC Dpc)
+{
+    struct fscc_port *port = 0;
+    struct fscc_frame *frame = 0;
+    unsigned remove = 0;
+
+    port = WdfObjectGet_FSCC_PORT(WdfDpcGetParentObject(Dpc));
+
+    WdfSpinLockAcquire(port->sent_oframes_spinlock);
+
+    frame = fscc_flist_peak_front(&port->sent_oframes);
+
+    if (!frame) {
+        WdfSpinLockRelease(port->sent_oframes_spinlock);
+        return;
+    }
+
+    //if (fscc_frame_is_dma(frame)) {
+    //	if (frame->d1->control == 0x40000000)
+    //		remove = 1;
+    //}
+    //else {
+        remove = 1;
+    //}
+
+    if (remove) {
+        fscc_flist_remove_frame(&port->sent_oframes);
+        fscc_frame_delete(frame);
+    }
+
+    WdfSpinLockRelease(port->sent_oframes_spinlock);
+}
+
 void oframe_worker(WDFDPC Dpc)
 {
     struct fscc_port *port = 0;
@@ -309,6 +340,8 @@ void oframe_worker(WDFDPC Dpc)
     unsigned buffer_size = 0;
     unsigned transmit_length = 0;
     unsigned size_in_fifo = 0;
+
+    int result;
 
     port = WdfObjectGet_FSCC_PORT(WdfDpcGetParentObject(Dpc));
 
@@ -331,53 +364,21 @@ void oframe_worker(WDFDPC Dpc)
         }
     }
 
-    current_length = fscc_frame_get_length(port->pending_oframe);
-    buffer_size = fscc_frame_get_buffer_size(port->pending_oframe);
-    size_in_fifo = current_length + (4 - current_length % 4);
+    result = fscc_port_transmit_frame(port, port->pending_oframe);
 
-    /* Subtracts 1 so a TDO overflow doesn't happen on the 4096th byte. */
-    fifo_space = TX_FIFO_SIZE - fscc_port_get_TXCNT(port) - 1;
-    fifo_space -= fifo_space % 4;
+    if (result == 2) {
+        WdfSpinLockAcquire(port->sent_oframes_spinlock);
+        fscc_flist_add_frame(&port->sent_oframes, port->pending_oframe);
+        WdfSpinLockRelease(port->sent_oframes_spinlock);
 
-    /* Determine the maximum amount of data we can send this time around. */
-    transmit_length = (size_in_fifo > fifo_space) ? fifo_space : current_length;
-
-    if (transmit_length == 0) {
-        WdfSpinLockRelease(port->pending_oframe_spinlock);
-        WdfSpinLockRelease(port->board_tx_spinlock);
-        return;
-    }
-
-    //TODO: Manually accessing the buffer here is not good design
-    fscc_port_set_register_rep(port, 0, FIFO_OFFSET,
-                               port->pending_oframe->buffer,
-                               transmit_length);
-
-    fscc_frame_remove_data(port->pending_oframe, NULL, transmit_length);
-
-    TraceEvents(TRACE_LEVEL_VERBOSE, TRACE_DEVICE,
-            "F#%i => %i byte%s%s",
-            port->pending_oframe->number, transmit_length,
-            (transmit_length == 1) ? "" : "s",
-            (fscc_frame_is_empty(port->pending_oframe)) ? " (starting)" : "");
-
-    //TODO: There needs to be a better way of telling if this is the first time
-    /* If this is the first time we add data to the FIFO for this frame we
-       tell the port how much data is in this frame. */
-    if (current_length == buffer_size)
-        fscc_port_set_register(port, 0, BC_FIFO_L_OFFSET, buffer_size);
-
-    /* If we have sent all of the data we clean up. */
-    if (fscc_frame_is_empty(port->pending_oframe)) {
-        fscc_frame_delete(port->pending_oframe);
         port->pending_oframe = 0;
-        //wake_up_interruptible(&port->output_queue);
-    }
+	}
 
     WdfSpinLockRelease(port->pending_oframe_spinlock);
     WdfSpinLockRelease(port->board_tx_spinlock);
 
-    fscc_port_execute_transmit(port);
+    //if (result == 2)
+    //	wake_up_interruptible(&port->output_queue);
 }
 
 VOID timer_handler(WDFTIMER Timer)

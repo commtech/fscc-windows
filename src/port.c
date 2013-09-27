@@ -160,7 +160,7 @@ struct fscc_port *fscc_port_new(WDFDRIVER Driver,
     port = WdfObjectGet_FSCC_PORT(device);
 
     port->device = device;
-    port->istream = fscc_frame_new(0); //TODO: DMA
+    port->istream = fscc_frame_new(port);
     port->open_counter = 0;
 
 
@@ -403,6 +403,20 @@ struct fscc_port *fscc_port_new(WDFDRIVER Driver,
     dpcAttributes.ParentObject = port->device;
 
     status = WdfDpcCreate(&dpcConfig, &dpcAttributes, &port->oframe_dpc);
+    if (!NT_SUCCESS(status)) {
+        WdfObjectDelete(port->device);
+        TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE,
+            "WdfDpcCreate failed %!STATUS!", status);
+        return 0;
+    }
+
+    WDF_DPC_CONFIG_INIT(&dpcConfig, &clear_oframe_worker);
+    dpcConfig.AutomaticSerialization = TRUE;
+
+    WDF_OBJECT_ATTRIBUTES_INIT(&dpcAttributes);
+    dpcAttributes.ParentObject = port->device;
+
+    status = WdfDpcCreate(&dpcConfig, &dpcAttributes, &port->clear_oframe_dpc);
     if (!NT_SUCCESS(status)) {
         WdfObjectDelete(port->device);
         TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE,
@@ -1153,7 +1167,7 @@ VOID FsccEvtIoWrite(IN WDFQUEUE Queue, IN WDFREQUEST Request, IN size_t Length)
         return;
     }
 
-    frame = fscc_frame_new(fscc_port_has_dma(port));
+    frame = fscc_frame_new(port);
 
     if (!frame) {
         WdfRequestComplete(Request, STATUS_INSUFFICIENT_RESOURCES);
@@ -1812,7 +1826,7 @@ UINT32 fscc_port_get_TXCNT(struct fscc_port *port)
     return (fifo_bc_value & 0x1FFF0000) >> 16;
 }
 
-void fscc_port_execute_transmit(struct fscc_port *port)
+void fscc_port_execute_transmit(struct fscc_port *port, unsigned dma)
 {
     unsigned command_register = 0;
     unsigned command_value = 0;
@@ -1820,7 +1834,7 @@ void fscc_port_execute_transmit(struct fscc_port *port)
 
     return_if_untrue(port);
 
-    if (fscc_port_has_dma(port)) {
+    if (dma) {
         command_bar = 2;
         command_register = DMACCR_OFFSET;
         command_value = 0x00000002;
@@ -1963,4 +1977,92 @@ NTSTATUS fscc_port_set_port_num(struct fscc_port *port, unsigned value)
     WdfRegistryClose(devkey);
 
     return status;
+}
+
+#define TX_FIFO_SIZE 4096
+
+int prepare_frame_for_dma(struct fscc_port *port, struct fscc_frame *frame,
+                          unsigned *length)
+{
+	//fscc_frame_setup_descriptors(frame);
+
+	//fscc_port_set_register(port, 2, DMA_TX_BASE_OFFSET, frame->d1_handle);
+
+	//*length = fscc_frame_get_length(frame);
+
+	return 2;
+}
+
+int prepare_frame_for_fifo(struct fscc_port *port, struct fscc_frame *frame,
+                           unsigned *length)
+{
+	unsigned current_length = 0;
+	unsigned buffer_size = 0;
+	unsigned fifo_space = 0;
+	unsigned size_in_fifo = 0;
+	unsigned transmit_length = 0;
+
+	current_length = fscc_frame_get_length(frame);
+	buffer_size = fscc_frame_get_buffer_size(frame);
+	size_in_fifo = current_length + (4 - current_length % 4);
+
+	/* Subtracts 1 so a TDO overflow doesn't happen on the 4096th byte. */
+	fifo_space = TX_FIFO_SIZE - fscc_port_get_TXCNT(port) - 1;
+	fifo_space -= fifo_space % 4;
+
+	/* Determine the maximum amount of data we can send this time around. */
+	transmit_length = (size_in_fifo > fifo_space) ? fifo_space : current_length;
+
+	frame->fifo_initialized = 1;
+
+	if (transmit_length == 0)
+		return 0;
+
+	fscc_port_set_register_rep(port, 0, FIFO_OFFSET,
+							   frame->buffer,
+							   transmit_length);
+
+	fscc_frame_remove_data(frame, NULL, transmit_length);
+
+	*length = transmit_length;
+
+	/* If this is the first time we add data to the FIFO for this frame we
+	   tell the port how much data is in this frame. */
+	if (current_length == buffer_size)
+		fscc_port_set_register(port, 0, BC_FIFO_L_OFFSET, buffer_size);
+
+	/* We still have more data to send. */
+	if (!fscc_frame_is_empty(frame))
+		return 1;
+
+	return 2;
+}
+
+unsigned fscc_port_transmit_frame(struct fscc_port *port, struct fscc_frame *frame)
+{
+    unsigned transmit_dma = 0;
+    unsigned transmit_length = 0;
+    int result;
+
+    if (fscc_port_has_dma(port) &&
+        (fscc_frame_get_length(frame) <= TX_FIFO_SIZE) &&
+        !fscc_frame_is_fifo(frame)) {
+        transmit_dma = 1;
+    }
+
+    //if (transmit_dma)
+    //	result = prepare_frame_for_dma(port, frame, &transmit_length);
+    //else
+        result = prepare_frame_for_fifo(port, frame, &transmit_length);
+
+    if (result)
+        fscc_port_execute_transmit(port, transmit_dma);
+
+    TraceEvents(TRACE_LEVEL_VERBOSE, TRACE_DEVICE,
+            "F#%i => %i byte%s%s",
+            frame->number, transmit_length,
+            (transmit_length == 1) ? "" : "s",
+            (result != 2) ? " (starting)" : "");
+
+    return result;
 }
