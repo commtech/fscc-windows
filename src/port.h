@@ -104,9 +104,10 @@ typedef struct fscc_port {
     struct fscc_memory_cap memory_cap;
 
     WDFQUEUE write_queue;
+    WDFQUEUE write_queue2; /* TODO: Change name to be more descriptive. */
     WDFQUEUE read_queue;
-    WDFQUEUE ioctl_queue;
     WDFQUEUE read_queue2; /* TODO: Change name to be more descriptive. */
+    WDFQUEUE ioctl_queue;
 
     WDFSPINLOCK board_settings_spinlock; /* Anything that will alter the settings at a board level */
     WDFSPINLOCK board_rx_spinlock; /* Anything that will alter the state of rx at a board level */

@@ -152,7 +152,7 @@ void iframe_worker(WDFDPC Dpc)
         }
 
         if (!port->pending_iframe) {
-            port->pending_iframe = fscc_frame_new(port, 0);
+            port->pending_iframe = fscc_frame_new(port);
 
             if (!port->pending_iframe) {
                 WdfSpinLockRelease(port->pending_iframe_spinlock);
@@ -315,6 +315,31 @@ void clear_oframe_worker(WDFDPC Dpc)
     if (remove) {
         fscc_flist_remove_frame(&port->sent_oframes);
         fscc_frame_delete(frame);
+
+        if (port->wait_on_write) {
+            NTSTATUS status = STATUS_SUCCESS;
+            WDFREQUEST request;
+            WDF_REQUEST_PARAMETERS params;
+            unsigned length = 0;
+
+            status = WdfIoQueueRetrieveNextRequest(port->write_queue2, &request);
+            if (!NT_SUCCESS(status)) {
+                if (status != STATUS_NO_MORE_ENTRIES) {
+                    TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE,
+                                "WdfIoQueueRetrieveNextRequest failed %!STATUS!",
+                                status);
+                }
+
+                WdfSpinLockRelease(port->sent_oframes_spinlock);
+                return;
+            }
+
+            WDF_REQUEST_PARAMETERS_INIT(&params);
+            WdfRequestGetParameters(request, &params);
+            length = (unsigned)params.Parameters.Write.Length;
+
+            WdfRequestCompleteWithInformation(request, status, length);
+        }
     }
 
     WdfSpinLockRelease(port->sent_oframes_spinlock);

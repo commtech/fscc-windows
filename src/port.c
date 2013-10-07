@@ -160,7 +160,7 @@ struct fscc_port *fscc_port_new(WDFDRIVER Driver,
     port = WdfObjectGet_FSCC_PORT(device);
 
     port->device = device;
-    port->istream = fscc_frame_new(port, 0);
+    port->istream = fscc_frame_new(port);
     port->open_counter = 0;
 
 
@@ -213,6 +213,18 @@ struct fscc_port *fscc_port_new(WDFDRIVER Driver,
             "WdfDeviceConfigureRequestDispatching failed %!STATUS!", status);
         return 0;
     }
+
+
+    WDF_IO_QUEUE_CONFIG_INIT(&queue_config, WdfIoQueueDispatchManual);
+
+    status = WdfIoQueueCreate(port->device, &queue_config,
+                              WDF_NO_OBJECT_ATTRIBUTES, &port->write_queue2);
+    if(!NT_SUCCESS(status)) {
+        TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE,
+            "WdfIoQueueCreate failed %!STATUS!", status);
+        return 0;
+    }
+
 
     WDF_IO_QUEUE_CONFIG_INIT(&queue_config, WdfIoQueueDispatchSequential);
     queue_config.EvtIoRead = FsccEvtIoRead;
@@ -1194,10 +1206,7 @@ VOID FsccEvtIoWrite(IN WDFQUEUE Queue, IN WDFREQUEST Request, IN size_t Length)
         return;
     }
 
-    if (port->wait_on_write)
-        frame = fscc_frame_new(port, Request);
-    else
-        frame = fscc_frame_new(port, 0);
+    frame = fscc_frame_new(port);
 
     if (!frame) {
         WdfRequestComplete(Request, STATUS_INSUFFICIENT_RESOURCES);
@@ -1210,10 +1219,20 @@ VOID FsccEvtIoWrite(IN WDFQUEUE Queue, IN WDFREQUEST Request, IN size_t Length)
     fscc_flist_add_frame(&port->queued_oframes, frame);
     WdfSpinLockRelease(port->queued_oframes_spinlock);
 
-    WdfDpcEnqueue(port->oframe_dpc);
-
-    if (!port->wait_on_write)
+    if (port->wait_on_write) {
+        status = WdfRequestForwardToIoQueue(Request, port->write_queue2);
+        if (!NT_SUCCESS(status)) {
+            TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE,
+                        "WdfRequestForwardToIoQueue failed %!STATUS!", status);
+            WdfRequestComplete(Request, status);
+            return;
+        }
+    }
+    else {
         WdfRequestCompleteWithInformation(Request, STATUS_SUCCESS, Length);
+    }
+
+    WdfDpcEnqueue(port->oframe_dpc);
 }
 
 UINT32 fscc_port_get_register(struct fscc_port *port, unsigned bar,
@@ -1442,6 +1461,11 @@ NTSTATUS fscc_port_purge_rx(struct fscc_port *port)
     }
     WdfSpinLockRelease(port->pending_iframe_spinlock);
 
+    WdfIoQueuePurgeSynchronously(port->read_queue);
+    WdfIoQueuePurgeSynchronously(port->read_queue2);
+    WdfIoQueueStart(port->read_queue);
+    WdfIoQueueStart(port->read_queue2);
+
     return STATUS_SUCCESS;
 }
 
@@ -1475,6 +1499,11 @@ NTSTATUS fscc_port_purge_tx(struct fscc_port *port)
         port->pending_oframe = 0;
     }
     WdfSpinLockRelease(port->pending_oframe_spinlock);
+
+    WdfIoQueuePurgeSynchronously(port->write_queue);
+    WdfIoQueuePurgeSynchronously(port->write_queue2);
+    WdfIoQueueStart(port->write_queue);
+    WdfIoQueueStart(port->write_queue2);
 
     //TODO
     //wake_up_interruptible(&port->output_queue);

@@ -31,7 +31,7 @@ static unsigned frame_counter = 1;
 
 int fscc_frame_update_buffer_size(struct fscc_frame *frame, unsigned size);
 
-struct fscc_frame *fscc_frame_new(struct fscc_port *port, WDFREQUEST request)
+struct fscc_frame *fscc_frame_new(struct fscc_port *port)
 {
     NTSTATUS status = STATUS_SUCCESS;
     struct fscc_frame *frame = 0;
@@ -48,7 +48,6 @@ struct fscc_frame *fscc_frame_new(struct fscc_port *port, WDFREQUEST request)
     frame->fifo_initialized = 0;
     frame->dma_initialized = 0;
     frame->port = port;
-    frame->request = request;
 
     frame->number = frame_counter;
     frame_counter += 1;
@@ -59,9 +58,6 @@ struct fscc_frame *fscc_frame_new(struct fscc_port *port, WDFREQUEST request)
 void fscc_frame_delete(struct fscc_frame *frame)
 {
     return_if_untrue(frame);
-
-    if (frame->request)
-        WdfRequestCompleteWithInformation(frame->request, STATUS_SUCCESS, frame->buffer_size);
 
     fscc_frame_update_buffer_size(frame, 0);
 
