@@ -1,4 +1,4 @@
-set NAME=fscc
+set NAME=fscc-windows-2.5.0
 set TOP=bin\%NAME%
 set PYFSCC=..\pyfscc\dist
 
