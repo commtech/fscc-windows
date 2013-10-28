@@ -154,8 +154,8 @@ Each receive differential pair is terminated with a 100 ohm resistor between
 the + and - pins. These resistors are on the back of the card and are labeled '101'.
 
 Each single receive pin is either pulled up or pulled down by a 1k ohm resister 
-(+ is pulled up and - is pulled down).  This ensures that thereceiver will stay at 
-a logic 1 in the presence of transient noise andis weak enough to allow a real 
+(+ is pulled up and - is pulled down).  This ensures that the receiver will stay at 
+a logic 1 in the presence of transient noise and is weak enough to allow a real 
 signal through. These resistors are near the connector and are labeled '102'.
 
 If you would like to send the card to us, we will gladly remove them for you. 
