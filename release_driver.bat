@@ -105,6 +105,10 @@ copy %PYFSCC%\pyfscc*.exe* %TOP%\lib\fscc\python\ > nul
 echo Copying Changelog...
 copy ChangeLog.txt %TOP% > nul
 
+:copy_readme
+echo Copying README...
+copy README.md %TOP% > nul
+
 :zip_packages
 echo Zipping Drivers...
 cd %TOP%\ > nul
