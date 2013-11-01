@@ -1083,9 +1083,7 @@ int fscc_port_stream_read(struct fscc_port *port, char *buf, size_t buf_length,
 
     *out_length = min(buf_length, (size_t)fscc_frame_get_length(port->istream));
     
-    WdfSpinLockAcquire(port->istream_spinlock);
     fscc_frame_remove_data(port->istream, buf, (unsigned)(*out_length));
-    WdfSpinLockRelease(port->istream_spinlock);
 
     WdfSpinLockRelease(port->istream_spinlock);
 
