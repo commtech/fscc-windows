@@ -316,6 +316,9 @@ void clear_oframe_worker(WDFDPC Dpc)
         fscc_flist_remove_frame(&port->sent_oframes);
         fscc_frame_delete(frame);
 
+        if (!fscc_flist_is_empty(&port->sent_oframes))
+            WdfDpcEnqueue(port->clear_oframe_dpc);
+
         if (port->wait_on_write) {
             NTSTATUS status = STATUS_SUCCESS;
             WDFREQUEST request;
