@@ -165,9 +165,9 @@ Please note, removing them yourself will void the warranty.
 ##### What does each LED color mean?
 | Color             | Version
 | ----------------- | ---------------------------------------------------
-| `Red`             | Receive data
-| `Green or yellow` | Transmit data
-| `Blue`            | Transmit & receive simultaneous (4-port cards)
+| `Red`             | Receive line
+| `Green or yellow` | Transmit line
+| `Blue`            | Transmit & receive lines simultaneously (4-port cards)
 
 
 These are not bi-color LEDs, they are only red and only green (or yellow).
