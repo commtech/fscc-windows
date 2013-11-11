@@ -1,3 +1,9 @@
+version 2.6.2 (11/11/2013)
+--------------------------------------------------------------------------------
+    * Fixed a regresion from v2.5.0 where the computer would freeze while
+      reading transparent data
+    * Fixed a bug where outgoing frames wouldn't get cleared fast enough
+
 version 2.6.1 (10/25/2013)
 --------------------------------------------------------------------------------
     * Updated SerialFC to v2.4.1
