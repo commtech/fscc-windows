@@ -162,6 +162,15 @@ If you would like to send the card to us, we will gladly remove them for you.
 Please note, removing them yourself will void the warranty. 
 
 
+##### What does each LED color mean?
+| Color             | Version
+| ----------------- | ---------------------------------------------------
+| `Red`             | Receive line
+| `Green or yellow` | Transmit line
+| `Blue`            | Transmit & receive lines simultaneously (4-port cards)
+
+
+These are not bi-color LEDs, they are only red and only green (or yellow).
 ##### Why is there extra bits surrounding the data while using RS485?
 When operating in RS-485 mode the physical driver chip is in a disabled state when data 
 is not being actively transmitted. It is necessary to re-enable the driver prior to the start 
