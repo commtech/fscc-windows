@@ -1,6 +1,7 @@
 set NAME=fscc-windows-2.6.3
 set TOP=bin\%NAME%
 set PYFSCC=..\pyfscc\dist
+set WFSCC=..\wfscc\build\exe.win32-3.3
 
 echo off
 
@@ -86,6 +87,10 @@ xcopy docs\*.md %TOP%\docs\fscc\ /e /i > nul
 echo Copying Test Files...
 copy lib\c\utils\test\test.exe %TOP%\test\ > nul
 copy lib\c\cfscc.dll %TOP%\test\ > nul
+
+:copy_wireshark_files
+echo Copying Wireshark Files...
+xcopy %WFSCC%\* %TOP%\wireshark\ /e /i > nul
 
 :copy_sys_files
 echo Copying Driver Files...
