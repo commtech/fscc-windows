@@ -1022,7 +1022,7 @@ int fscc_port_frame_read(struct fscc_port *port, char *buf, size_t buf_length,
 {
     struct fscc_frame *frame = 0;
     unsigned remaining_buf_length = 0;
-    unsigned max_frame_length = 0;
+    int max_frame_length = 0;
     unsigned current_frame_length = 0;
 
     return_val_if_untrue(port, 0);
@@ -1040,6 +1040,9 @@ int fscc_port_frame_read(struct fscc_port *port, char *buf, size_t buf_length,
             max_frame_length = remaining_buf_length + 2 - sizeof(LARGE_INTEGER); // Status length
         else
             max_frame_length = remaining_buf_length + 2; // Status length
+
+        if (max_frame_length < 0)
+            break;
 
         WdfSpinLockAcquire(port->queued_iframes_spinlock);
         frame = fscc_flist_remove_frame_if_lte(&port->queued_iframes, max_frame_length);
