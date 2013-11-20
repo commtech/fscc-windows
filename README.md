@@ -161,6 +161,28 @@ signal through. These resistors are near the connector and are labeled '102'.
 If you would like to send the card to us, we will gladly remove them for you. 
 Please note, removing them yourself will void the warranty. 
 
+```
++5
+ |
+ |
+1000 Ω
+ |
+ |
+ ---- Rx(+)
+ |
+ |
+100 Ω
+ |
+ |
+ ---- Rx(-)
+ |
+ |
+1000 Ω
+ |
+ |
+ ⏚ 
+```
+
 
 ##### What does each LED color mean?
 | Color             | Version
