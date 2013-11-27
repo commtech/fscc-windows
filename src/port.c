@@ -1755,10 +1755,12 @@ void fscc_port_set_clock_bits(struct fscc_port *port,
        need to manually disable XTAL as they are not supported in this driver 
        by default. */
     if ((fscc_port_get_PDEV(port) == 0x0f && fscc_port_get_PREV(port) <= 6) ||
-        fscc_port_get_PDEV(port) == 0x16)
+        fscc_port_get_PDEV(port) == 0x16) {
         clock_data[15] &= 0xfb;
-    else
+    }
+    else {
         clock_data[15] |= 0x04;
+    }
 #endif
 
 
