@@ -1,11 +1,11 @@
-version 2.6.3 (11/26/2013)
+version 2.6.4 (11/26/2013)
 --------------------------------------------------------------------------------
     * Fixed incorrectly setting the clock on 232 and green cards
     * Included latest library versions
     * Updated SerialFC to v2.4.2
       (https://github.com/commtech/serialfc-windows/blob/master/ChangeLog.txt)
 
-version 2.6.2 (11/11/2013)
+version 2.6.3 (11/11/2013)
 --------------------------------------------------------------------------------
     * Fixed a bug that prevented small frame sizes from being calculated 
       correctly when approaching the memory limit
