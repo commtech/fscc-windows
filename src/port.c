@@ -976,6 +976,8 @@ VOID FsccEvtIoDeviceControl(IN WDFQUEUE Queue, IN WDFREQUEST Request,
             bytes_returned = sizeof(*tx_modifiers);
         }
 
+        break;
+
     case FSCC_GET_WAIT_ON_WRITE: {
             BOOLEAN *wait_on_write = 0;
 
@@ -1000,8 +1002,6 @@ VOID FsccEvtIoDeviceControl(IN WDFQUEUE Queue, IN WDFREQUEST Request,
 
     case FSCC_DISABLE_WAIT_ON_WRITE:
         fscc_port_set_wait_on_write(port, FALSE);
-        break;
-
         break;
 
     default:
