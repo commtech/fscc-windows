@@ -85,6 +85,7 @@ own program. All of these options are described on their respective documentatio
 - [Purge](https://github.com/commtech/fscc-windows/blob/master/docs/purge.md)
 - [Registers](https://github.com/commtech/fscc-windows/blob/master/docs/registers.md)
 - [TX Modifiers](https://github.com/commtech/fscc-windows/blob/master/docs/tx-modifiers.md)
+- [Track Interrupts](https://github.com/commtech/fscc-windows/blob/master/docs/track-interrupts.md)
 - [Write](https://github.com/commtech/fscc-windows/blob/master/docs/write.md)
 - [Read](https://github.com/commtech/fscc-windows/blob/master/docs/read.md)
 - [Disconnect](https://github.com/commtech/fscc-windows/blob/master/docs/disconnect.md)
