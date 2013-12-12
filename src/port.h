@@ -108,6 +108,7 @@ typedef struct fscc_port {
     WDFQUEUE read_queue;
     WDFQUEUE read_queue2; /* TODO: Change name to be more descriptive. */
     WDFQUEUE ioctl_queue;
+    WDFQUEUE isr_queue; /* List of user tracked interrupts */
 
     WDFSPINLOCK board_settings_spinlock; /* Anything that will alter the settings at a board level */
     WDFSPINLOCK board_rx_spinlock; /* Anything that will alter the state of rx at a board level */
@@ -136,6 +137,7 @@ typedef struct fscc_port {
     WDFDPC iframe_dpc;
     WDFDPC istream_dpc;
     WDFDPC print_dpc;
+    WDFDPC isr_alert_dpc;
 
     WDFDPC process_read_dpc;
 

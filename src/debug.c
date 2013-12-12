@@ -55,16 +55,8 @@ void display_register(unsigned bar, unsigned offset, UINT32 old_val,
     }
 }
 
-void print_worker(WDFDPC Dpc)
+void print_interrupts(struct fscc_port *port, unsigned isr_value)
 {
-    struct fscc_port *port = 0;
-    unsigned isr_value = 0;
-
-    port = WdfObjectGet_FSCC_PORT(WdfDpcGetParentObject(Dpc));
-
-    isr_value = port->last_isr_value;
-    port->last_isr_value = 0;
-
     TraceEvents(TRACE_LEVEL_INFORMATION, TRACE_DEVICE,
                 "Interrupt: 0x%08x\n", isr_value);
 

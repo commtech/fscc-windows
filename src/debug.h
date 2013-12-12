@@ -30,7 +30,7 @@
 void display_register(unsigned bar, unsigned offset, UINT32 old_val,
                       UINT32 new_val);
 
-EVT_WDF_DPC print_worker;
+void print_interrupts(struct fscc_port *port, unsigned isr_value);
 
 #if !defined(EVENT_TRACING)
 VOID

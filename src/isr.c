@@ -71,12 +71,125 @@ BOOLEAN fscc_isr(WDFINTERRUPT Interrupt, ULONG MessageID)
     if (isr_value & ALLS)
         WdfDpcEnqueue(port->clear_oframe_dpc);
 
-#ifdef DEBUG
-    WdfDpcEnqueue(port->print_dpc);
-#endif
+    WdfDpcEnqueue(port->isr_alert_dpc);
+
     //fscc_port_reset_timer(port);
 
     return handled;
+}
+
+void isr_alert_worker(WDFDPC Dpc)
+{
+    struct fscc_port *port = 0;
+    NTSTATUS status = STATUS_SUCCESS;
+    WDFREQUEST Request;
+    unsigned *mask = 0;
+    unsigned *matches = 0;
+    unsigned isr_value = 0;
+
+    WDFREQUEST tagRequest = NULL;
+    WDFREQUEST prevTagRequest = NULL;
+
+    port = WdfObjectGet_FSCC_PORT(WdfDpcGetParentObject(Dpc));
+
+    // TODO: Not thread safe
+    isr_value = port->last_isr_value;
+    port->last_isr_value = 0;
+
+    do {
+        status = WdfIoQueueFindRequest(
+                                       port->isr_queue,
+                                       prevTagRequest,
+                                       NULL,
+                                       NULL,
+                                       &tagRequest
+                                       );
+
+        if (prevTagRequest) {
+            WdfObjectDereference(prevTagRequest);
+        }
+        if (status == STATUS_NO_MORE_ENTRIES) {
+            break;
+        }
+        if (status == STATUS_NOT_FOUND) {
+            //
+            // The prevTagRequest request has disappeared from the
+            // queue. There might be other requests that match
+            // the criteria, so restart the search. 
+            //
+            prevTagRequest = tagRequest = NULL;
+            continue;
+        }
+        if (!NT_SUCCESS(status)) { 
+            TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE,
+                        "WdfIoQueueFindRequest failed %!STATUS!",
+                        status);
+            break;
+        }
+
+        status = WdfRequestRetrieveInputBuffer(tagRequest,
+                    sizeof(*mask), (PVOID *)&mask, NULL);
+        if (!NT_SUCCESS(status)) {
+            TraceEvents(TRACE_LEVEL_WARNING, TRACE_DEVICE,
+                "WdfRequestRetrieveInputBuffer failed %!STATUS!", status);
+                WdfObjectDereference(tagRequest);
+                break;
+        }
+
+        status = WdfRequestRetrieveOutputBuffer(tagRequest,
+                    sizeof(*matches), (PVOID *)&matches, NULL);
+        if (!NT_SUCCESS(status)) {
+            TraceEvents(TRACE_LEVEL_WARNING, TRACE_DEVICE,
+                "WdfRequestRetrieveOutputBuffer failed %!STATUS!", status);
+                WdfObjectDereference(tagRequest);
+            break;
+        }
+
+        if (isr_value & *mask) {
+            //
+            // Found a match. Retrieve the request from the queue.
+            //
+
+            status = WdfIoQueueRetrieveFoundRequest(
+                                                    port->isr_queue,
+                                                    tagRequest,
+                                                    &Request
+                                                    );
+
+            WdfObjectDereference(tagRequest);
+            if (status == STATUS_NOT_FOUND) {
+                //
+                // The tagRequest request has disappeared from the
+                // queue. There might be other requests that match 
+                // the criteria, so restart the search. 
+                //
+                prevTagRequest = tagRequest = NULL;
+                continue;
+            }
+            if (!NT_SUCCESS(status)) {
+                TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE,
+                            "WdfIoQueueRetrieveFoundRequest failed %!STATUS!",
+                            status);
+                break;
+            }
+            //
+            //  Found a request.
+            //
+            prevTagRequest = tagRequest = NULL;
+            *matches = isr_value & *mask;
+            WdfRequestCompleteWithInformation(Request, status, sizeof(*matches));
+        } else {
+            //
+            // This request is not the correct one. Drop the reference 
+            // on the tagRequest after the driver obtains the next request.
+            //
+            prevTagRequest = tagRequest;
+        }
+    } while (TRUE);
+
+#ifdef DEBUG
+    print_interrupts(port, isr_value);
+#endif
 }
 
 void iframe_worker(WDFDPC Dpc)

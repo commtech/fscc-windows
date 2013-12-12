@@ -256,6 +256,17 @@ struct fscc_port *fscc_port_new(WDFDRIVER Driver,
         return 0;
     }
 
+
+    WDF_IO_QUEUE_CONFIG_INIT(&queue_config, WdfIoQueueDispatchManual);
+
+    status = WdfIoQueueCreate(port->device, &queue_config,
+                              WDF_NO_OBJECT_ATTRIBUTES, &port->isr_queue);
+    if(!NT_SUCCESS(status)) {
+        TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE,
+            "WdfIoQueueCreate failed %!STATUS!", status);
+        return 0;
+    }
+
     //
     // In addition to setting NoDisplayInUI in DeviceCaps, we
     // have to do the following to hide the device. Following call
@@ -478,13 +489,13 @@ struct fscc_port *fscc_port_new(WDFDRIVER Driver,
         return 0;
     }	
 
-    WDF_DPC_CONFIG_INIT(&dpcConfig, &print_worker);
+    WDF_DPC_CONFIG_INIT(&dpcConfig, &isr_alert_worker);
     dpcConfig.AutomaticSerialization = TRUE;
 
     WDF_OBJECT_ATTRIBUTES_INIT(&dpcAttributes);
     dpcAttributes.ParentObject = port->device;
 
-    status = WdfDpcCreate(&dpcConfig, &dpcAttributes, &port->print_dpc);
+    status = WdfDpcCreate(&dpcConfig, &dpcAttributes, &port->isr_alert_dpc);
     if (!NT_SUCCESS(status)) {
         WdfObjectDelete(port->device);
         TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE,
@@ -1003,6 +1014,15 @@ VOID FsccEvtIoDeviceControl(IN WDFQUEUE Queue, IN WDFREQUEST Request,
     case FSCC_DISABLE_WAIT_ON_WRITE:
         fscc_port_set_wait_on_write(port, FALSE);
         break;
+
+    case FSCC_TRACK_INTERRUPTS:
+        status = WdfRequestForwardToIoQueue(Request, port->isr_queue);
+        if (!NT_SUCCESS(status)) {
+            TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE,
+                        "WdfRequestForwardToIoQueue failed %!STATUS!", status);
+            WdfRequestComplete(Request, status);
+        }
+        return;
 
     default:
         TraceEvents(TRACE_LEVEL_WARNING, TRACE_DEVICE,
