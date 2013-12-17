@@ -1,6 +1,7 @@
-set NAME=fscc-windows-2.7.0
+set NAME=fscc-windows-2.7.1
 set TOP=bin\%NAME%
 set PYFSCC=..\pyfscc\dist
+set QFSCC=..\qfscc\build\exe.win32-3.3
 set WFSCC=..\wfscc\build\exe.win32-3.3
 
 echo off
@@ -67,6 +68,8 @@ copy lib\c\cfscc*.dll %TOP%\lib\fscc\net\ > nul
 xcopy redist\production\serial\lib\* %TOP%\lib\serialfc\ /e /i > nul
 xcopy redist\production\serial\terminal\* %TOP%\terminal\serialfc\ /e /i > nul
 xcopy redist\production\serial\gui\* %TOP%\gui\serialfc\ /e /i > nul
+
+xcopy %QFSCC%\* %TOP%\gui\fscc\ /e /i > nul
 
 :copy_loop_files
 echo Copying Loop Files...
