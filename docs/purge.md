@@ -16,7 +16,8 @@ locked in._
 
 ## Execute
 ```c
-FSCC_PURGE_TX, FSCC_PURGE_RX
+FSCC_PURGE_TX
+FSCC_PURGE_RX
 ```
 
 | System Error        | Value | Cause
