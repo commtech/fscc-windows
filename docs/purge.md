@@ -3,6 +3,8 @@ Between the hardware FIFO and the driver's software buffers there are multiple p
 be stored, excluding your application code. If you ever need to clear this data and start fresh, 
 there are a couple of methods you can use.
 
+_A purge is required after changing the `MODE` bits in the `CCR0` register._
+
 ###### Support
 | Code           | Version
 | -------------- | --------
@@ -13,6 +15,10 @@ there are a couple of methods you can use.
 ```c
 FSCC_PURGE_TX, FSCC_PURGE_RX
 ```
+
+| System Error        | Value | Cause
+| ------------------- | ----- | ---------------------------------
+| `ERROR_SEM_TIMEOUT` | 121   | Command timed out (missing clock)
 
 ###### Examples
 Purge the transmit data.
