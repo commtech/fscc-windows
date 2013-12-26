@@ -114,6 +114,9 @@ More information about using the UART's is available in the
 
 ### FAQ
 
+##### Can I use the old legacy utilties with the new driver?
+No. The old utilities use a different API and will not work with the new driver.
+
 ##### Why does executing a purge without a clock put the card in a broken state?
 When executing a purge on either the transmitter or receiver there is
 a TRES or RRES (command from the CMDR register) happening behind the
