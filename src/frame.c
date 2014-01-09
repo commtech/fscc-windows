@@ -71,7 +71,6 @@ unsigned fscc_frame_get_length(struct fscc_frame *frame)
     return frame->data_length;
 }
 
-//TODO: Eventually remove
 unsigned fscc_frame_get_buffer_size(struct fscc_frame *frame)
 {
     return_val_if_untrue(frame, 0);
@@ -163,8 +162,6 @@ int fscc_frame_remove_data(struct fscc_frame *frame, char *destination,
     return TRUE;
 }
 
-//TODO: This could cause an issue w here data_length is less before it makes it
-// into remove_Data
 void fscc_frame_clear(struct fscc_frame *frame)
 {
     fscc_frame_update_buffer_size(frame, 0);

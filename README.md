@@ -294,7 +294,11 @@ You can view an up-to-date list of driver changes in our
 
 
 ##### How do I upgrade driver versions?
-TODO
+1. Open the 'Device Manager'
+3. Right click & select 'Properties' on each Commtech port
+4. Switch to the 'Driver' tab
+5. Click on the 'Update Driver...' button
+6. Then browse to the location of the new driver files
 
 
 ##### How do I build a custom version of the driver source code?

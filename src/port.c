@@ -542,8 +542,9 @@ NTSTATUS FsccEvtDevicePrepareHardware(WDFDEVICE Device,
         port->channel = 1;
         break;
 
-    //default:
-        //TODO: Problem
+    default:
+        TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE, "Problem detecting channel.");
+        return STATUS_UNSUCCESSFUL;
     }
 
     TraceEvents(TRACE_LEVEL_VERBOSE, TRACE_DEVICE, "Channel = %i",
@@ -622,8 +623,9 @@ NTSTATUS FsccEvtDeviceReleaseHardware(WDFDEVICE Device,
 
     port = WdfObjectGet_FSCC_PORT(Device);
 
-    //TODO: Spinlock
+    WdfSpinLockAcquire(port->istream_spinlock);
     fscc_frame_delete(port->istream);
+    WdfSpinLockRelease(port->istream_spinlock);
 
     WdfSpinLockAcquire(port->queued_iframes_spinlock);
     fscc_flist_delete(&port->queued_iframes);
@@ -1526,9 +1528,6 @@ NTSTATUS fscc_port_purge_tx(struct fscc_port *port)
     WdfIoQueueStart(port->write_queue);
     WdfIoQueueStart(port->write_queue2);
 
-    //TODO
-    //wake_up_interruptible(&port->output_queue);
-
     return STATUS_SUCCESS;
 }
 
@@ -1991,9 +1990,9 @@ unsigned fscc_port_get_RXCNT(struct fscc_port *port)
 
     fifo_bc_value = fscc_port_get_register(port, 0, FIFO_BC_OFFSET);
 
-    // TODO: Not sure why, but this can be larger than 8192
-    // We add the 8192 check here so other code can count on the value
-    // not being larger than 8192
+    /* Not sure why, but this can be larger than 8192. We add
+       the 8192 check here so other code can count on the value
+       not being larger than 8192. */
     return min(fifo_bc_value & 0x00003FFF, 8192);
 }
 
@@ -2109,7 +2108,8 @@ int prepare_frame_for_fifo(struct fscc_port *port, struct fscc_frame *frame,
 	unsigned transmit_length = 0;
 
 	current_length = fscc_frame_get_length(frame);
-	buffer_size = fscc_frame_get_buffer_size(frame);
+	buffer_size = fscc_frame_get_buffer_size(frame);    
+    /* How much space this will take up in the FIFO */
 	size_in_fifo = current_length + (4 - current_length % 4);
 
 	/* Subtracts 1 so a TDO overflow doesn't happen on the 4096th byte. */

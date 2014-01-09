@@ -32,7 +32,6 @@
 #define TX_FIFO_SIZE 4096
 #define MAX_LEFTOVER_BYTES 3
 
-//TODO: Not sure if I should delay some of this to the ISR DPC
 BOOLEAN fscc_isr(WDFINTERRUPT Interrupt, ULONG MessageID)
 {
     struct fscc_port *port = 0;
@@ -92,7 +91,8 @@ void isr_alert_worker(WDFDPC Dpc)
 
     port = WdfObjectGet_FSCC_PORT(WdfDpcGetParentObject(Dpc));
 
-    // TODO: Not thread safe
+    /* This isn't thread safe but I'm not worrying about it because
+       the main ISR routine isn't effected. */
     isr_value = port->last_isr_value;
     port->last_isr_value = 0;
 
@@ -506,9 +506,6 @@ void oframe_worker(WDFDPC Dpc)
 
     WdfSpinLockRelease(port->pending_oframe_spinlock);
     WdfSpinLockRelease(port->board_tx_spinlock);
-
-    //if (result == 2)
-    //	wake_up_interruptible(&port->output_queue);
 }
 
 VOID timer_handler(WDFTIMER Timer)
