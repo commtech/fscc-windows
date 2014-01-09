@@ -1552,7 +1552,7 @@ BOOLEAN fscc_port_get_append_status(struct fscc_port *port)
 {
     return_val_if_untrue(port, 0);
 
-    return port->append_status;
+    return !fscc_port_is_streaming(port) && port->append_status;
 }
 
 void fscc_port_set_append_timestamp(struct fscc_port *port, BOOLEAN value)
@@ -1576,7 +1576,7 @@ BOOLEAN fscc_port_get_append_timestamp(struct fscc_port *port)
 {
     return_val_if_untrue(port, 0);
 
-    return port->append_timestamp;
+    return !fscc_port_is_streaming(port) && port->append_timestamp;
 }
 
 void fscc_port_set_ignore_timeout(struct fscc_port *port,
