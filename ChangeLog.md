@@ -1,8 +1,9 @@
-version 2.7.2 (01/09/2014)
---------------------------------------------------------------------------------
-    * Added checks to prevent status/timestamp while in streaming mode
-    * Updated SerialFC to v2.4.4
-      (https://github.com/commtech/serialfc-windows/blob/master/ChangeLog.txt)
+# ChangeLog
+
+## v2.7.2 _(01/09/2014)_
+- Added checks to prevent status/timestamp while in streaming mode
+- Updated SerialFC to 
+[v2.4.4](https://github.com/commtech/serialfc-windows/blob/master/ChangeLog.txt)
 
 version 2.7.1 (12/12/2013)
 --------------------------------------------------------------------------------
