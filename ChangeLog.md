@@ -12,7 +12,7 @@
 ## [2.7.0](https://github.com/commtech/fscc-windows/releases/tag/v2.7.0) (12/12/2013)
 - Added ability to track interrupts
 
-## v2.6.4](https://github.com/commtech/fscc-windows/releases/tag/v2.6.4) (11/26/2013)
+## [v2.6.4](https://github.com/commtech/fscc-windows/releases/tag/v2.6.4) (11/26/2013)
 - Fixed incorrectly setting the clock on 232 and green cards
 - Included latest library versions
 - Updated SerialFC to 
