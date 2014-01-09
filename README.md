@@ -114,6 +114,9 @@ More information about using the UART's is available in the
 
 ### FAQ
 
+##### Can I use the old legacy utilties with the new driver?
+No. The old utilities use a different API and will not work with the new driver.
+
 ##### Why does executing a purge without a clock put the card in a broken state?
 When executing a purge on either the transmitter or receiver there is
 a TRES or RRES (command from the CMDR register) happening behind the
@@ -390,7 +393,6 @@ will not work correctly.
 |                                          | `FSCC_DISABLE_APPEND_STATUS` | 
 |                                          | `FSCC_GET_APPEND_STATUS`     | 
 
-
 ###### Status Bytes
 Getting the frame status has now been designed to be configurable. When using the
 1.x driver, you will always have the frame status appended to your data on a
@@ -402,6 +404,25 @@ series returns an incorrect value, it can be fixed to return the correct value i
 later release.
 
 When and if we switch to a 2.3 release there will only be minor API changes.
+
+##### I need to run software using the older API. How do I revert back to the 1.X driver?
+Start by uninstalling all of the entries in the 'Device Manager'.
+
+1. Open the 'Device Manager'
+2. Expand the 'Ports (COM & LPT)' section
+3. Right click & select 'Uninstall' on each Commtech port
+4. If available, select 'Delete the driver software for this device'
+5. Repeat steps 2-4 with the 'Ports (FSCC)' section
+5. Repeat steps 2-4 with the 'Multi-port serial adapaters' section
+
+To ensure Windows doesn't use a cached version in the future we will remove the .inf files.
+
+1. Open 'Windows Exporer' to 'C:\Windows\inf'
+2. Delete any .inf and .PNF files that contain the word Commtech. These are usually labeled oemX.inf and oemX.PNF
+3. Open the folder with the drivers from Commtech
+4. Delete all folders except for 'legacy'
+
+At this point you can install the 'legacy' version of the driver without the newer version interfering.
 
 
 ## Dependencies
