@@ -214,7 +214,6 @@ int fscc_frame_update_buffer_size(struct fscc_frame *frame, unsigned size)
     return TRUE;
 }
 
-// TODO
 int fscc_frame_setup_descriptors(struct fscc_frame *frame)
 {
 	return 1;

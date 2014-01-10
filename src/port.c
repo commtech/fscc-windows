@@ -2089,12 +2089,6 @@ NTSTATUS fscc_port_set_port_num(struct fscc_port *port, unsigned value)
 int prepare_frame_for_dma(struct fscc_port *port, struct fscc_frame *frame,
                           unsigned *length)
 {
-	//fscc_frame_setup_descriptors(frame);
-
-	//fscc_port_set_register(port, 2, DMA_TX_BASE_OFFSET, frame->d1_handle);
-
-	//*length = fscc_frame_get_length(frame);
-
 	return 2;
 }
 

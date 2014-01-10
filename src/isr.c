@@ -417,13 +417,8 @@ void clear_oframe_worker(WDFDPC Dpc)
         return;
     }
 
-    //if (fscc_frame_is_dma(frame)) {
-    //	if (frame->d1->control == 0x40000000)
-    //		remove = 1;
-    //}
-    //else {
-        remove = 1;
-    //}
+    // Needs DMA control checking
+    remove = 1;
 
     if (remove) {
         fscc_flist_remove_frame(&port->sent_oframes);
