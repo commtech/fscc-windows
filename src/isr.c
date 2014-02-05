@@ -95,7 +95,14 @@ void isr_alert_worker(WDFDPC Dpc)
        the main ISR routine isn't effected. */
     isr_value = port->last_isr_value;
     port->last_isr_value = 0;
-
+/*
+    if (isr_value & (RFO | RDO | RFL)) {
+        TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE, "Error RFO=%i, RDO=%i, RFL=%i", isr_value & RFO, isr_value & RDO, isr_value & RFL);
+        if (port->pending_iframe)
+            TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE, "iframe number %i", port->pending_iframe->number);
+        fscc_port_purge_rx(port);
+    }
+*/
     do {
         status = WdfIoQueueFindRequest(
                                        port->isr_queue,
@@ -201,6 +208,7 @@ void iframe_worker(WDFDPC Dpc)
     unsigned current_memory = 0;
     unsigned memory_cap = 0;
     int status;
+    unsigned rfcnt;
 
     port = WdfObjectGet_FSCC_PORT(WdfDpcGetParentObject(Dpc));
 
@@ -223,14 +231,22 @@ void iframe_worker(WDFDPC Dpc)
 
             if (port->pending_iframe)
                 current_length = fscc_frame_get_length(port->pending_iframe);
-            else
-                current_length = 0;
 
             receive_length = bc_fifo_l - current_length;
         } else {
             unsigned rxcnt = 0;
 
             rxcnt = fscc_port_get_RXCNT(port);
+
+            // Refresh rfcnt, if the frame is now complete, reloop through.
+            // This prevents the situation where the frame has finished being received between
+            // the original rfcnt and now, causing a possible read of a larger byte count than
+            // in the actual frame due to another incoming frame
+            if (fscc_port_get_RFCNT(port) > 0) {
+                WdfSpinLockRelease(port->pending_iframe_spinlock);
+                WdfSpinLockRelease(port->board_rx_spinlock);
+                break;
+            }
 
             /* We choose a safe amount to read due to more data coming in after we
                get our values. The rest will be read on the next interrupt. */
@@ -308,9 +324,9 @@ void iframe_worker(WDFDPC Dpc)
 
         if (port->pending_iframe) {
             KeQuerySystemTime(&port->pending_iframe->timestamp);
-            WdfSpinLockAcquire(port->queued_iframes_spinlock);
+            //WdfSpinLockAcquire(port->queued_iframes_spinlock);
             fscc_flist_add_frame(&port->queued_iframes, port->pending_iframe);
-            WdfSpinLockRelease(port->queued_iframes_spinlock);
+            //WdfSpinLockRelease(port->queued_iframes_spinlock);
         }
 
         rejected_last_frame = 0; /* Track that we received a frame to reset the
@@ -323,7 +339,7 @@ void iframe_worker(WDFDPC Dpc)
 
         WdfDpcEnqueue(port->process_read_dpc);
     }
-    while (receive_length);
+    while (receive_length > 0);
 }
 
 /* This function is syncronized so we don't have to worry about it being ran in

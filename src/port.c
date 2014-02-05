@@ -1066,9 +1066,9 @@ int fscc_port_frame_read(struct fscc_port *port, char *buf, size_t buf_length,
         if (max_frame_length < 0)
             break;
 
-        WdfSpinLockAcquire(port->queued_iframes_spinlock);
+        //WdfSpinLockAcquire(port->queued_iframes_spinlock);
         frame = fscc_flist_remove_frame_if_lte(&port->queued_iframes, max_frame_length);
-        WdfSpinLockRelease(port->queued_iframes_spinlock);
+        //WdfSpinLockRelease(port->queued_iframes_spinlock);
 
         if (!frame)
             break;
@@ -1857,14 +1857,14 @@ unsigned fscc_port_get_output_memory_usage(struct fscc_port *port)
 
     return_val_if_untrue(port, 0);
 
-    WdfSpinLockAcquire(port->queued_oframes_spinlock);
-    value = fscc_flist_calculate_memory_usage(&port->queued_oframes);
-    WdfSpinLockRelease(port->queued_oframes_spinlock);
+    //WdfSpinLockAcquire(port->queued_oframes_spinlock);
+    value = port->queued_oframes.estimated_memory_usage;
+    //WdfSpinLockRelease(port->queued_oframes_spinlock);
 
-    WdfSpinLockAcquire(port->pending_oframe_spinlock);
+    //WdfSpinLockAcquire(port->pending_oframe_spinlock);
     if (port->pending_oframe)
         value += fscc_frame_get_length(port->pending_oframe);
-    WdfSpinLockRelease(port->pending_oframe_spinlock);
+    //WdfSpinLockRelease(port->pending_oframe_spinlock);
 
     return value;
 }
@@ -1875,18 +1875,18 @@ unsigned fscc_port_get_input_memory_usage(struct fscc_port *port)
 
     return_val_if_untrue(port, 0);
 
-    WdfSpinLockAcquire(port->queued_iframes_spinlock);
-    value = fscc_flist_calculate_memory_usage(&port->queued_iframes);
-    WdfSpinLockRelease(port->queued_iframes_spinlock);
+    //WdfSpinLockAcquire(port->queued_iframes_spinlock);
+    value = port->queued_iframes.estimated_memory_usage;
+    //WdfSpinLockRelease(port->queued_iframes_spinlock);
 
-    WdfSpinLockAcquire(port->istream_spinlock);
+    //WdfSpinLockAcquire(port->istream_spinlock);
     value += fscc_frame_get_length(port->istream);
-    WdfSpinLockRelease(port->istream_spinlock);
+    //WdfSpinLockRelease(port->istream_spinlock);
 
-    WdfSpinLockAcquire(port->pending_iframe_spinlock);
+    //WdfSpinLockAcquire(port->pending_iframe_spinlock);
     if (port->pending_oframe)
         value += fscc_frame_get_length(port->pending_iframe);
-    WdfSpinLockRelease(port->pending_iframe_spinlock);
+    //WdfSpinLockRelease(port->pending_iframe_spinlock);
 
     return value;
 }
