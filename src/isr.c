@@ -324,9 +324,9 @@ void iframe_worker(WDFDPC Dpc)
 
         if (port->pending_iframe) {
             KeQuerySystemTime(&port->pending_iframe->timestamp);
-            //WdfSpinLockAcquire(port->queued_iframes_spinlock);
+            WdfSpinLockAcquire(port->queued_iframes_spinlock);
             fscc_flist_add_frame(&port->queued_iframes, port->pending_iframe);
-            //WdfSpinLockRelease(port->queued_iframes_spinlock);
+            WdfSpinLockRelease(port->queued_iframes_spinlock);
         }
 
         rejected_last_frame = 0; /* Track that we received a frame to reset the
