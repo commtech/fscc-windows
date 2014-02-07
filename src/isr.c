@@ -221,7 +221,8 @@ void iframe_worker(WDFDPC Dpc)
         WdfSpinLockAcquire(port->board_rx_spinlock);
         WdfSpinLockAcquire(port->pending_iframe_spinlock);
 
-        finished_frame = (fscc_port_get_RFCNT(port) > 0) ? 1 : 0;
+        rfcnt = fscc_port_get_RFCNT(port);
+        finished_frame = (rfcnt > 0) ? 1 : 0;
 
         if (finished_frame) {
             unsigned bc_fifo_l = 0;
@@ -236,13 +237,14 @@ void iframe_worker(WDFDPC Dpc)
         } else {
             unsigned rxcnt = 0;
 
-            rxcnt = fscc_port_get_RXCNT(port);
-
             // Refresh rfcnt, if the frame is now complete, reloop through.
             // This prevents the situation where the frame has finished being received between
             // the original rfcnt and now, causing a possible read of a larger byte count than
             // in the actual frame due to another incoming frame
-            if (fscc_port_get_RFCNT(port) > 0) {
+            rxcnt = fscc_port_get_RXCNT(port);
+            rfcnt = fscc_port_get_RFCNT(port);
+
+            if (rfcnt) {
                 WdfSpinLockRelease(port->pending_iframe_spinlock);
                 WdfSpinLockRelease(port->board_rx_spinlock);
                 break;
@@ -250,12 +252,11 @@ void iframe_worker(WDFDPC Dpc)
 
             /* We choose a safe amount to read due to more data coming in after we
                get our values. The rest will be read on the next interrupt. */
-            receive_length = rxcnt - STATUS_LENGTH - MAX_LEFTOVER_BYTES;
-            receive_length -= receive_length % 4;
+            receive_length = max(rxcnt - rxcnt % 4, 0);
         }
 
         /* Leave the interrupt handler if there is no data to read. */
-        if (receive_length <= 0) {
+        if (!receive_length) {
             WdfSpinLockRelease(port->pending_iframe_spinlock);
             WdfSpinLockRelease(port->board_rx_spinlock);
             return;
@@ -339,7 +340,7 @@ void iframe_worker(WDFDPC Dpc)
 
         WdfDpcEnqueue(port->process_read_dpc);
     }
-    while (receive_length > 0);
+    while (receive_length);
 }
 
 /* This function is syncronized so we don't have to worry about it being ran in
