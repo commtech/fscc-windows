@@ -30,8 +30,6 @@
 
 void fscc_flist_init(struct fscc_flist *flist)
 {
-    NTSTATUS status = STATUS_SUCCESS;
-
     flist->estimated_memory_usage = 0;
 
     InitializeListHead(&flist->frames);
