@@ -379,8 +379,8 @@ will not work correctly.
 | `IOCTL_FSCCDRV_SET_RX_IRQ_RATE`          |                              | No longer available
 | `IOCTL_FSCCDRV_SET_TX_IRQ_RATE`          |                              | No longer available
 | `IOCTL_FSCCDRV_SET_DMA`                  |                              | No longer available
-| `IOCTL_FSCCDRV_SET_RECEIVE_MULTIPLE`     |                              | No longer available
-| `IOCTL_FSCCDRV_GET_RECEIVE_MULTIPLE`     |                              | No longer available
+| `IOCTL_FSCCDRV_SET_RECEIVE_MULTIPLE`     | `FSCC_SET_RX_MULTIPLE`       | No longer available
+| `IOCTL_FSCCDRV_GET_RECEIVE_MULTIPLE`     | `FSCC_GET_RX_MULTIPLE`       | No longer available
 | `IOCTL_FSCCDRV_SET_CHARACTER_MAP_ENABLE` |                              | No longer available
 | `IOCTL_FSCCDRV_GET_CHARACTER_MAP_ENABLE` |                              | No longer available
 | `IOCTL_FSCCDRV_SET_CHARACTER_MAP`        |                              | No longer available
