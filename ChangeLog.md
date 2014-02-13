@@ -1,5 +1,10 @@
 # ChangeLog
 
+## [2.7.3](https://github.com/commtech/fscc-windows/releases/tag/v2.7.3) (02/13/2014)
+- Updated SerialFC to
+[v2.4.5](https://github.com/commtech/serialfc-windows/releases/tag/v2.4.5)
+- Minor optimizations
+
 ## [2.7.2](https://github.com/commtech/fscc-windows/releases/tag/v2.7.2) (01/09/2014)
 - Added checks to prevent status/timestamp while in streaming mode
 - Updated SerialFC to 
