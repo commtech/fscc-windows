@@ -714,6 +714,9 @@ VOID FsccEvtIoDeviceControl(IN WDFQUEUE Queue, IN WDFREQUEST Request,
     struct fscc_port *port = 0;
     size_t bytes_returned = 0;
 
+    UNUSED(InputBufferLength);
+    UNUSED(OutputBufferLength);
+
     port = WdfObjectGet_FSCC_PORT(WdfIoQueueGetDevice(Queue));
 
     switch(IoControlCode) {
@@ -2084,7 +2087,11 @@ NTSTATUS fscc_port_set_port_num(struct fscc_port *port, unsigned value)
 int prepare_frame_for_dma(struct fscc_port *port, struct fscc_frame *frame,
                           unsigned *length)
 {
-	return 2;
+    UNUSED(port);
+    UNUSED(frame);
+    UNUSED(length);
+
+    return 2;
 }
 
 int prepare_frame_for_fifo(struct fscc_port *port, struct fscc_frame *frame,

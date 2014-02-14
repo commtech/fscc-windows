@@ -25,6 +25,8 @@
 #include "port.h" /* struct fscc_port */
 #include "config.h"
 
+#define UNUSED(x) (void)(x)
+
 #define warn_if_untrue(expr) \
     if (expr) {} else \
     { \
