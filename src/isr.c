@@ -26,6 +26,7 @@
 #include "frame.h" /* struct fscc_frame */
 #include "debug.h"
 
+#pragma warning( disable: 4127 )
 
 #define TX_FIFO_SIZE 4096
 #define MAX_LEFTOVER_BYTES 3
