@@ -475,12 +475,6 @@ void oframe_worker(WDFDPC Dpc)
 {
     struct fscc_port *port = 0;
 
-    unsigned fifo_space = 0;
-    unsigned current_length = 0;
-    unsigned buffer_size = 0;
-    unsigned transmit_length = 0;
-    unsigned size_in_fifo = 0;
-
     int result;
 
     port = WdfObjectGet_FSCC_PORT(WdfDpcGetParentObject(Dpc));

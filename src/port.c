@@ -1830,8 +1830,6 @@ void fscc_port_set_clock_bits(struct fscc_port *port,
 
 unsigned fscc_port_using_async(struct fscc_port *port)
 {
-    UINT32 fcr;
-
     return_val_if_untrue(port, 0);
 
     /* We must refresh FCR because it is shared with serialfc */

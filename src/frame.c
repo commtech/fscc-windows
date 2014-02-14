@@ -30,7 +30,6 @@ int fscc_frame_update_buffer_size(struct fscc_frame *frame, unsigned size);
 
 struct fscc_frame *fscc_frame_new(struct fscc_port *port)
 {
-    NTSTATUS status = STATUS_SUCCESS;
     struct fscc_frame *frame = 0;
 
     frame = (struct fscc_frame *)ExAllocatePoolWithTag(NonPagedPool,
