@@ -83,6 +83,7 @@ NTSTATUS registry_create_key(WDFKEY parent_key, PUNICODE_STRING key_str,
     if (!NT_SUCCESS(status)) {
         TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE,
             "WdfRegistryCreateKey failed %!STATUS!", status);
+        return status;
     }
 
     if (key)
