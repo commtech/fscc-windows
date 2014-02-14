@@ -20,14 +20,12 @@
 
 
 #include "isr.h"
+#include "isr.tmh"
 #include "port.h" /* struct fscc_port */
 #include "utils.h" /* port_exists */
 #include "frame.h" /* struct fscc_frame */
 #include "debug.h"
 
-#if defined(EVENT_TRACING)
-#include "isr.tmh"
-#endif
 
 #define TX_FIFO_SIZE 4096
 #define MAX_LEFTOVER_BYTES 3

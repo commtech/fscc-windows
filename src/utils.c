@@ -20,12 +20,9 @@
 
 
 #include "utils.h"
+#include "utils.tmh"
 #include "port.h" /* *_OFFSET */
 #include "debug.h"
-
-#if defined(EVENT_TRACING)
-#include "utils.tmh"
-#endif
 
 UINT32 chars_to_u32(const char *data)
 {

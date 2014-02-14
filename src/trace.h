@@ -26,19 +26,6 @@
 //
 
 
-#if !defined(EVENT_TRACING)
-#define TRACE_LEVEL_ERROR       2
-#define TRACE_LEVEL_WARNING     3
-#define TRACE_LEVEL_INFORMATION 4
-#define TRACE_LEVEL_VERBOSE     5
-
-#define TRACE_DEVICE     0
-#define TRACE_DRIVER     0
-
-#define WPP_INIT_TRACING(DriverObject, RegistryPath)
-#define WPP_CLEANUP(DriverObject)
-#endif
-
 #define WPP_CONTROL_GUIDS                                              \
     WPP_DEFINE_CONTROL_GUID(                                           \
         FSCCTraceGuid, (be83efb0,76a2,4b9c,adfb,1238d1f8c60a), \
