@@ -20,11 +20,8 @@
 
 
 #include "debug.h"
-#include "utils.h" /* return_{val_}if_true */
-
-#if defined(EVENT_TRACING)
 #include "debug.tmh"
-#endif
+#include "utils.h" /* return_{val_}if_true */
 
 void display_register(unsigned bar, unsigned offset, UINT32 old_val,
                       UINT32 new_val)
@@ -55,7 +52,7 @@ void display_register(unsigned bar, unsigned offset, UINT32 old_val,
     }
 }
 
-void print_interrupts(struct fscc_port *port, unsigned isr_value)
+void print_interrupts(unsigned isr_value)
 {
     TraceEvents(TRACE_LEVEL_INFORMATION, TRACE_DEVICE,
                 "Interrupt: 0x%08x\n", isr_value);

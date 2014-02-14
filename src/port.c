@@ -20,6 +20,7 @@
 
 
 #include "port.h"
+#include "port.tmh"
 #include "frame.h"
 #include "utils.h"
 #include "isr.h"
@@ -29,10 +30,6 @@
 
 #include <ntddser.h>
 #include <ntstrsafe.h>
-
-#if defined(EVENT_TRACING)
-#include "port.tmh"
-#endif
 
 #define NUM_CLOCK_BYTES 20
 #define TIMER_DELAY_MS 250
@@ -716,6 +713,9 @@ VOID FsccEvtIoDeviceControl(IN WDFQUEUE Queue, IN WDFREQUEST Request,
     NTSTATUS status = STATUS_SUCCESS;
     struct fscc_port *port = 0;
     size_t bytes_returned = 0;
+
+    UNUSED(InputBufferLength);
+    UNUSED(OutputBufferLength);
 
     port = WdfObjectGet_FSCC_PORT(WdfIoQueueGetDevice(Queue));
 
@@ -1833,8 +1833,6 @@ void fscc_port_set_clock_bits(struct fscc_port *port,
 
 unsigned fscc_port_using_async(struct fscc_port *port)
 {
-    UINT32 fcr;
-
     return_val_if_untrue(port, 0);
 
     /* We must refresh FCR because it is shared with serialfc */
@@ -2089,7 +2087,11 @@ NTSTATUS fscc_port_set_port_num(struct fscc_port *port, unsigned value)
 int prepare_frame_for_dma(struct fscc_port *port, struct fscc_frame *frame,
                           unsigned *length)
 {
-	return 2;
+    UNUSED(port);
+    UNUSED(frame);
+    UNUSED(length);
+
+    return 2;
 }
 
 int prepare_frame_for_fifo(struct fscc_port *port, struct fscc_frame *frame,

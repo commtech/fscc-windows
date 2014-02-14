@@ -20,14 +20,13 @@
 
 
 #include "isr.h"
+#include "isr.tmh"
 #include "port.h" /* struct fscc_port */
 #include "utils.h" /* port_exists */
 #include "frame.h" /* struct fscc_frame */
 #include "debug.h"
 
-#if defined(EVENT_TRACING)
-#include "isr.tmh"
-#endif
+#pragma warning( disable: 4127 )
 
 #define TX_FIFO_SIZE 4096
 #define MAX_LEFTOVER_BYTES 3
@@ -195,7 +194,7 @@ void isr_alert_worker(WDFDPC Dpc)
     } while (TRUE);
 
 #ifdef DEBUG
-    print_interrupts(port, isr_value);
+    print_interrupts(isr_value);
 #endif
 }
 
@@ -476,12 +475,6 @@ void clear_oframe_worker(WDFDPC Dpc)
 void oframe_worker(WDFDPC Dpc)
 {
     struct fscc_port *port = 0;
-
-    unsigned fifo_space = 0;
-    unsigned current_length = 0;
-    unsigned buffer_size = 0;
-    unsigned transmit_length = 0;
-    unsigned size_in_fifo = 0;
 
     int result;
 

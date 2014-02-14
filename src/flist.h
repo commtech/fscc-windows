@@ -25,7 +25,8 @@
 #include <ntddk.h>
 #include <wdf.h>
 
-#include "Trace.h"
+#include "trace.h"
+#include "frame.h"
 
 struct fscc_flist {
     LIST_ENTRY frames;

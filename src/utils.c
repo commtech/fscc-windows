@@ -20,12 +20,9 @@
 
 
 #include "utils.h"
+#include "utils.tmh"
 #include "port.h" /* *_OFFSET */
 #include "debug.h"
-
-#if defined(EVENT_TRACING)
-#include "utils.tmh"
-#endif
 
 UINT32 chars_to_u32(const char *data)
 {
@@ -86,6 +83,7 @@ NTSTATUS registry_create_key(WDFKEY parent_key, PUNICODE_STRING key_str,
     if (!NT_SUCCESS(status)) {
         TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE,
             "WdfRegistryCreateKey failed %!STATUS!", status);
+        return status;
     }
 
     if (key)

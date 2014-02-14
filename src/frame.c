@@ -20,12 +20,9 @@
 
 
 #include "frame.h"
+#include "frame.tmh"
 #include "utils.h" /* return_{val_}if_true */
 #include "port.h" /* struct fscc_port */
-
-#if defined(EVENT_TRACING)
-#include "frame.tmh"
-#endif
 
 static unsigned frame_counter = 1;
 
@@ -33,7 +30,6 @@ int fscc_frame_update_buffer_size(struct fscc_frame *frame, unsigned size);
 
 struct fscc_frame *fscc_frame_new(struct fscc_port *port)
 {
-    NTSTATUS status = STATUS_SUCCESS;
     struct fscc_frame *frame = 0;
 
     frame = (struct fscc_frame *)ExAllocatePoolWithTag(NonPagedPool,
@@ -216,7 +212,9 @@ int fscc_frame_update_buffer_size(struct fscc_frame *frame, unsigned size)
 
 int fscc_frame_setup_descriptors(struct fscc_frame *frame)
 {
-	return 1;
+    UNUSED(frame);
+
+    return 1;
 }
 
 unsigned fscc_frame_is_dma(struct fscc_frame *frame)

@@ -20,13 +20,10 @@
 
 
 #include "flist.h"
+#include "flist.tmh"
 #include "utils.h" /* return_{val_}if_true */
 #include "frame.h"
 #include "debug.h"
-
-#if defined(EVENT_TRACING)
-#include "flist.tmh"
-#endif
 
 void fscc_flist_init(struct fscc_flist *flist)
 {
@@ -51,14 +48,10 @@ void fscc_flist_add_frame(struct fscc_flist *flist, struct fscc_frame *frame)
 
 struct fscc_frame *fscc_flist_peak_front(struct fscc_flist *flist)
 {
-	struct fscc_frame *frame = 0;
-
     if (IsListEmpty(&flist->frames))
         return 0;
 
     return CONTAINING_RECORD(flist->frames.Flink, FSCC_FRAME, list);
-
-	return frame;
 }
 
 struct fscc_frame *fscc_flist_remove_frame(struct fscc_flist *flist)

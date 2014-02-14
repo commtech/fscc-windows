@@ -26,6 +26,8 @@
 #include <ntddk.h>
 #include <wdf.h>
 
+#include "trace.h"
+
 typedef struct fscc_frame {
     LIST_ENTRY list;
     char *buffer;
