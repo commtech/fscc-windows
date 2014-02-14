@@ -193,7 +193,7 @@ void isr_alert_worker(WDFDPC Dpc)
     } while (TRUE);
 
 #ifdef DEBUG
-    print_interrupts(port, isr_value);
+    print_interrupts(isr_value);
 #endif
 }
 
