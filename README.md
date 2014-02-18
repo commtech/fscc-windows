@@ -429,7 +429,7 @@ To ensure Windows doesn't use a cached version in the future we will remove the 
 At this point you can install the 'legacy' version of the driver without the newer version interfering.
 
 
-## Dependencies
+## Build Dependencies
 - Windows Driver Kit (7.1.0 used internally to support XP)
 
 
