@@ -111,7 +111,7 @@ copy %PYFSCC%\pyfscc*.exe* %TOP%\lib\fscc\python\ > nul
 
 :copy_changelog
 echo Copying Changelog...
-copy ChangeLog.txt %TOP% > nul
+copy ChangeLog.md %TOP% > nul
 
 :copy_readme
 echo Copying README...
