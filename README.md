@@ -433,6 +433,10 @@ At this point you can install the 'legacy' version of the driver without the new
 - Windows Driver Kit (7.1.0 used internally to support XP)
 
 
+## Run-time Dependencies
+- OS: Windows XP+
+
+
 ## API Compatibility
 We follow [Semantic Versioning](http://semver.org/) when creating releases.
 
