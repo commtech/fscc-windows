@@ -430,8 +430,7 @@ At this point you can install the 'legacy' version of the driver without the new
 
 
 ## Dependencies
-- OS: Windows (32 and 64) staring with XP
-- Build Source Code: Windows Driver Kit 7.1.0 (Only required when building from source)
+- Windows Driver Kit (7.1.0 used internally to support XP)
 
 
 ## API Compatibility
