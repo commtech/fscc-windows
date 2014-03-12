@@ -1,9 +1,9 @@
 # RX Multiple
 
 ###### Support
-| Code           | Version
-| -------------- | --------
-| `fscc-windows` | `v2.2.9` 
+| Code | Version |
+| ---- | -------- |
+| fscc-windows | 2.2.9 |
 
 
 ## Get
@@ -18,9 +18,9 @@ FSCC_GET_RX_MULTIPLE
 
 unsigned status;
 
-DeviceIoControl(h, FSCC_GET_RX_MULTIPLE, 
-                NULL, 0, 
-                &status, sizeof(status), 
+DeviceIoControl(h, FSCC_GET_RX_MULTIPLE,
+                NULL, 0,
+                &status, sizeof(status),
                 &temp, NULL);
 ```
 
@@ -35,9 +35,9 @@ FSCC_ENABLE_RX_MULTIPLE
 #include <fscc.h>
 ...
 
-DeviceIoControl(h, FSCC_ENABLE_RX_MULTIPLE, 
-                NULL, 0, 
-                NULL, 0, 
+DeviceIoControl(h, FSCC_ENABLE_RX_MULTIPLE,
+                NULL, 0,
+                NULL, 0,
                 &temp, NULL);
 ```
 
@@ -52,12 +52,12 @@ FSCC_DISABLE_RX_MULTIPLE
 #include <fscc.h>
 ...
 
-DeviceIoControl(h, FSCC_DISABLE_RX_MULTIPLE, 
-                NULL, 0, 
-                NULL, 0, 
+DeviceIoControl(h, FSCC_DISABLE_RX_MULTIPLE,
+                NULL, 0,
+                NULL, 0,
                 &temp, NULL);
 ```
 
 
 ### Additional Resources
-- Complete example: [`examples\rx-multiple.c`](https://github.com/commtech/fscc-windows/blob/master/examples/rx-multiple.c)
+- Complete example: [`examples/rx-multiple.c`](../examples/rx-multiple.c)

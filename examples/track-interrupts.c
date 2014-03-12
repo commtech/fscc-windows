@@ -10,19 +10,19 @@ int main(void)
 
     memset(&ol, 0, sizeof(ol));
 
-    h = CreateFile("\\\\.\\FSCC0", GENERIC_READ | GENERIC_WRITE, 0, NULL, 
-                      OPEN_EXISTING, 0, NULL);
-    
+    h = CreateFile("\\\\.\\FSCC0", GENERIC_READ | GENERIC_WRITE, 0, NULL,
+                   OPEN_EXISTING, 0, NULL);
+
     /* TIN interrupt */
     interrupts = 0x00000400;
-    DeviceIoControl(h, FSCC_TRACK_INTERRUPTS, 
-                    &interrupts, sizeof(interrupts), 
-                    &matches, sizeof(matches), 
+    DeviceIoControl(h, FSCC_TRACK_INTERRUPTS,
+                    &interrupts, sizeof(interrupts),
+                    &matches, sizeof(matches),
                     &tmp, &ol);
-                    
+
     /* Use OVERLAPPED IO structure to monitor interrupt */
 
     CloseHandle(h);
-    
+
     return 0;
 }

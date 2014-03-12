@@ -6,25 +6,25 @@ int main(void)
     DWORD tmp;
     unsigned status = 0;
 
-    h = CreateFile("\\\\.\\FSCC0", GENERIC_READ | GENERIC_WRITE, 0, NULL, 
-                      OPEN_EXISTING, 0, NULL);
-    
-    DeviceIoControl(h, FSCC_GET_RX_MULTIPLE, 
-                    NULL, 0, 
-                    &status, sizeof(status), 
-                    &tmp, (LPOVERLAPPED)NULL);
-    
-    DeviceIoControl(h, FSCC_DISABLE_RX_MULTIPLE, 
-                    NULL, 0, 
-                    NULL, 0, 
+    h = CreateFile("\\\\.\\FSCC0", GENERIC_READ | GENERIC_WRITE, 0, NULL,
+                   OPEN_EXISTING, 0, NULL);
+
+    DeviceIoControl(h, FSCC_GET_RX_MULTIPLE,
+                    NULL, 0,
+                    &status, sizeof(status),
                     &tmp, (LPOVERLAPPED)NULL);
 
-    DeviceIoControl(h, FSCC_ENABLE_RX_MULTIPLE, 
-                    NULL, 0, 
-                    NULL, 0, 
+    DeviceIoControl(h, FSCC_ENABLE_RX_MULTIPLE,
+                    NULL, 0,
+                    NULL, 0,
+                    &tmp, (LPOVERLAPPED)NULL);
+
+    DeviceIoControl(h, FSCC_DISABLE_RX_MULTIPLE,
+                    NULL, 0,
+                    NULL, 0,
                     &tmp, (LPOVERLAPPED)NULL);
 
     CloseHandle(h);
-    
+
     return 0;
 }

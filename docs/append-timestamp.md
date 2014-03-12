@@ -1,12 +1,11 @@
 # Append Timestamp
 
-[`KeQuerySystemTime`](http://msdn.microsoft.com/en-us/library/windows/hardware/ff553068.aspx)
-is used to acquire the timestamp upon complete reception of a frame.
+[`KeQuerySystemTime`](http://msdn.microsoft.com/en-us/library/windows/hardware/ff553068.aspx) is used to acquire the timestamp upon complete reception of a frame.
 
 ###### Support
-| Code           | Version
-| -------------- | --------
-| `fscc-windows` | `v2.4.0` 
+| Code | Version |
+| ---- | ------- |
+| fscc-windows | 2.4.0 |
 
 
 ## Get
@@ -21,9 +20,9 @@ FSCC_GET_APPEND_STATUS
 
 unsigned status;
 
-DeviceIoControl(h, FSCC_GET_APPEND_STATUS, 
-                NULL, 0, 
-                &status, sizeof(status), 
+DeviceIoControl(h, FSCC_GET_APPEND_STATUS,
+                NULL, 0,
+                &status, sizeof(status),
                 &temp, NULL);
 ```
 
@@ -38,9 +37,9 @@ FSCC_ENABLE_APPEND_STATUS
 #include <fscc.h>
 ...
 
-DeviceIoControl(h, FSCC_ENABLE_APPEND_STATUS, 
-                NULL, 0, 
-                &status, sizeof(status), 
+DeviceIoControl(h, FSCC_ENABLE_APPEND_STATUS,
+                NULL, 0,
+                NULL, 0,
                 &temp, NULL);
 ```
 
@@ -55,12 +54,12 @@ FSCC_DISABLE_APPEND_STATUS
 #include <fscc.h>
 ...
 
-DeviceIoControl(h, FSCC_DISABLE_APPEND_STATUS, 
-                NULL, 0, 
-                &status, sizeof(status), 
+DeviceIoControl(h, FSCC_DISABLE_APPEND_STATUS,
+                NULL, 0,
+                NULL, 0,
                 &temp, NULL);
 ```
 
 
 ### Additional Resources
-- Complete example: [`examples\append-timestamp.c`](https://github.com/commtech/fscc-windows/blob/master/examples/append-timestamp.c)
+- Complete example: [`examples/append-timestamp.c`](../examples/append-timestamp.c)

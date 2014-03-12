@@ -1,9 +1,9 @@
 # Track Interrupts
 
 ###### Support
-| Code           | Version
-| -------------- | --------
-| `fscc-windows` | `v2.7.0` 
+| Code | Version |
+| ---- | ------- |
+| fscc-windows | 2.7.0 |
 
 
 ## Get
@@ -19,13 +19,13 @@ FSCC_TRACK_INTERRUPTS
 unsigned interrupts;
 unsigned matches;
 
-interrupts = 0x00000400;
+interrupts = 0x00000100; /* TIN interrupt */
 
-DeviceIoControl(h, FSCC_GET_TRACK_INTERRUPTS, 
-                &interrupts, sizeof(interrupts), 
-                &matches, sizeof(matches), 
+DeviceIoControl(h, FSCC_TRACK_INTERRUPTS,
+                &interrupts, sizeof(interrupts),
+                &matches, sizeof(matches),
                 &temp, NULL);
 ```
 
 ### Additional Resources
-- Complete example: [`examples\track-interrupts.c`](https://github.com/commtech/fscc-windows/blob/master/examples/track-interrupts.c)
+- Complete example: [`examples/track-interrupts.c`](../examples/track-interrupts.c)
