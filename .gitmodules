@@ -4,9 +4,9 @@
 [submodule "lib/c"]
 	path = lib/c
 	url = git://github.com/commtech/cfscc.git
-[submodule "lib//net"]
-	path = lib//net
+[submodule "lib/net"]
+	path = lib/net
 	url = git://github.com/commtech/netfscc.git
-[submodule "lib//c++"]
-	path = lib//c++
+[submodule "lib/c++"]
+	path = lib/c++
 	url = git://github.com/commtech/cppfscc.git
