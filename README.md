@@ -85,12 +85,18 @@ There are likely other configuration options you will need to set up for your  o
 - [Write](docs/write.md)
 - [Disconnect](docs/disconnect.md)
 
-
 There are also multiple code libraries to make development easier.
 - [C](https://github.com/commtech/cfscc/)
 - [C++](https://github.com/commtech/cppfscc/)
 - [.NET](https://github.com/commtech/netfscc/)
 - [Python](https://github.com/commtech/pyfscc/)
+
+
+## Visual Studio Integration
+The process for using the library will differ slightly depending on the version of Visual Studio.
+
+1. Configuration Properties -> C/C++ -> General -> Additional Include Directories: (folder containing fscc.h)
+
 
 ## Asynchronous Communication
 The FSCC driver includes a slightly modified version of the Windows serial driver for handling the asynchronous communication for our UARTs. The Windows serial driver is highly tested and likely more stable than anything we could produce in any reasonable amount of time.

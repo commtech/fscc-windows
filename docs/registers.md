@@ -6,6 +6,8 @@ _For a complete listing of all of the configuration options please see the manua
 
 In HDLC mode some settings are fixed at certain values. If you are in HDLC mode and after setting/getting your registers some bits don't look correct, then they are likely fixed. A complete list of the fixed values can be found in the `CCR0` section of the manual.
 
+_The read-only registers will return the value of the `VSTR` register upon reading._
+
 All of the registers, except `FCR`, are tied to a single port. `FCR` on the other hand is shared between two ports on a card. You can differentiate between which `FCR` settings affects what port by the A/B labels. A for port 0 and B for port 1.
 
 _An [`FSCC_PURGE_RX`](https://github.com/commtech/fscc-windows/blob/master/docs/purge.md) is required after changing the `MODE` bits in the `CCR0` register. If you need to change the `MODE` bits but don't have a clock present, change the `CM` bits to `0x7` temporarily. This will give you an internal clock to switch modes. You can then switch to your desired `CM` now that your `MODE` is locked in._
