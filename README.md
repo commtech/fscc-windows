@@ -173,7 +173,7 @@ If you would like to send the card to us, we will gladly remove them for you. Pl
 
 These are not bi-color LEDs, they are only red and only green (or yellow).
 
-##### Why is there extra bits surrounding the data while using RS485?
+##### Why are there extra bits surrounding the data while using RS485?
 When operating in RS-485 mode the physical driver chip is in a disabled state when data is not being actively transmitted. It is necessary to re-enable the driver prior to the start of data transmission. This is to ensure that the driver is fully enabled and ready to receive data when the first bit of data arrives. Likewise it is necessary for the driver to remain enabled for a brief time after the last bit of data has been transmitted. This is to ensure that the data has completely propagated through the driver before it is disabled. The FCore will enable and disable the RS-422 driver chip one clock period before the first bit of data and one clock period after the last bit of data. As a result you will see an extra 1 bit (if idling ones) appear just before the first bit of your data and just after the last bit of your data. This is not erroneous data bit and will be outside of your normal data frame and will not be confused as valid data.
 
 ##### How long after CTS until the data is transmitted?
