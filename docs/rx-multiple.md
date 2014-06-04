@@ -1,5 +1,9 @@
 # RX Multiple
 
+RX Multiple allows you to return multiple frames from the FIFO at once to user-space. While active, every read will return N frames, where the size of all N frames combined is less than the size of the variable you're attempting to store data in. 
+
+For example, if you have 10 frames of 128 size in your input buffer and have RX Multiple on, when you activate a read with a size of 4096, all 10 frame will be placed into the variable supplied to the read function.
+
 ###### Support
 | Code | Version |
 | ---- | -------- |

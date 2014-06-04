@@ -1,6 +1,7 @@
 # Append Timestamp
 
 [`KeQuerySystemTime`](http://msdn.microsoft.com/en-us/library/windows/hardware/ff553068.aspx) is used to acquire the timestamp upon complete reception of a frame.
+This data will be appended to the end of your frame.
 
 ###### Support
 | Code | Version |

@@ -4,6 +4,8 @@ It is a good idea to pay attention to the status of each frame. For example, you
 
 The FSCC reports this data to you by appending two additional bytes to each frame you read from the card, if you opt-in to see this data. There are a few methods of enabling this additional data.
 
+These two bytes represent the STAR register. (page 67 of the manual)
+
 ###### Support
 | Code | Version |
 | ---- | ------- |

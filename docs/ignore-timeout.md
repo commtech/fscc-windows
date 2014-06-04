@@ -1,5 +1,7 @@
 # Ignore Timeout
 
+When this is enabled, the card will ignore the timeouts for different things. This can be useful when setting a very low clock frequency or when attempting to purge with a slower baud rate, as an example.
+
 ###### Support
 | Code | Version |
 | ---- | ------- |
