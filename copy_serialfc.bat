@@ -1,4 +1,4 @@
-set SERIALFC=..\serialfc\bin\serialfc-windows-2.4.5
+set SERIALFC=..\serialfc-windows\bin\serialfc-windows-2.4.6
 
 copy %SERIALFC%\32\serialfc.inf redist\production\i386\serial\ /y
 copy %SERIALFC%\32\serialfc.sys redist\production\i386\serial\ /y
