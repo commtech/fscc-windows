@@ -1882,7 +1882,7 @@ unsigned fscc_port_get_input_memory_usage(struct fscc_port *port)
     WdfSpinLockRelease(port->istream_spinlock);
 
     WdfSpinLockAcquire(port->pending_iframe_spinlock);
-    if (port->pending_oframe)
+    if (port->pending_iframe)
         value += fscc_frame_get_length(port->pending_iframe);
     WdfSpinLockRelease(port->pending_iframe_spinlock);
 
