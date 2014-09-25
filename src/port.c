@@ -1026,6 +1026,24 @@ VOID FsccEvtIoDeviceControl(IN WDFQUEUE Queue, IN WDFREQUEST Request,
         }
         return;
 
+	case FSCC_GET_MEM_USAGE: {
+            struct fscc_memory_cap *memcap = 0;
+
+            status = WdfRequestRetrieveOutputBuffer(Request, sizeof(*memcap), (PVOID *)&memcap, NULL);
+            if (!NT_SUCCESS(status)) {
+                TraceEvents(TRACE_LEVEL_WARNING, TRACE_DEVICE,
+                    "WdfRequestRetrieveInputBuffer failed %!STATUS!", status);
+                break;
+            }
+			
+            memcap->input = fscc_port_get_input_memory_usage(port);
+            memcap->output = fscc_port_get_output_memory_usage(port);
+
+            bytes_returned = sizeof(*memcap);
+        }
+
+        break;
+		
     default:
         TraceEvents(TRACE_LEVEL_WARNING, TRACE_DEVICE,
             "Unknown DeviceIoControl 0x%x", IoControlCode);
