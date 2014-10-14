@@ -1,4 +1,4 @@
-set NAME=fscc-windows-2.7.3.1
+set NAME=fscc-windows-2.7.4
 set TOP=bin\%NAME%
 set PYFSCC=..\pyfscc\dist
 set QFSCC=..\qfscc\build\exe.win32-3.3
