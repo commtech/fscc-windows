@@ -1,5 +1,9 @@
 # ChangeLog
 
+## [2.7.4](https://github.com/commtech/fscc-windows/releases/tag/v2.7.4) (10/14/2014)
+- Fixed memory cap issues with outgoing data.
+- Fixed memory cap issues with incoming data.
+
 ## [2.7.3](https://github.com/commtech/fscc-windows/releases/tag/v2.7.3) (02/13/2014)
 - Updated SerialFC to
 [v2.4.5](https://github.com/commtech/serialfc-windows/releases/tag/v2.4.5)
