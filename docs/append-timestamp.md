@@ -11,7 +11,7 @@ This data will be appended to the end of your frame.
 
 ## Get
 ```c
-FSCC_GET_APPEND_STATUS
+FSCC_GET_APPEND_TIMESTAMP
 ```
 
 ###### Examples
@@ -19,18 +19,18 @@ FSCC_GET_APPEND_STATUS
 #include <fscc.h>
 ...
 
-unsigned status;
+unsigned timestamp;
 
-DeviceIoControl(h, FSCC_GET_APPEND_STATUS,
+DeviceIoControl(h, FSCC_GET_APPEND_TIMESTAMP,
                 NULL, 0,
-                &status, sizeof(status),
+                &timestamp, sizeof(timestamp),
                 &temp, NULL);
 ```
 
 
 ## Enable
 ```c
-FSCC_ENABLE_APPEND_STATUS
+FSCC_ENABLE_APPEND_TIMESTAMP
 ```
 
 ###### Examples
@@ -38,7 +38,7 @@ FSCC_ENABLE_APPEND_STATUS
 #include <fscc.h>
 ...
 
-DeviceIoControl(h, FSCC_ENABLE_APPEND_STATUS,
+DeviceIoControl(h, FSCC_ENABLE_APPEND_TIMESTAMP,
                 NULL, 0,
                 NULL, 0,
                 &temp, NULL);
@@ -47,7 +47,7 @@ DeviceIoControl(h, FSCC_ENABLE_APPEND_STATUS,
 
 ## Disable
 ```c
-FSCC_DISABLE_APPEND_STATUS
+FSCC_DISABLE_APPEND_TIMESTAMP
 ```
 
 ###### Examples
@@ -55,7 +55,7 @@ FSCC_DISABLE_APPEND_STATUS
 #include <fscc.h>
 ...
 
-DeviceIoControl(h, FSCC_DISABLE_APPEND_STATUS,
+DeviceIoControl(h, FSCC_DISABLE_APPEND_TIMESTAMP,
                 NULL, 0,
                 NULL, 0,
                 &temp, NULL);
