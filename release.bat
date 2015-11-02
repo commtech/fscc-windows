@@ -82,6 +82,10 @@ xcopy lib\c\cfscc.dll %TOP%\lib\fscc\c\loop\ /i > nul
 echo Copying Example Files...
 xcopy examples\*.c %TOP%\examples\fscc\ /e /i > nul
 
+:copy_tool_files
+echo Copying Tool Files...
+xcopy tools\*.c %TOP%\tools\fscc\ /e /i > nul
+
 :copy_docs_files
 echo Copying Docs Files...
 xcopy docs\*.md %TOP%\docs\fscc\ /e /i > nul
