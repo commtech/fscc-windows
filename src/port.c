@@ -2009,7 +2009,8 @@ unsigned fscc_port_get_RXCNT(struct fscc_port *port)
     /* Not sure why, but this can be larger than 8192. We add
        the 8192 check here so other code can count on the value
        not being larger than 8192. */
-    return min(fifo_bc_value & 0x00003FFF, 8192);
+	fifo_bc_value = fifo_bc_value & 0x00003FFF;
+    return (fifo_bc_value > 8192) ? 0 : fifo_bc_value;
 }
 
 void fscc_port_reset_timer(struct fscc_port *port)
@@ -2145,7 +2146,6 @@ int prepare_frame_for_fifo(struct fscc_port *port, struct fscc_frame *frame,
 	fscc_frame_remove_data(frame, NULL, transmit_length);
 
 	*length = transmit_length;
-
 	/* If this is the first time we add data to the FIFO for this frame we
 	   tell the port how much data is in this frame. */
 	if (current_length == buffer_size)
