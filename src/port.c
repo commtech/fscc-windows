@@ -363,7 +363,15 @@ struct fscc_port *fscc_port_new(WDFDRIVER Driver,
             "WdfSpinLockCreate failed %!STATUS!", status);
         return 0;
     }
-
+	
+	status = WdfSpinLockCreate(&attributes, &port->last_isr_spinlock);
+    if (!NT_SUCCESS(status)) {
+        WdfObjectDelete(port->device);
+        TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE,
+            "WdfSpinLockCreate failed %!STATUS!", status);
+        return 0;
+    }
+	
     status = WdfSpinLockCreate(&attributes, &port->istream_spinlock);
     if (!NT_SUCCESS(status)) {
         WdfObjectDelete(port->device);
