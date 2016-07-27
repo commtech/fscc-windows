@@ -1808,7 +1808,7 @@ void fscc_port_set_clock_bits(struct fscc_port *port,
 #endif
 
 
-    data = (UINT32 *)ExAllocatePoolWithTag(PagedPool, sizeof(UINT32) * 323, 'stiB');
+    data = (UINT32 *)ExAllocatePoolWithTag(NonPagedPool, sizeof(UINT32) * 323, 'stiB');
 
     if (data == NULL) {
         TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE,
