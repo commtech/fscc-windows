@@ -113,7 +113,6 @@ typedef struct fscc_port {
     WDFSPINLOCK board_settings_spinlock; /* Anything that will alter the settings at a board level */
     WDFSPINLOCK board_rx_spinlock; /* Anything that will alter the state of rx at a board level */
     WDFSPINLOCK board_tx_spinlock; /* Anything that will alter the state of rx at a board level */
-	WDFSPINLOCK last_isr_spinlock; /* Anything that will altar the state of last_isr_value */
 
     WDFSPINLOCK queued_iframes_spinlock;
     struct fscc_flist queued_iframes; /* Frames already retrieved from the FIFO */

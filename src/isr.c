@@ -50,9 +50,8 @@ BOOLEAN fscc_isr(WDFINTERRUPT Interrupt, ULONG MessageID)
         return handled;
 
     handled = TRUE;
-	WdfSpinLockAcquire(port->last_isr_spinlock);
+
     port->last_isr_value |= isr_value;
-	WdfSpinLockRelease(port->last_isr_spinlock);
     streaming = fscc_port_is_streaming(port);
 
     if (streaming) {
@@ -93,10 +92,8 @@ void isr_alert_worker(WDFDPC Dpc)
 
     /* This isn't thread safe but I'm not worrying about it because
        the main ISR routine isn't effected. */
-	WdfSpinLockAcquire(port->last_isr_spinlock);
     isr_value = port->last_isr_value;
     port->last_isr_value = 0;
-	WdfSpinLockRelease(port->last_isr_spinlock);
 /*
     if (isr_value & (RFO | RDO | RFL)) {
         TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE, "Error RFO=%i, RDO=%i, RFL=%i", isr_value & RFO, isr_value & RDO, isr_value & RFL);
@@ -135,6 +132,7 @@ void isr_alert_worker(WDFDPC Dpc)
                         status);
             break;
         }
+
         status = WdfRequestRetrieveInputBuffer(tagRequest,
                     sizeof(*mask), (PVOID *)&mask, NULL);
         if (!NT_SUCCESS(status)) {
@@ -157,6 +155,7 @@ void isr_alert_worker(WDFDPC Dpc)
             //
             // Found a match. Retrieve the request from the queue.
             //
+
             status = WdfIoQueueRetrieveFoundRequest(
                                                     port->isr_queue,
                                                     tagRequest,
