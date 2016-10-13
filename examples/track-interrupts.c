@@ -14,7 +14,7 @@ int main(void)
                    OPEN_EXISTING, 0, NULL);
 
     /* TIN interrupt */
-    interrupts = 0x00000400;
+    interrupts = 0x00000100;
     DeviceIoControl(h, FSCC_TRACK_INTERRUPTS,
                     &interrupts, sizeof(interrupts),
                     &matches, sizeof(matches),
