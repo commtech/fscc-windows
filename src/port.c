@@ -388,13 +388,6 @@ struct fscc_port *fscc_port_new(WDFDRIVER Driver,
         return 0;
     }
 
-    status = WdfSpinLockCreate(&attributes, &port->sent_oframes_spinlock);
-    if (!NT_SUCCESS(status)) {
-        WdfObjectDelete(port->device);
-        TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE,
-            "WdfSpinLockCreate failed %!STATUS!", status);
-        return 0;
-    }
 
     status = WdfSpinLockCreate(&attributes, &port->queued_oframes_spinlock);
     if (!NT_SUCCESS(status)) {
@@ -413,7 +406,6 @@ struct fscc_port *fscc_port_new(WDFDRIVER Driver,
     }
 
     fscc_flist_init(&port->queued_oframes);
-    fscc_flist_init(&port->sent_oframes);
     fscc_flist_init(&port->queued_iframes);
 
     WDF_DPC_CONFIG_INIT(&dpcConfig, &oframe_worker);
@@ -631,10 +623,6 @@ NTSTATUS FsccEvtDeviceReleaseHardware(WDFDEVICE Device,
     WdfSpinLockAcquire(port->queued_oframes_spinlock);
     fscc_flist_delete(&port->queued_oframes);
     WdfSpinLockRelease(port->queued_oframes_spinlock);
-
-    WdfSpinLockAcquire(port->sent_oframes_spinlock);
-    fscc_flist_delete(&port->sent_oframes);
-    WdfSpinLockRelease(port->sent_oframes_spinlock);
 
     //WdfTimerStop(port->timer, FALSE);
 
@@ -1530,10 +1518,6 @@ NTSTATUS fscc_port_purge_tx(struct fscc_port *port)
     fscc_flist_clear(&port->queued_oframes);
     WdfSpinLockRelease(port->queued_oframes_spinlock);
 
-    WdfSpinLockAcquire(port->sent_oframes_spinlock);
-    fscc_flist_clear(&port->sent_oframes);
-    WdfSpinLockRelease(port->sent_oframes_spinlock);
-
     WdfSpinLockAcquire(port->pending_oframe_spinlock);
     if (port->pending_oframe) {
         fscc_frame_delete(port->pending_oframe);
@@ -1879,7 +1863,7 @@ unsigned fscc_port_get_output_memory_usage(struct fscc_port *port)
 
     WdfSpinLockAcquire(port->pending_oframe_spinlock);
     if (port->pending_oframe)
-        value += fscc_frame_get_length(port->pending_oframe);
+        value += fscc_frame_get_buffer_size(port->pending_oframe);
     WdfSpinLockRelease(port->pending_oframe_spinlock);
 
     return value;
@@ -1896,12 +1880,12 @@ unsigned fscc_port_get_input_memory_usage(struct fscc_port *port)
     WdfSpinLockRelease(port->queued_iframes_spinlock);
 
     WdfSpinLockAcquire(port->istream_spinlock);
-    value += fscc_frame_get_length(port->istream);
+    value += fscc_frame_get_buffer_size(port->istream);
     WdfSpinLockRelease(port->istream_spinlock);
 
     WdfSpinLockAcquire(port->pending_iframe_spinlock);
     if (port->pending_iframe)
-        value += fscc_frame_get_length(port->pending_iframe);
+        value += fscc_frame_get_buffer_size(port->pending_iframe);
     WdfSpinLockRelease(port->pending_iframe_spinlock);
 
     return value;

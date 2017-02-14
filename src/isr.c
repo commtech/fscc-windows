@@ -419,58 +419,24 @@ void istream_worker(WDFDPC Dpc)
 
 void clear_oframe_worker(WDFDPC Dpc)
 {
-    struct fscc_port *port = 0;
-    struct fscc_frame *frame = 0;
-    unsigned remove = 0;
+	struct fscc_port *port = 0;
+	NTSTATUS status = STATUS_SUCCESS;
+	WDFREQUEST request;
+	WDF_REQUEST_PARAMETERS params;
+	unsigned length = 0, clear_queue = 1;
 
-    port = WdfObjectGet_FSCC_PORT(WdfDpcGetParentObject(Dpc));
-
-    WdfSpinLockAcquire(port->sent_oframes_spinlock);
-
-    frame = fscc_flist_peak_front(&port->sent_oframes);
-
-    if (!frame) {
-        WdfSpinLockRelease(port->sent_oframes_spinlock);
-        return;
-    }
-
-    // Needs DMA control checking
-    remove = 1;
-
-    if (remove) {
-        fscc_flist_remove_frame(&port->sent_oframes);
-        fscc_frame_delete(frame);
-
-        if (!fscc_flist_is_empty(&port->sent_oframes))
-            WdfDpcEnqueue(port->clear_oframe_dpc);
-
-        if (port->wait_on_write) {
-            NTSTATUS status = STATUS_SUCCESS;
-            WDFREQUEST request;
-            WDF_REQUEST_PARAMETERS params;
-            unsigned length = 0;
-
-            status = WdfIoQueueRetrieveNextRequest(port->write_queue2, &request);
-            if (!NT_SUCCESS(status)) {
-                if (status != STATUS_NO_MORE_ENTRIES) {
-                    TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE,
-                                "WdfIoQueueRetrieveNextRequest failed %!STATUS!",
-                                status);
-                }
-
-                WdfSpinLockRelease(port->sent_oframes_spinlock);
-                return;
-            }
-
-            WDF_REQUEST_PARAMETERS_INIT(&params);
-            WdfRequestGetParameters(request, &params);
-            length = (unsigned)params.Parameters.Write.Length;
-
-            WdfRequestCompleteWithInformation(request, status, length);
-        }
-    }
-
-    WdfSpinLockRelease(port->sent_oframes_spinlock);
+	port = WdfObjectGet_FSCC_PORT(WdfDpcGetParentObject(Dpc));
+	
+	if (port->wait_on_write) {
+		do {
+		status = WdfIoQueueRetrieveNextRequest(port->write_queue2, &request);
+		if (!NT_SUCCESS(status)) return;
+		WDF_REQUEST_PARAMETERS_INIT(&params);
+		WdfRequestGetParameters(request, &params);
+		length = (unsigned)params.Parameters.Write.Length;
+		WdfRequestCompleteWithInformation(request, status, length);
+		} while(clear_queue);
+	}
 }
 
 void oframe_worker(WDFDPC Dpc)
@@ -503,10 +469,7 @@ void oframe_worker(WDFDPC Dpc)
     result = fscc_port_transmit_frame(port, port->pending_oframe);
 
     if (result == 2) {
-        WdfSpinLockAcquire(port->sent_oframes_spinlock);
-        fscc_flist_add_frame(&port->sent_oframes, port->pending_oframe);
-        WdfSpinLockRelease(port->sent_oframes_spinlock);
-
+		fscc_frame_delete(port->pending_oframe);
         port->pending_oframe = 0;
 	}
 

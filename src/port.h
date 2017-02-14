@@ -120,9 +120,6 @@ typedef struct fscc_port {
     WDFSPINLOCK queued_oframes_spinlock;
     struct fscc_flist queued_oframes; /* Frames not yet in the FIFO yet */
 
-    WDFSPINLOCK sent_oframes_spinlock;
-    struct fscc_flist sent_oframes; /* Frames sent but not yet cleared */
-
     WDFSPINLOCK istream_spinlock;
     struct fscc_frame *istream; /* Transparent stream */
 
