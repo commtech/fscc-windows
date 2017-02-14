@@ -43,7 +43,7 @@ void fscc_flist_add_frame(struct fscc_flist *flist, struct fscc_frame *frame)
 {
     InsertTailList(&flist->frames, &frame->list);
 
-    flist->estimated_memory_usage += fscc_frame_get_length(frame);
+    flist->estimated_memory_usage += fscc_frame_get_buffer_size(frame);
 }
 
 struct fscc_frame *fscc_flist_peak_front(struct fscc_flist *flist)
@@ -65,7 +65,7 @@ struct fscc_frame *fscc_flist_remove_frame(struct fscc_flist *flist)
 
     RemoveHeadList(&flist->frames);
 
-    flist->estimated_memory_usage -= fscc_frame_get_length(frame);
+    flist->estimated_memory_usage -= fscc_frame_get_buffer_size(frame);
 
     return frame;
 }
@@ -81,7 +81,7 @@ struct fscc_frame *fscc_flist_remove_frame_if_lte(struct fscc_flist *flist,
 
     frame = CONTAINING_RECORD(flist->frames.Flink, FSCC_FRAME, list);
 
-    frame_length = fscc_frame_get_length(frame);
+    frame_length = fscc_frame_get_buffer_size(frame);
 
     if (frame_length > size)
         return 0;
@@ -123,7 +123,7 @@ unsigned fscc_flist_calculate_memory_usage(struct fscc_flist *flist)
         struct fscc_frame *current_frame = 0;
 
         current_frame = CONTAINING_RECORD(frame_iter, FSCC_FRAME, list);
-        memory += fscc_frame_get_length(current_frame);
+        memory += fscc_frame_get_buffer_size(current_frame);
 
         frame_iter = frame_iter->Flink;
     }
