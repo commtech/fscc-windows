@@ -97,6 +97,7 @@ typedef struct fscc_port {
     BOOLEAN ignore_timeout;
     BOOLEAN rx_multiple;
     BOOLEAN wait_on_write;
+    BOOLEAN blocking_write;
     int tx_modifiers;
     unsigned last_isr_value;
     unsigned open_counter;
@@ -109,6 +110,7 @@ typedef struct fscc_port {
     WDFQUEUE read_queue2; /* TODO: Change name to be more descriptive. */
     WDFQUEUE ioctl_queue;
     WDFQUEUE isr_queue; /* List of user tracked interrupts */
+    WDFQUEUE blocking_request_queue; /* For blocking write requests */
 
     WDFSPINLOCK board_settings_spinlock; /* Anything that will alter the settings at a board level */
     WDFSPINLOCK board_rx_spinlock; /* Anything that will alter the state of rx at a board level */
@@ -135,7 +137,7 @@ typedef struct fscc_port {
     WDFDPC istream_dpc;
     WDFDPC print_dpc;
     WDFDPC isr_alert_dpc;
-
+    WDFDPC orequest_worker;
     WDFDPC process_read_dpc;
 
 
@@ -194,6 +196,9 @@ BOOLEAN fscc_port_get_rx_multiple(struct fscc_port *port);
 void fscc_port_set_wait_on_write(struct fscc_port *port,
                                   BOOLEAN wait_on_write);
 BOOLEAN fscc_port_get_wait_on_write(struct fscc_port *port);
+void fscc_port_set_blocking_write(struct fscc_port *port,
+    BOOLEAN blocking);
+BOOLEAN fscc_port_get_blocking_write(struct fscc_port *port);
 NTSTATUS fscc_port_set_tx_modifiers(struct fscc_port *port, int value);
 unsigned fscc_port_get_tx_modifiers(struct fscc_port *port);
 

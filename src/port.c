@@ -222,6 +222,16 @@ struct fscc_port *fscc_port_new(WDFDRIVER Driver,
         return 0;
     }
 
+    WDF_IO_QUEUE_CONFIG_INIT(&queue_config, WdfIoQueueDispatchManual);
+
+    status = WdfIoQueueCreate(port->device, &queue_config,
+        WDF_NO_OBJECT_ATTRIBUTES, &port->blocking_request_queue);
+    if (!NT_SUCCESS(status)) {
+        TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE,
+            "WdfIoQueueCreate failed %!STATUS!", status);
+        return 0;
+    }
+
 
     WDF_IO_QUEUE_CONFIG_INIT(&queue_config, WdfIoQueueDispatchSequential);
     queue_config.EvtIoRead = FsccEvtIoRead;
@@ -492,6 +502,21 @@ struct fscc_port *fscc_port_new(WDFDRIVER Driver,
         return 0;
     }	
 
+    WDF_DPC_CONFIG_INIT(&dpcConfig, &request_worker);
+    dpcConfig.AutomaticSerialization = TRUE;
+
+    WDF_OBJECT_ATTRIBUTES_INIT(&dpcAttributes);
+    dpcAttributes.ParentObject = port->device;
+
+    status = WdfDpcCreate(&dpcConfig, &dpcAttributes, &port->orequest_worker);
+    if (!NT_SUCCESS(status)) {
+        WdfObjectDelete(port->device);
+        TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE,
+            "WdfDpcCreate failed %!STATUS!", status);
+        return 0;
+    }
+
+
     return port;
 }
 
@@ -545,6 +570,7 @@ NTSTATUS FsccEvtDevicePrepareHardware(WDFDEVICE Device,
     fscc_port_set_tx_modifiers(port, DEFAULT_TX_MODIFIERS_VALUE);
     fscc_port_set_rx_multiple(port, DEFAULT_RX_MULTIPLE_VALUE);
     fscc_port_set_wait_on_write(port, DEFAULT_WAIT_ON_WRITE_VALUE);
+    fscc_port_set_blocking_write(port, DEFAULT_BLOCKING_WRITE_VALUE);
 
     memory_cap.input = DEFAULT_INPUT_MEMORY_CAP_VALUE;
     memory_cap.output = DEFAULT_OUTPUT_MEMORY_CAP_VALUE;
@@ -1031,7 +1057,32 @@ VOID FsccEvtIoDeviceControl(IN WDFQUEUE Queue, IN WDFREQUEST Request,
         }
 
         break;
-		
+    case FSCC_GET_BLOCKING_WRITE: {
+        BOOLEAN *blocking_write = 0;
+
+        status = WdfRequestRetrieveOutputBuffer(Request,
+            sizeof(*blocking_write), (PVOID *)&blocking_write, NULL);
+        if (!NT_SUCCESS(status)) {
+            TraceEvents(TRACE_LEVEL_WARNING, TRACE_DEVICE,
+                "WdfRequestRetrieveOutputBuffer failed %!STATUS!", status);
+            break;
+        }
+
+        *blocking_write = fscc_port_get_blocking_write(port);
+
+        bytes_returned = sizeof(*blocking_write);
+    }
+
+                                 break;
+
+    case FSCC_ENABLE_BLOCKING_WRITE:
+        fscc_port_set_blocking_write(port, TRUE);
+        break;
+
+    case FSCC_DISABLE_BLOCKING_WRITE:
+        fscc_port_set_blocking_write(port, FALSE);
+        break;
+
     default:
         TraceEvents(TRACE_LEVEL_WARNING, TRACE_DEVICE,
             "Unknown DeviceIoControl 0x%x", IoControlCode);
@@ -1210,6 +1261,24 @@ VOID FsccEvtIoWrite(IN WDFQUEUE Queue, IN WDFREQUEST Request, IN size_t Length)
 
     if (Length == 0) {
         WdfRequestCompleteWithInformation(Request, STATUS_SUCCESS, Length);
+        return;
+    }
+
+    if (port->blocking_write)
+    {
+        if (Length > fscc_port_get_output_memory_cap(port)) {
+            WdfRequestComplete(Request, STATUS_BUFFER_TOO_SMALL);
+            return;
+        }
+
+        status = WdfRequestForwardToIoQueue(Request, port->blocking_request_queue);
+        if (!NT_SUCCESS(status)) {
+            TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE, 
+                "WdfRequestForwardToIoQueue failed %!STATUS!", status);
+            WdfRequestComplete(Request, status);
+            return;
+        }
+        WdfDpcEnqueue(port->orequest_worker);
         return;
     }
 
@@ -1652,6 +1721,30 @@ BOOLEAN fscc_port_get_wait_on_write(struct fscc_port *port)
     return_val_if_untrue(port, 0);
 
     return port->wait_on_write;
+}
+
+void fscc_port_set_blocking_write(struct fscc_port *port, BOOLEAN value)
+{
+    return_if_untrue(port);
+
+    if (port->blocking_write != value) {
+        TraceEvents(TRACE_LEVEL_INFORMATION, TRACE_DEVICE,
+            "Blocking Write %i => %i",
+            port->blocking_write, value);
+    }
+    else {
+        TraceEvents(TRACE_LEVEL_VERBOSE, TRACE_DEVICE,
+            "Blocking Write = %i", value);
+    }
+
+    port->blocking_write = (value) ? 1 : 0;
+}
+
+BOOLEAN fscc_port_get_blocking_write(struct fscc_port *port)
+{
+    return_val_if_untrue(port, 0);
+
+    return port->blocking_write;
 }
 
 /* Returns -EINVAL if you set an incorrect transmit modifier */

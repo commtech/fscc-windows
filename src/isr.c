@@ -477,6 +477,54 @@ void oframe_worker(WDFDPC Dpc)
     WdfSpinLockRelease(port->board_tx_spinlock);
 }
 
+void request_worker(WDFDPC Dpc)
+{
+    struct fscc_port *port = 0;
+    struct fscc_frame *frame = 0;
+    char *data_buffer = NULL;
+    NTSTATUS status = STATUS_SUCCESS;
+    WDFREQUEST Request = NULL, tagRequest = NULL, prevTagRequest = NULL;
+    WDF_REQUEST_PARAMETERS params;
+    size_t Length;
+
+    port = WdfObjectGet_FSCC_PORT(WdfDpcGetParentObject(Dpc));
+
+    WDF_REQUEST_PARAMETERS_INIT(&params);
+    status = WdfIoQueueFindRequest(port->blocking_request_queue, prevTagRequest, NULL, &params, &tagRequest);
+    if (prevTagRequest) WdfObjectDereference(prevTagRequest);
+    if (!NT_SUCCESS(status)) {
+        TraceEvents(TRACE_LEVEL_VERBOSE, TRACE_DEVICE, "WdfIoQueueFindRequest failed %!STATUS!", status);
+        return;
+    }
+    Length = params.Parameters.Write.Length;
+    if (Length + fscc_port_get_output_memory_usage(port) > fscc_port_get_output_memory_cap(port)) return;
+    status = WdfIoQueueRetrieveFoundRequest(port->blocking_request_queue, tagRequest, &Request);
+    WdfObjectDereference(tagRequest);
+    if (!NT_SUCCESS(status)) return;
+ 
+    status = WdfRequestRetrieveInputBuffer(Request, Length, (PVOID *)&data_buffer, NULL);
+    if (!NT_SUCCESS(status)) {
+        TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE, "WdfRequestRetrieveInputBuffer failed %!STATUS!", status);
+        WdfRequestComplete(Request, status);
+        return;
+    }
+
+    frame = fscc_frame_new(port);
+    if (!frame) {
+        WdfRequestComplete(Request, STATUS_INSUFFICIENT_RESOURCES);
+        return;
+    }
+
+    fscc_frame_add_data(frame, data_buffer, Length);
+
+    WdfSpinLockAcquire(port->queued_oframes_spinlock);
+    fscc_flist_add_frame(&port->queued_oframes, frame);
+    WdfSpinLockRelease(port->queued_oframes_spinlock);
+
+    WdfRequestCompleteWithInformation(Request, STATUS_SUCCESS, Length);
+    WdfDpcEnqueue(port->oframe_dpc);
+}
+
 VOID timer_handler(WDFTIMER Timer)
 {
     struct fscc_port *port = 0;
@@ -490,4 +538,9 @@ VOID timer_handler(WDFTIMER Timer)
         WdfDpcEnqueue(port->istream_dpc);
     //else
     //	WdfDpcEnqueue(port->iframe_dpc);
+
+    // Had to remove the condition check, otherwise there
+    // was a chance that a request could be stuck in the 
+    // queue forever if the condition changed.
+    WdfDpcEnqueue(port->orequest_worker);
 }
