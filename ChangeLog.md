@@ -3,6 +3,7 @@
 ## [2.7.7](https://github.com/commtech/fscc-windows/releases/tag/v2.7.7) (02/14/2017)
 - Removed sent_oframes. It caused memory to grow infinitely when frames were back to back, and seemed to serve no real purpose.
 - Changed memory calculations to use buffer_size instead of data_length.
+- Added BLOCKING_WRITE IOCTL.
 
 ## [2.7.6](https://github.com/commtech/fscc-windows/releases/tag/v2.7.6) (03/15/2016)
 - Removed test.exe from releases - it was unreliable in Clock Mode 7 because of cable length.
