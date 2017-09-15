@@ -20,7 +20,7 @@ int main(int argc, char *argv[])
     h = CreateFile(handle_string, GENERIC_READ | GENERIC_WRITE, 0, NULL, OPEN_EXISTING, 0, NULL);
     if (h == INVALID_HANDLE_VALUE) 
 	{
-        fprintf(stderr, "%s: CreateFile failed with %d\n", handle_string, GetLastError());
+        printf("%s: CreateFile failed with %d\n", handle_string, GetLastError());
         return EXIT_FAILURE;
     }
 	
