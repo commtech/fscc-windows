@@ -1,4 +1,4 @@
-# Append Status
+# Blocking Write
 
 ENABLE_BLOCKING_WRITE will allow the drivers to block when the output memory cap is full until the outgoing data can fit into the memory cap. This will allow the user to continuously refill the output memory cap without polling when it becomes full.
 DISABLE_BLOCKING_WRITE will return the drivers to their original state, where the drivers will return an error condituion when the output memory cap is full.
