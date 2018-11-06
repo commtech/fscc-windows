@@ -20,7 +20,6 @@
 
 
 #include "card.h"
-#include "card.tmh"
 #include "port.h"
 #include "utils.h"
 #include "isr.h"
@@ -28,6 +27,10 @@
 
 #include <ntddser.h>
 #include <ntstrsafe.h>
+
+#if defined(EVENT_TRACING)
+#include "card.tmh"
+#endif
 
 INT
 PCIReadConfigWord(

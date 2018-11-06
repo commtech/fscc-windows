@@ -20,9 +20,12 @@
 
 
 #include "frame.h"
-#include "frame.tmh"
 #include "utils.h" /* return_{val_}if_true */
 #include "port.h" /* struct fscc_port */
+
+#if defined(EVENT_TRACING)
+#include "frame.tmh"
+#endif
 
 static unsigned frame_counter = 1;
 

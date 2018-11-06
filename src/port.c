@@ -20,7 +20,6 @@
 
 
 #include "port.h"
-#include "port.tmh"
 #include "frame.h"
 #include "utils.h"
 #include "isr.h"
@@ -30,6 +29,10 @@
 
 #include <ntddser.h>
 #include <ntstrsafe.h>
+
+#if defined(EVENT_TRACING)
+#include "port.tmh"
+#endif
 
 #define NUM_CLOCK_BYTES 20
 #define TIMER_DELAY_MS 250

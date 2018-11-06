@@ -20,10 +20,13 @@
 
 
 #include "flist.h"
-#include "flist.tmh"
 #include "utils.h" /* return_{val_}if_true */
 #include "frame.h"
 #include "debug.h"
+
+#if defined(EVENT_TRACING)
+#include "flist.tmh"
+#endif
 
 void fscc_flist_init(struct fscc_flist *flist)
 {

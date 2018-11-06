@@ -20,8 +20,11 @@
 
 
 #include "debug.h"
-#include "debug.tmh"
 #include "utils.h" /* return_{val_}if_true */
+
+#if defined(EVENT_TRACING)
+#include "debug.tmh"
+#endif
 
 void display_register(unsigned bar, unsigned offset, UINT32 old_val,
                       UINT32 new_val)
