@@ -30,6 +30,7 @@
 #include "card.h"
 #include "fscc.h"
 #include "flist.h"
+#include "descriptor.h"
 
 #define FIFO_OFFSET 0x00
 #define BC_FIFO_L_OFFSET 0x04
@@ -84,6 +85,13 @@
 #define DR_HI 0x00000400
 
 #define CE_BIT 0x00040000
+
+
+#define NUM_TX_DESCRIPTORS 10
+#define TX_BUFFER_SIZE 4096
+
+#define NUM_RX_DESCRIPTORS 10
+#define RX_BUFFER_SIZE 8192
 
 typedef struct fscc_port {
     WDFDEVICE device;
@@ -146,8 +154,14 @@ typedef struct fscc_port {
 
     WDFINTERRUPT interrupt;
     BOOLEAN dma;
-
-
+	/*
+	WDFDMAENABLER dma_enabler;
+	struct fscc_descriptor rx_descriptors[NUM_TX_DESCRIPTORS];
+	struct fscc_descriptor tx_descriptors[NUM_RX_DESCRIPTORS];
+	
+	WDFCOMMONBUFFER *tx_buffers;
+	WDFCOMMONBUFFER *rx_buffers;
+	*/
 } FSCC_PORT;
 
 WDF_DECLARE_CONTEXT_TYPE(FSCC_PORT);
@@ -235,4 +249,9 @@ void fscc_port_reset_timer(struct fscc_port *port);
 unsigned fscc_port_has_incoming_data(struct fscc_port *port);
 unsigned fscc_port_transmit_frame(struct fscc_port *port, struct fscc_frame *frame);
 
+/*
+NTSTATUS fscc_port_initialize_dma(struct fscc_port *port);
+NTSTATUS fscc_port_prepare_tx_dma(struct fscc_port *port);
+NTSTATUS fscc_port_prepare_rx_dma(struct fscc_port *port);
+*/
 #endif

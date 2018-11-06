@@ -52,6 +52,8 @@ unsigned fscc_port_is_streaming(struct fscc_port *port);
 NTSTATUS fscc_port_get_port_num(struct fscc_port *port, unsigned *port_num);
 NTSTATUS fscc_port_set_port_num(struct fscc_port *port, unsigned value);
 
+#pragma warning( disable: 4267 )
+
 struct fscc_port *fscc_port_new(WDFDRIVER Driver,
                                 IN PWDFDEVICE_INIT DeviceInit)
 {
@@ -2266,3 +2268,135 @@ unsigned fscc_port_transmit_frame(struct fscc_port *port, struct fscc_frame *fra
 
     return result;
 }
+
+/*
+//TODO: Should the buffer size be 4096? Should it be less? How many buffers?
+// There is an argument for having 1 single buffer, and having the descriptor point to
+// locations in that buffer. The descriptor contains:
+// control (size, start, stop)
+// data address (location, DWORD aligned)
+// data count (size at this location, only last frame can be non-DWORD)
+// pointer to next descriptor
+// So you could, in theory, just use one buffer and have each descriptor point to a location
+// in that buffer. 
+// So 10 buffers/descriptors, 4096 for tx
+// Maybe 10 buffers/descriptors, 8192 for rx?
+NTSTATUS fscc_port_initialize_dma(struct fscc_port *port)
+{
+	NTSTATUS status;
+	WDF_OBJECT_ATTRIBUTES attributes;
+	WDF_DMA_ENABLER_CONFIG dma_config;
+	
+	PAGED_CODE();
+	
+	// This should be 1 less than the actual alignment.
+	// The registers are 4 bytes, so.. 3? Maybe? 
+	WdfDeviceSetAlignmentRequirement(port->device, 3);
+	
+	// This value was chosen arbitrarily. I'm not sure what it should be.
+	// It stands for the 'maximum length in bytes the device can handle
+	// in a single DMA transfer.
+	WDF_DMA_ENABLER_CONFIG_INIT(&dma_config, WdfDmaProfilePacket, 4096);
+	status = WdfDmaEnablerCreate(port->device, &dma_config, WDF_NO_OBJECT_ATTRIBUTES, &port->dma_enabler);
+	if(!NT_SUCCESS(status)) {
+		TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE, "WdfDmaEnablerCreate failed: %!STATUS!", status);
+		return status;
+	}
+	status = fscc_port_prepare_tx_dma(port);
+	if(!NT_SUCCESS(status)) {
+		TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE, "Failed to make all TX descriptors/buffers: %!STATUS!", status);
+		return status;
+	}
+	status = fscc_port_prepare_rx_dma(port);
+	if(!NT_SUCCESS(status)) {
+		TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE, "Failed to make all TX descriptors/buffers: %!STATUS!", status);
+		return status;
+	}
+	
+	return status;
+}
+
+
+NTSTATUS fscc_port_prepare_tx_dma(struct fscc_port *port)
+{
+	NTSTATUS status;
+	PHYSICAL_ADDRESS full_address;
+	int i;
+	
+	PAGED_CODE();
+	
+	for(i=0; i<NUM_TX_DESCRIPTORS; i++)
+	{
+		status = WdfCommonBufferCreate(port->dma_enabler, sizeof(struct fscc_descriptor), WDF_NO_OBJECT_ATTRIBUTES, &port->tx_descriptors[i]);
+		if(!NT_SUCCESS(status)) {
+			port->dma = 0;
+			return status;
+		}
+		status = WdfCommonBufferCreate(port->dma_enabler, TX_BUFFER_SIZE, WDF_NO_OBJECT_ATTRIBUTES, &port->tx_buffers[i]);
+		if(!NT_SUCCESS(status)) {
+			port->dma = 0;
+			return status;
+		}
+		RtlZeroMemory(port->tx_descriptors[i], sizeof(struct fscc_descriptor));
+		RtlZeroMemory(port->tx_buffers[i], TX_BUFFER_SIZE);
+		full_address = WdfCommonBufferGetAlignedLogicalAddress(port->tx_buffers[i]);
+		port->tx_descriptors[i].control = 0;
+		port->tx_descriptors[i].data_count = 0;
+		port->tx_descriptors[i].data_address = full_address.LowPart;
+		full_address = WdfCommonBufferGetAlignedVirtualAddress(port->tx_buffers[i]);
+		port->tx_descriptors[i].virtual_address = full_address.LowPart;
+	}
+	
+	// This is here because the tx_descriptor addresses need to be completed before it'll work.
+	// The number of loops needs to be the same for both.
+	for(i=0; i<NUM_TX_DESCRIPTORS; i++)
+	{
+		full_address = WdfCommonBufferGetAlignedLogicalAddress(port->tx_descriptors[i < NUM_TX_DESCRIPTORS ? i + 1 : 0]);
+		port->tx_descriptors[i].next_descriptor = full_address.LowPart;
+	}
+	
+	return status;
+}
+
+
+NTSTATUS fscc_port_prepare_rx_dma(struct fscc_port *port)
+{
+	NTSTATUS status;
+	PHYSICAL_ADDRESS full_address;
+	int i;
+	
+	PAGED_CODE();
+	
+	for(i = 0; i < NUM_RX_DESCRIPTORS; i++)
+	{
+		status = WdfCommonBufferCreate(port->dma_enabler, sizeof(struct fscc_descriptor), WDF_NO_OBJECT_ATTRIBUTES, &port->rx_descriptors[i]);
+		if(!NT_SUCCESS(status)) {
+			port->dma = 0;
+			return status;
+		}
+		status = WdfCommonBufferCreate(port->dma_enabler, RX_BUFFER_SIZE, WDF_NO_OBJECT_ATTRIBUTES, &port->rx_buffers[i]);
+		if(!NT_SUCCESS(status)) {
+			port->dma = 0;
+			return status;
+		}
+		RtlZeroMemory(port->rx_descriptors[i], sizeof(struct fscc_descriptor));
+		RtlZeroMemory(port->rx_buffers[i], RX_BUFFER_SIZE);
+		full_address = WdfCommonBufferGetAlignedLogicalAddress(port->rx_buffers[i]);
+		port->rx_descriptors[i].control = 0;
+		port->rx_descriptors[i].data_count = RX_BUFFER_SIZE;
+		port->rx_descriptors[i].data_address = full_address.LowPart;
+		full_address = WdfCommonBufferGetAlignedVirtualAddress(port->rx_buffers[i]);
+		port->rx_descriptors[i].virtual_address = full_address.LowPart;
+	}
+	
+	// This is here because the tx_descriptor addresses need to be completed before it'll work.
+	// The number of loops needs to be the same for both.
+	for(i = 0; i < NUM_RX_DESCRIPTORS; i++)
+	{
+		full_address = WdfCommonBufferGetAlignedLogicalAddress(port->rx_descriptors[i < NUM_RX_DESCRIPTORS ? i + 1 : 0]);
+		port->rx_descriptors[i].next_descriptor = full_address.LowPart;
+	}
+	
+	return status;
+}
+*/
