@@ -1,5 +1,5 @@
 /*
-    Copyright (C) 2016  Commtech, Inc.
+    Copyright (C) 2018  Commtech, Inc.
 
     This file is part of fscc-windows.
 
