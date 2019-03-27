@@ -1,23 +1,39 @@
-set NAME=fscc-windows-2.7.6
+set NAME=fscc-windows-2.7.8
 set TOP=bin\%NAME%
 set PYFSCC=..\pyfscc\dist
 set QFSCC=..\qfscc\build\exe.win32-3.3
 set WFSCC=..\wfscc\build\exe.win32-3.3
+set QSERIALFC=..\qserialfc\build\exe.win32-3.3
 
 echo off
 
 :reset_bin_folder
 echo Removing Old Drivers...
 rmdir /S /Q bin\ 2> nul
-mkdir %TOP%\
+mkdir %TOP%\ > nul
+mkdir bin\10 > nul
+mkdir bin\10\32 > nul
+mkdir bin\10\64 > nul
 rmdir /S /Q tmp\production\ 2> nul
-mkdir tmp\production\
+mkdir tmp\production\ > nul
 
 :build_drivers
 echo Building Release Drivers...
 start /I /WAIT build_driver.bat "fre x86 WXP" objfre_wxp_x86 i386 production XP_X86
 if %errorlevel% neq 0 exit /b %errorlevel%
 start /I /WAIT build_driver.bat "fre x64 WNET" objfre_wnet_amd64 amd64 production Server2003_X64
+if %errorlevel% neq 0 exit /b %errorlevel%
+
+:generate_cab
+echo Generating .cab files for Windows 10..
+makecab /f fscc_32.ddf
+makecab /f fscc_64.ddf
+
+signtool sign /fd SHA512 /ac "DigiCert High Assurance EV Root CA.crt" /n "Commtech, Inc." /t http://timestamp.digicert.com/ /sha1 A55F5C61CE305CD8F45E6C46AD704C452FBF630E bin\10\64\fscc.cab
+:signtool sign /fd SHA512 /t http://timestamp.digicert.com/ /sha1 A55F5C61CE305CD8F45E6C46AD704C452FBF630E bin\10\64\fscc.cab
+if %errorlevel% neq 0 exit /b %errorlevel%
+signtool sign /fd SHA512 /ac "DigiCert High Assurance EV Root CA.crt" /n "Commtech, Inc." /t http://timestamp.digicert.com/ /sha1 A55F5C61CE305CD8F45E6C46AD704C452FBF630E bin\10\32\fscc.cab
+:signtool sign /fd SHA512 /t http://timestamp.digicert.com/ /sha1 A55F5C61CE305CD8F45E6C46AD704C452FBF630E bin\10\32\fscc.cab
 if %errorlevel% neq 0 exit /b %errorlevel%
 
 :build_libs
@@ -27,13 +43,14 @@ if %errorlevel% neq 0 exit /b %errorlevel%
 
 :create_directories
 echo Creating Directories...
-for %%A in (32, 64, lib, terminal, gui, test) do mkdir %TOP%\%%A\
+for %%A in (32, 64, lib, terminal, gui, tools) do mkdir %TOP%\%%A\
 for %%A in (fscc, serialfc) do mkdir %TOP%\lib\%%A\
 for %%A in (c, c++, net, python, raw) do mkdir %TOP%\lib\fscc\%%A\
 
 :copy_dll_files
 echo Copying DLL Files...
 copy lib\raw\*.h %TOP%\lib\fscc\raw\ > nul
+copy lib\raw\*.c %TOP%\lib\fscc\raw\ > nul
 
 mkdir %TOP%\lib\fscc\c\src\
 mkdir %TOP%\lib\fscc\c\docs\
@@ -70,6 +87,7 @@ xcopy redist\production\serial\terminal\* %TOP%\terminal\serialfc\ /e /i > nul
 xcopy redist\production\serial\gui\* %TOP%\gui\serialfc\ /e /i > nul
 
 xcopy %QFSCC%\* %TOP%\gui\fscc\ /e /i > nul
+xcopy %QSERIAL%\* %TOP%\gui\serial\ /e /i > nul
 
 :copy_loop_files
 echo Copying Loop Files...

@@ -1,5 +1,8 @@
 # ChangeLog
 
+## [2.7.8](https://github.com/commtech/fscc-windows/releases/tag/v2.7.8) (12/12/2018)
+- Updated to serialfc-2.4.7.
+
 ## [2.7.7](https://github.com/commtech/fscc-windows/releases/tag/v2.7.7) (02/14/2017)
 - Removed sent_oframes. It caused memory to grow infinitely when frames were back to back, and seemed to serve no real purpose.
 - Changed memory calculations to use buffer_size instead of data_length.
