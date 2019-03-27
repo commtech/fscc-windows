@@ -2184,17 +2184,31 @@ NTSTATUS fscc_port_set_port_num(struct fscc_port *port, unsigned value)
 }
 
 #define TX_FIFO_SIZE 4096
-
+/*
 int prepare_frame_for_dma(struct fscc_port *port, struct fscc_frame *frame,
                           unsigned *length)
 {
     UNUSED(port);
     UNUSED(frame);
     UNUSED(length);
+	unsigned desc_data_size = 0;
+	int i;
+	
+	number_of_buffers = length + (TX_BUFFER_SIZE - (length % TX_BUFFER_SIZE));
+	for( i=0; i<NUM_TX_DESCRIPTORS; i++)
+	{
+		if(port->tx_descriptors[port->current_tx_desc].control == 0x60000000 || 
+		   port->tx_descriptors[port->current_tx_desc].control == 0x40000000)
+		{
+			desc_data_size = (length > TX_BUFFER_SIZE) ? TX_BUFFER_SIZE : length;
+			fscc_frame_remove_data(frame, port->tx_buffers[port->current_tx_desc], desc_data_size);
+			
+		}
+	}
 
     return 2;
 }
-
+*/
 int prepare_frame_for_fifo(struct fscc_port *port, struct fscc_frame *frame,
                            unsigned *length)
 {
@@ -2339,9 +2353,9 @@ NTSTATUS fscc_port_prepare_tx_dma(struct fscc_port *port)
 		}
 		RtlZeroMemory(port->tx_descriptors[i], sizeof(struct fscc_descriptor));
 		RtlZeroMemory(port->tx_buffers[i], TX_BUFFER_SIZE);
-		full_address = WdfCommonBufferGetAlignedLogicalAddress(port->tx_buffers[i]);
 		port->tx_descriptors[i].control = 0;
 		port->tx_descriptors[i].data_count = 0;
+		full_address = WdfCommonBufferGetAlignedLogicalAddress(port->tx_buffers[i]);
 		port->tx_descriptors[i].data_address = full_address.LowPart;
 		full_address = WdfCommonBufferGetAlignedVirtualAddress(port->tx_buffers[i]);
 		port->tx_descriptors[i].virtual_address = full_address.LowPart;
@@ -2355,9 +2369,10 @@ NTSTATUS fscc_port_prepare_tx_dma(struct fscc_port *port)
 		port->tx_descriptors[i].next_descriptor = full_address.LowPart;
 	}
 	
+	port->current_tx_desc = 0;
+	
 	return status;
 }
-
 
 NTSTATUS fscc_port_prepare_rx_dma(struct fscc_port *port)
 {
@@ -2381,21 +2396,23 @@ NTSTATUS fscc_port_prepare_rx_dma(struct fscc_port *port)
 		}
 		RtlZeroMemory(port->rx_descriptors[i], sizeof(struct fscc_descriptor));
 		RtlZeroMemory(port->rx_buffers[i], RX_BUFFER_SIZE);
-		full_address = WdfCommonBufferGetAlignedLogicalAddress(port->rx_buffers[i]);
 		port->rx_descriptors[i].control = 0;
 		port->rx_descriptors[i].data_count = RX_BUFFER_SIZE;
+		full_address = WdfCommonBufferGetAlignedLogicalAddress(port->rx_buffers[i]);
 		port->rx_descriptors[i].data_address = full_address.LowPart;
 		full_address = WdfCommonBufferGetAlignedVirtualAddress(port->rx_buffers[i]);
 		port->rx_descriptors[i].virtual_address = full_address.LowPart;
 	}
 	
-	// This is here because the tx_descriptor addresses need to be completed before it'll work.
+	// This is here because the rx_descriptor addresses need to be completed before it'll work.
 	// The number of loops needs to be the same for both.
 	for(i = 0; i < NUM_RX_DESCRIPTORS; i++)
 	{
 		full_address = WdfCommonBufferGetAlignedLogicalAddress(port->rx_descriptors[i < NUM_RX_DESCRIPTORS ? i + 1 : 0]);
 		port->rx_descriptors[i].next_descriptor = full_address.LowPart;
 	}
+	
+	port-.current_rx_desc = 0;
 	
 	return status;
 }

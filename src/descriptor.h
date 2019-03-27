@@ -23,11 +23,11 @@
 #define FSCC_DESCRIPTOR
 
 struct fscc_descriptor {
-    UINT32 control;
-    UINT32 data_address;
-    UINT32 data_count;
-    UINT32 next_descriptor;
-	UINT32 virtual_address; // This is for the new CommonBuffer style, where both logical and virtual address are required.
+    volatile UINT32 control;
+    volatile UINT32 data_address;
+    volatile UINT32 data_count;
+    volatile UINT32 next_descriptor;
+	volatile UINT32 virtual_address; // This is for the new CommonBuffer style, where both logical and virtual address are required.
 	// The above addition should be okay, as it goes past the descriptor rather than
 	// being shoved somewhere in the middle.
 };

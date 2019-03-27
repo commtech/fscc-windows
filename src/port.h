@@ -161,6 +161,9 @@ typedef struct fscc_port {
 	
 	WDFCOMMONBUFFER *tx_buffers;
 	WDFCOMMONBUFFER *rx_buffers;
+	
+	size_t current_rx_desc;
+	size_t current_tx_desc;
 	*/
 } FSCC_PORT;
 
