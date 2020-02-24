@@ -38,7 +38,7 @@ struct BAR {
 };
 
 
-typedef struct fscc_card {	
+typedef struct fscc_card {    
     UINT32 device_id;
     struct BAR bar[3];
 } FSCC_CARD;

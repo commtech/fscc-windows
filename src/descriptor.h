@@ -24,14 +24,12 @@ THE SOFTWARE.
 #ifndef FSCC_DESCRIPTOR
 #define FSCC_DESCRIPTOR
 
+#define DMA_MAX_LENGTH 0x1fffffff
 struct fscc_descriptor {
     volatile UINT32 control;
     volatile UINT32 data_address;
     volatile UINT32 data_count;
     volatile UINT32 next_descriptor;
-	volatile UINT32 virtual_address; // This is for the new CommonBuffer style, where both logical and virtual address are required.
-	// The above addition should be okay, as it goes past the descriptor rather than
-	// being shoved somewhere in the middle.
 };
 
 #endif

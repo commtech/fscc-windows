@@ -44,7 +44,7 @@ PCIReadConfigWord(
 NTSTATUS fscc_card_init(struct fscc_card *card,
                         WDFCMRESLIST ResourcesTranslated,
                         WDFDEVICE port_device)
-{	
+{    
     unsigned bar_num = 0;
     unsigned i = 0;
     PDEVICE_OBJECT pdo;
@@ -107,11 +107,11 @@ NTSTATUS fscc_card_init(struct fscc_card *card,
 
 NTSTATUS fscc_card_delete(struct fscc_card *card,
                           WDFCMRESLIST ResourcesTranslated)
-{	
+{    
     unsigned bar_counter = 0;
     unsigned i = 0;
 
-    for (i = 0; i < WdfCmResourceListGetCount(ResourcesTranslated); i++) {		
+    for (i = 0; i < WdfCmResourceListGetCount(ResourcesTranslated); i++) {        
         PCM_PARTIAL_RESOURCE_DESCRIPTOR descriptor;
 
         descriptor = WdfCmResourceListGetDescriptor(ResourcesTranslated, i);

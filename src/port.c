@@ -114,7 +114,7 @@ struct fscc_port *fscc_port_new(WDFDRIVER Driver,
     WdfDeviceInitSetFileObjectConfig(DeviceInit,
                                      &deviceConfig,
                                      WDF_NO_OBJECT_ATTRIBUTES
-                                     );	
+                                     );    
 
     RtlInitEmptyUnicodeString(&device_name, device_name_buffer,
                               sizeof(device_name_buffer));
@@ -493,7 +493,7 @@ struct fscc_port *fscc_port_new(WDFDRIVER Driver,
         TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE,
             "WdfDpcCreate failed %!STATUS!", status);
         return 0;
-    }	
+    }    
 
     WDF_DPC_CONFIG_INIT(&dpcConfig, &isr_alert_worker);
     dpcConfig.AutomaticSerialization = TRUE;
@@ -507,7 +507,7 @@ struct fscc_port *fscc_port_new(WDFDRIVER Driver,
         TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE,
             "WdfDpcCreate failed %!STATUS!", status);
         return 0;
-    }	
+    }    
 
     WDF_DPC_CONFIG_INIT(&dpcConfig, &request_worker);
     dpcConfig.AutomaticSerialization = TRUE;
@@ -536,6 +536,7 @@ NTSTATUS FsccEvtDevicePrepareHardware(WDFDEVICE Device,
     WDF_TIMER_CONFIG  timerConfig;
     WDF_OBJECT_ATTRIBUTES  timerAttributes;
     NTSTATUS  status;
+    UINT32 vstr;
 
     struct fscc_port *port = 0;
 
@@ -613,10 +614,22 @@ NTSTATUS FsccEvtDevicePrepareHardware(WDFDEVICE Device,
     fscc_port_set_registers(port, &port->register_storage);
 
     fscc_port_set_clock_bits(port, clock_bits);
-
+    
+    // We do this regardless of FSCC or SuperFSCC to allow for CommonBuffers
+    status = fscc_port_initialize_dma(port);
+    if (!NT_SUCCESS(status)) {
+        TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE,
+            "Failed to enable DMA for CommonBuffers %!STATUS!", status);
+        return status;
+    }
+    
+    vstr = fscc_port_get_PREV(port);
+    if(vstr & 0x10) port->dma = 1;
+    else port->dma = 0;
+    
     fscc_port_purge_rx(port);
     fscc_port_purge_tx(port);
-
+  
     WDF_TIMER_CONFIG_INIT(&timerConfig, timer_handler);
 
     timerConfig.Period = TIMER_DELAY_MS;
@@ -624,7 +637,6 @@ NTSTATUS FsccEvtDevicePrepareHardware(WDFDEVICE Device,
 
     WDF_OBJECT_ATTRIBUTES_INIT(&timerAttributes);
     timerAttributes.ParentObject = port->device;
-
     status = WdfTimerCreate(&timerConfig, &timerAttributes, &port->timer);
     if (!NT_SUCCESS(status)) {
         TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE,
@@ -1047,7 +1059,7 @@ VOID FsccEvtIoDeviceControl(IN WDFQUEUE Queue, IN WDFREQUEST Request,
         }
         return;
 
-	case FSCC_GET_MEM_USAGE: {
+    case FSCC_GET_MEM_USAGE: {
             struct fscc_memory_cap *memcap = 0;
 
             status = WdfRequestRetrieveOutputBuffer(Request, sizeof(*memcap), (PVOID *)&memcap, NULL);
@@ -1056,7 +1068,7 @@ VOID FsccEvtIoDeviceControl(IN WDFQUEUE Queue, IN WDFREQUEST Request,
                     "WdfRequestRetrieveInputBuffer failed %!STATUS!", status);
                 break;
             }
-			
+            
             memcap->input = fscc_port_get_input_memory_usage(port);
             memcap->output = fscc_port_get_output_memory_usage(port);
 
@@ -1302,8 +1314,7 @@ VOID FsccEvtIoWrite(IN WDFQUEUE Queue, IN WDFREQUEST Request, IN size_t Length)
         return;
     }
 
-    status = WdfRequestRetrieveInputBuffer(Request, Length,
-                (PVOID *)&data_buffer, NULL);
+    status = WdfRequestRetrieveInputBuffer(Request, Length, (PVOID *)&data_buffer, NULL);
     if (!NT_SUCCESS(status)) {
         TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE,
             "WdfRequestRetrieveInputBuffer failed %!STATUS!", status);
@@ -1444,8 +1455,7 @@ void fscc_port_set_register_rep(struct fscc_port *port, unsigned bar,
 }
 
 /* Prevents the internal async bits from being set */
-NTSTATUS fscc_port_set_registers(struct fscc_port *port,
-                            const struct fscc_registers *regs)
+NTSTATUS fscc_port_set_registers(struct fscc_port *port, const struct fscc_registers *regs)
 {
     unsigned stalled = 0;
     unsigned i = 0;
@@ -1471,12 +1481,11 @@ NTSTATUS fscc_port_set_registers(struct fscc_port *port,
     return (stalled) ? STATUS_IO_TIMEOUT : STATUS_SUCCESS;
 }
 
-void fscc_port_get_registers(struct fscc_port *port,
-                             struct fscc_registers *regs)
+void fscc_port_get_registers(struct fscc_port *port, struct fscc_registers *regs)
 {
     unsigned i = 0;
 
-    for (i = 0; i < sizeof(*regs) / sizeof(fscc_register); i++) {		
+    for (i = 0; i < sizeof(*regs) / sizeof(fscc_register); i++) {        
         if (((fscc_register *)regs)[i] != FSCC_UPDATE_VALUE)
             continue;
 
@@ -1531,8 +1540,8 @@ NTSTATUS fscc_port_execute_RRES(struct fscc_port *port)
     return fscc_port_set_register(port, 0, CMDR_OFFSET, 0x00020000);
 }
 
+//TODO: Call the other purge for DMA?
 NTSTATUS fscc_port_purge_rx(struct fscc_port *port)
-
 {
     NTSTATUS status;
 
@@ -1574,9 +1583,10 @@ NTSTATUS fscc_port_purge_rx(struct fscc_port *port)
     return STATUS_SUCCESS;
 }
 
+//TODO: Call the other purge for DMA?
 NTSTATUS fscc_port_purge_tx(struct fscc_port *port)
 {
-    int error_code = 0;
+    NTSTATUS status;
 
     return_val_if_untrue(port, 0);
 
@@ -1584,11 +1594,14 @@ NTSTATUS fscc_port_purge_tx(struct fscc_port *port)
                 "Purging transmit data");
 
     WdfSpinLockAcquire(port->board_tx_spinlock);
-    error_code = fscc_port_execute_TRES(port);
+    status = fscc_port_execute_TRES(port);
     WdfSpinLockRelease(port->board_tx_spinlock);
 
-    if (error_code < 0)
-        return error_code;
+    if (!NT_SUCCESS(status)) {
+        TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE,
+            "fscc_port_execute_TRES failed %!STATUS!", status);
+        return status;
+    }
 
     WdfSpinLockAcquire(port->queued_oframes_spinlock);
     fscc_flist_clear(&port->queued_oframes);
@@ -1657,8 +1670,7 @@ BOOLEAN fscc_port_get_append_timestamp(struct fscc_port *port)
     return !fscc_port_is_streaming(port) && port->append_timestamp;
 }
 
-void fscc_port_set_ignore_timeout(struct fscc_port *port,
-                                  BOOLEAN value)
+void fscc_port_set_ignore_timeout(struct fscc_port *port, BOOLEAN value)
 {
     return_if_untrue(port);
 
@@ -1810,8 +1822,8 @@ unsigned fscc_port_get_output_memory_cap(struct fscc_port *port)
     return port->memory_cap.output;
 }
 
-void fscc_port_set_memory_cap(struct fscc_port *port,
-                              struct fscc_memory_cap *value)
+//TODO: DMA, for receive, should we set this here?
+void fscc_port_set_memory_cap(struct fscc_port *port,  fscc_memory_cap *value)
 {
     return_if_untrue(port);
     return_if_untrue(value);
@@ -1851,8 +1863,7 @@ void fscc_port_set_memory_cap(struct fscc_port *port,
 #define DTA_BASE 0x00000001
 #define CLK_BASE 0x00000002
 
-void fscc_port_set_clock_bits(struct fscc_port *port,
-                              unsigned char *clock_data)
+void fscc_port_set_clock_bits(struct fscc_port *port, unsigned char *clock_data)
 {
     UINT32 orig_fcr_value = 0;
     UINT32 new_fcr_value = 0;
@@ -2010,12 +2021,11 @@ unsigned fscc_port_is_streaming(struct fscc_port *port)
     return ((transparent_mode || xsync_mode) && !(rlc_mode || fsc_mode || ntb)) ? 1 : 0;
 }
 
-BOOLEAN fscc_port_has_dma(struct fscc_port *port)
+BOOLEAN fscc_port_uses_dma(struct fscc_port *port)
 {
     return_val_if_untrue(port, 0);
 
-    if (port->force_fifo)
-       return FALSE;
+    if (port->force_fifo) return FALSE;
 
     return port->dma;
 }
@@ -2093,7 +2103,7 @@ unsigned fscc_port_get_RXCNT(struct fscc_port *port)
     /* Not sure why, but this can be larger than 8192. We add
        the 8192 check here so other code can count on the value
        not being larger than 8192. */
-	fifo_bc_value = fifo_bc_value & 0x00003FFF;
+    fifo_bc_value = fifo_bc_value & 0x00003FFF;
     return (fifo_bc_value > 8192) ? 0 : fifo_bc_value;
 }
 
@@ -2185,75 +2195,53 @@ NTSTATUS fscc_port_set_port_num(struct fscc_port *port, unsigned value)
     return status;
 }
 
-#define TX_FIFO_SIZE 4096
-/*
-int prepare_frame_for_dma(struct fscc_port *port, struct fscc_frame *frame,
-                          unsigned *length)
+int prepare_frame_for_dma(struct fscc_port *port, struct fscc_frame *frame, unsigned *length)
 {
-    UNUSED(port);
-    UNUSED(frame);
-    UNUSED(length);
-	unsigned desc_data_size = 0;
-	int i;
-	
-	number_of_buffers = length + (TX_BUFFER_SIZE - (length % TX_BUFFER_SIZE));
-	for( i=0; i<NUM_TX_DESCRIPTORS; i++)
-	{
-		if(port->tx_descriptors[port->current_tx_desc].control == 0x60000000 || 
-		   port->tx_descriptors[port->current_tx_desc].control == 0x40000000)
-		{
-			desc_data_size = (length > TX_BUFFER_SIZE) ? TX_BUFFER_SIZE : length;
-			fscc_frame_remove_data(frame, port->tx_buffers[port->current_tx_desc], desc_data_size);
-			
-		}
-	}
-
+    fscc_port_set_register(port, 0x2, DMA_TX_BASE_OFFSET, frame->logical_desc);
     return 2;
 }
-*/
-int prepare_frame_for_fifo(struct fscc_port *port, struct fscc_frame *frame,
-                           unsigned *length)
+
+#define TX_FIFO_SIZE 4096
+int prepare_frame_for_fifo(struct fscc_port *port, struct fscc_frame *frame, unsigned *length)
 {
-	unsigned current_length = 0;
-	unsigned buffer_size = 0;
-	unsigned fifo_space = 0;
-	unsigned size_in_fifo = 0;
-	unsigned transmit_length = 0;
+    unsigned current_length = 0;
+    unsigned buffer_size = 0;
+    unsigned fifo_space = 0;
+    unsigned size_in_fifo = 0;
+    unsigned transmit_length = 0;
 
-	current_length = fscc_frame_get_length(frame);
-	buffer_size = fscc_frame_get_buffer_size(frame);    
+    current_length = fscc_frame_get_length(frame);
+    buffer_size = fscc_frame_get_buffer_size(frame);    
     /* How much space this will take up in the FIFO */
-	size_in_fifo = current_length + (4 - current_length % 4);
+    size_in_fifo = current_length + (4 - current_length % 4);
 
-	/* Subtracts 1 so a TDO overflow doesn't happen on the 4096th byte. */
-	fifo_space = TX_FIFO_SIZE - fscc_port_get_TXCNT(port) - 1;
-	fifo_space -= fifo_space % 4;
+    /* Subtracts 1 so a TDO overflow doesn't happen on the 4096th byte. */
+    fifo_space = TX_FIFO_SIZE - fscc_port_get_TXCNT(port) - 1;
+    fifo_space -= fifo_space % 4;
 
-	/* Determine the maximum amount of data we can send this time around. */
-	transmit_length = (size_in_fifo > fifo_space) ? fifo_space : current_length;
+    /* Determine the maximum amount of data we can send this time around. */
+    transmit_length = (size_in_fifo > fifo_space) ? fifo_space : current_length;
 
-	frame->fifo_initialized = 1;
+    if (transmit_length == 0)
+        return 0;
 
-	if (transmit_length == 0)
-		return 0;
+    fscc_port_set_register_rep(port, 0, FIFO_OFFSET,
+                               frame->buffer,
+                               transmit_length);
 
-	fscc_port_set_register_rep(port, 0, FIFO_OFFSET,
-							   frame->buffer,
-							   transmit_length);
+    fscc_frame_remove_data(frame, NULL, transmit_length);
 
-	fscc_frame_remove_data(frame, NULL, transmit_length);
+    *length = transmit_length;
+    /* If this is the first time we add data to the FIFO for this frame we
+       tell the port how much data is in this frame. */
+    if (current_length == buffer_size)
+        fscc_port_set_register(port, 0, BC_FIFO_L_OFFSET, buffer_size);
 
-	*length = transmit_length;
-	/* If this is the first time we add data to the FIFO for this frame we
-	   tell the port how much data is in this frame. */
-	if (current_length == buffer_size)
-		fscc_port_set_register(port, 0, BC_FIFO_L_OFFSET, buffer_size);
+    /* We still have more data to send. */
+    if (!fscc_frame_is_empty(frame))
+        return 1;
 
-	/* We still have more data to send. */
-	if (!fscc_frame_is_empty(frame))
-		return 1;
-
-	return 2;
+    return 2;
 }
 
 unsigned fscc_port_transmit_frame(struct fscc_port *port, struct fscc_frame *frame)
@@ -2262,19 +2250,14 @@ unsigned fscc_port_transmit_frame(struct fscc_port *port, struct fscc_frame *fra
     unsigned transmit_length = 0;
     int result;
 
-    if (fscc_port_has_dma(port) &&
-        (fscc_frame_get_length(frame) <= TX_FIFO_SIZE) &&
-        !fscc_frame_is_fifo(frame)) {
-        transmit_dma = 1;
-    }
+    if (fscc_port_uses_dma(port)) transmit_dma = 1;
 
-    //if (transmit_dma)
-    //	result = prepare_frame_for_dma(port, frame, &transmit_length);
-    //else
+    if (transmit_dma)
+        result = prepare_frame_for_dma(port, frame, &transmit_length);
+    else
         result = prepare_frame_for_fifo(port, frame, &transmit_length);
 
-    if (result)
-        fscc_port_execute_transmit(port, transmit_dma);
+    if (result) fscc_port_execute_transmit(port, transmit_dma);
 
     TraceEvents(TRACE_LEVEL_VERBOSE, TRACE_DEVICE,
             "F#%i => %i byte%s%s",
@@ -2285,137 +2268,57 @@ unsigned fscc_port_transmit_frame(struct fscc_port *port, struct fscc_frame *fra
     return result;
 }
 
-/*
-//TODO: Should the buffer size be 4096? Should it be less? How many buffers?
-// There is an argument for having 1 single buffer, and having the descriptor point to
-// locations in that buffer. The descriptor contains:
-// control (size, start, stop)
-// data address (location, DWORD aligned)
-// data count (size at this location, only last frame can be non-DWORD)
-// pointer to next descriptor
-// So you could, in theory, just use one buffer and have each descriptor point to a location
-// in that buffer. 
-// So 10 buffers/descriptors, 4096 for tx
-// Maybe 10 buffers/descriptors, 8192 for rx?
+// This is done regardless of if there's DMA or not, to allow CommonBuffer usage.
 NTSTATUS fscc_port_initialize_dma(struct fscc_port *port)
 {
-	NTSTATUS status;
-	WDF_OBJECT_ATTRIBUTES attributes;
-	WDF_DMA_ENABLER_CONFIG dma_config;
-	
-	PAGED_CODE();
-	
-	// This should be 1 less than the actual alignment.
-	// The registers are 4 bytes, so.. 3? Maybe? 
-	WdfDeviceSetAlignmentRequirement(port->device, 3);
-	
-	// This value was chosen arbitrarily. I'm not sure what it should be.
-	// It stands for the 'maximum length in bytes the device can handle
-	// in a single DMA transfer.
-	WDF_DMA_ENABLER_CONFIG_INIT(&dma_config, WdfDmaProfilePacket, 4096);
-	status = WdfDmaEnablerCreate(port->device, &dma_config, WDF_NO_OBJECT_ATTRIBUTES, &port->dma_enabler);
-	if(!NT_SUCCESS(status)) {
-		TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE, "WdfDmaEnablerCreate failed: %!STATUS!", status);
-		return status;
-	}
-	status = fscc_port_prepare_tx_dma(port);
-	if(!NT_SUCCESS(status)) {
-		TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE, "Failed to make all TX descriptors/buffers: %!STATUS!", status);
-		return status;
-	}
-	status = fscc_port_prepare_rx_dma(port);
-	if(!NT_SUCCESS(status)) {
-		TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE, "Failed to make all TX descriptors/buffers: %!STATUS!", status);
-		return status;
-	}
-	
-	return status;
+    NTSTATUS status;
+    WDF_OBJECT_ATTRIBUTES attributes;
+    WDF_DMA_ENABLER_CONFIG dma_config;
+
+    PAGED_CODE();
+
+    // The registers are 4 bytes.
+    WdfDeviceSetAlignmentRequirement(port->device, FILE_LONG_ALIGNMENT);
+    // Technically the descriptors allowed for 536870911 (0x1FFFFFFF) but rounding might be best.
+    WDF_DMA_ENABLER_CONFIG_INIT(&dma_config, WdfDmaProfilePacket, 536870000);
+    status = WdfDmaEnablerCreate(port->device, &dma_config, WDF_NO_OBJECT_ATTRIBUTES, &port->dma_enabler);
+    if(!NT_SUCCESS(status)) {
+        TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE, "WdfDmaEnablerCreate failed: %!STATUS!", status);
+        return status;
+    }
+    return status;
 }
 
-
-NTSTATUS fscc_port_prepare_tx_dma(struct fscc_port *port)
+NTSTATUS fscc_port_execute_RSTR(struct fscc_port *port)
 {
-	NTSTATUS status;
-	PHYSICAL_ADDRESS full_address;
-	int i;
-	
-	PAGED_CODE();
-	
-	for(i=0; i<NUM_TX_DESCRIPTORS; i++)
-	{
-		status = WdfCommonBufferCreate(port->dma_enabler, sizeof(struct fscc_descriptor), WDF_NO_OBJECT_ATTRIBUTES, &port->tx_descriptors[i]);
-		if(!NT_SUCCESS(status)) {
-			port->dma = 0;
-			return status;
-		}
-		status = WdfCommonBufferCreate(port->dma_enabler, TX_BUFFER_SIZE, WDF_NO_OBJECT_ATTRIBUTES, &port->tx_buffers[i]);
-		if(!NT_SUCCESS(status)) {
-			port->dma = 0;
-			return status;
-		}
-		RtlZeroMemory(port->tx_descriptors[i], sizeof(struct fscc_descriptor));
-		RtlZeroMemory(port->tx_buffers[i], TX_BUFFER_SIZE);
-		port->tx_descriptors[i].control = 0;
-		port->tx_descriptors[i].data_count = 0;
-		full_address = WdfCommonBufferGetAlignedLogicalAddress(port->tx_buffers[i]);
-		port->tx_descriptors[i].data_address = full_address.LowPart;
-		full_address = WdfCommonBufferGetAlignedVirtualAddress(port->tx_buffers[i]);
-		port->tx_descriptors[i].virtual_address = full_address.LowPart;
-	}
-	
-	// This is here because the tx_descriptor addresses need to be completed before it'll work.
-	// The number of loops needs to be the same for both.
-	for(i=0; i<NUM_TX_DESCRIPTORS; i++)
-	{
-		full_address = WdfCommonBufferGetAlignedLogicalAddress(port->tx_descriptors[i < NUM_TX_DESCRIPTORS ? i + 1 : 0]);
-		port->tx_descriptors[i].next_descriptor = full_address.LowPart;
-	}
-	
-	port->current_tx_desc = 0;
-	
-	return status;
+    NTSTATUS status;
+    UINT32 orig_dmaccr_value;
+    
+    return_val_if_untrue(port, 0);
+
+    orig_dmaccr_value = fscc_port_get_register(port, 2, DMACCR_OFFSET);
+    //orig_dmaccr_value &= 0xF3000000;
+    // The old drivers call these 'enable dma' bits. Why?
+    status = fscc_port_set_register(port, 2, DMACCR_OFFSET, (orig_dmaccr_value & 0x03000000) | 0x100);
+    status |= fscc_port_set_register(port, 2, DMACCR_OFFSET, (orig_dmaccr_value & 0x03000000) | 0x10);
+    status |= fscc_port_set_register(port, 2, DMACCR_OFFSET, orig_dmaccr_value | 0x1);
+    
+    return status;
 }
 
-NTSTATUS fscc_port_prepare_rx_dma(struct fscc_port *port)
+NTSTATUS fscc_port_execute_RSTT(struct fscc_port *port)
 {
-	NTSTATUS status;
-	PHYSICAL_ADDRESS full_address;
-	int i;
-	
-	PAGED_CODE();
-	
-	for(i = 0; i < NUM_RX_DESCRIPTORS; i++)
-	{
-		status = WdfCommonBufferCreate(port->dma_enabler, sizeof(struct fscc_descriptor), WDF_NO_OBJECT_ATTRIBUTES, &port->rx_descriptors[i]);
-		if(!NT_SUCCESS(status)) {
-			port->dma = 0;
-			return status;
-		}
-		status = WdfCommonBufferCreate(port->dma_enabler, RX_BUFFER_SIZE, WDF_NO_OBJECT_ATTRIBUTES, &port->rx_buffers[i]);
-		if(!NT_SUCCESS(status)) {
-			port->dma = 0;
-			return status;
-		}
-		RtlZeroMemory(port->rx_descriptors[i], sizeof(struct fscc_descriptor));
-		RtlZeroMemory(port->rx_buffers[i], RX_BUFFER_SIZE);
-		port->rx_descriptors[i].control = 0;
-		port->rx_descriptors[i].data_count = RX_BUFFER_SIZE;
-		full_address = WdfCommonBufferGetAlignedLogicalAddress(port->rx_buffers[i]);
-		port->rx_descriptors[i].data_address = full_address.LowPart;
-		full_address = WdfCommonBufferGetAlignedVirtualAddress(port->rx_buffers[i]);
-		port->rx_descriptors[i].virtual_address = full_address.LowPart;
-	}
-	
-	// This is here because the rx_descriptor addresses need to be completed before it'll work.
-	// The number of loops needs to be the same for both.
-	for(i = 0; i < NUM_RX_DESCRIPTORS; i++)
-	{
-		full_address = WdfCommonBufferGetAlignedLogicalAddress(port->rx_descriptors[i < NUM_RX_DESCRIPTORS ? i + 1 : 0]);
-		port->rx_descriptors[i].next_descriptor = full_address.LowPart;
-	}
-	
-	port-.current_rx_desc = 0;
-	
-	return status;
+    NTSTATUS status;
+    UINT32 orig_dmaccr_value;
+    
+    return_val_if_untrue(port, 0);
+    
+    orig_dmaccr_value = fscc_port_get_register(port, 2, DMACCR_OFFSET);
+    //orig_dmaccr_value &= 0xF3000000;
+    // The old drivers call these 'enable dma' bits. Why?
+    status = fscc_port_set_register(port, 2, DMACCR_OFFSET, (orig_dmaccr_value & 0x03000000) | 0x200);
+    status |= fscc_port_set_register(port, 2, DMACCR_OFFSET, (orig_dmaccr_value & 0x03000000) | 0x20);
+    status |= fscc_port_set_register(port, 2, DMACCR_OFFSET, orig_dmaccr_value | 0x2);
+    
+    return status;
 }
-*/

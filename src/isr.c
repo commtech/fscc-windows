@@ -258,8 +258,8 @@ void iframe_worker(WDFDPC Dpc)
                get our values. The rest will be read on the next interrupt. */
             receive_length = rxcnt - (rxcnt % 4);
         }
-		receive_length = max(receive_length, 0);
-		
+        receive_length = max(receive_length, 0);
+        
         /* Leave the interrupt handler if there is no data to read. */
         if (!receive_length) {
             WdfSpinLockRelease(port->pending_iframe_spinlock);
@@ -424,24 +424,24 @@ void istream_worker(WDFDPC Dpc)
 
 void clear_oframe_worker(WDFDPC Dpc)
 {
-	struct fscc_port *port = 0;
-	NTSTATUS status = STATUS_SUCCESS;
-	WDFREQUEST request;
-	WDF_REQUEST_PARAMETERS params;
-	unsigned length = 0, clear_queue = 1;
+    struct fscc_port *port = 0;
+    NTSTATUS status = STATUS_SUCCESS;
+    WDFREQUEST request;
+    WDF_REQUEST_PARAMETERS params;
+    unsigned length = 0, clear_queue = 1;
 
-	port = WdfObjectGet_FSCC_PORT(WdfDpcGetParentObject(Dpc));
-	
-	if (port->wait_on_write) {
-		do {
-		status = WdfIoQueueRetrieveNextRequest(port->write_queue2, &request);
-		if (!NT_SUCCESS(status)) return;
-		WDF_REQUEST_PARAMETERS_INIT(&params);
-		WdfRequestGetParameters(request, &params);
-		length = (unsigned)params.Parameters.Write.Length;
-		WdfRequestCompleteWithInformation(request, status, length);
-		} while(clear_queue);
-	}
+    port = WdfObjectGet_FSCC_PORT(WdfDpcGetParentObject(Dpc));
+    
+    if (port->wait_on_write) {
+        do {
+        status = WdfIoQueueRetrieveNextRequest(port->write_queue2, &request);
+        if (!NT_SUCCESS(status)) return;
+        WDF_REQUEST_PARAMETERS_INIT(&params);
+        WdfRequestGetParameters(request, &params);
+        length = (unsigned)params.Parameters.Write.Length;
+        WdfRequestCompleteWithInformation(request, status, length);
+        } while(clear_queue);
+    }
 }
 
 void oframe_worker(WDFDPC Dpc)
@@ -474,9 +474,9 @@ void oframe_worker(WDFDPC Dpc)
     result = fscc_port_transmit_frame(port, port->pending_oframe);
 
     if (result == 2) {
-		fscc_frame_delete(port->pending_oframe);
+        fscc_frame_delete(port->pending_oframe);
         port->pending_oframe = 0;
-	}
+    }
 
     WdfSpinLockRelease(port->pending_oframe_spinlock);
     WdfSpinLockRelease(port->board_tx_spinlock);
@@ -542,10 +542,68 @@ VOID timer_handler(WDFTIMER Timer)
     if (streaming)
         WdfDpcEnqueue(port->istream_dpc);
     //else
-    //	WdfDpcEnqueue(port->iframe_dpc);
+    //    WdfDpcEnqueue(port->iframe_dpc);
 
     // Had to remove the condition check, otherwise there
     // was a chance that a request could be stuck in the 
     // queue forever if the condition changed.
     WdfDpcEnqueue(port->orequest_worker);
 }
+
+/*
+//TODO: Figure out if/what to do there's data in excess of a complete frame in a 
+// descriptor. 
+int dma_read(struct fscc_port *port)
+{
+    int status = 0;
+    size_t i;
+    size_t data_count;
+    size_t data_to_move;
+    size_t data_remaining;
+    unsigned memory_cap = 0;
+    unsigned current_memory = 0;
+    
+    // Should this be inside the loop?
+    WdfSpinLockAcquire(port->board_rx_spinlock);
+    WdfSpinLockAcquire(port->pending_iframe_spinlock);
+    i = port->current_rx_desc;
+    while(port->rx_descriptors[i].control & DMA_CSTOP)
+    {
+        current_memory = fscc_port_get_input_memory_usage(port);
+        memory_cap = fscc_port_get_input_memory_cap(port);
+        
+        if(!port->pending_iframe) port->pending_iframe = fscc_frame_new(port);
+        if(!port->pending_iframe) break;
+        
+        data_count = port->rx_descriptors.count;
+        if(port->rx_descriptors[i].control & DMA_FRAME_END)
+            data_to_move = (port->rx_descriptors[i].control & DMA_CNT) - fscc_frame_get_length(port->pending_iframe);
+        else
+            data_to_move = data_count;
+        data_remaining = data_count - data_to_move;
+        
+        if(data_to_move > (memory_cap - current_memory)) break;
+        
+        status = fscc_frame_add_data(port->pending_iframe, port->rx_descriptors[i].data_address, data_count);
+        if(!status) break;
+        
+        // if data to move != data count, there's still more in the descriptor but its for a new frame
+        if(data_to_move != data_count)
+        {
+            if(!port->pending_iframe) port->pending_iframe = fscc_frame_new(port, fscc_port_uses_dma(port));
+            if(!port->pending_iframe) break;
+        }
+        
+        port->rx_descriptors[i].control = 0x20000000;
+        i++;
+        if(i >= NUM_RX_DESCRIPTORS) i=0;
+    
+    }
+    port->current_rx_desc = i;
+    WdfSpinLockRelease(port->pending_iframe_spinlock);
+    WdfSpinLockRelease(port->board_rx_spinlock);
+    
+    return status;
+}
+
+*/

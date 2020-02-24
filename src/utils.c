@@ -78,7 +78,7 @@ unsigned is_read_only_register(unsigned offset)
 
 NTSTATUS registry_create_key(WDFKEY parent_key, PUNICODE_STRING key_str,
                              WDFKEY *key)
-{	
+{    
     NTSTATUS status;
     WDFKEY new_key;
 

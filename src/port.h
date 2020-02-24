@@ -98,7 +98,7 @@ THE SOFTWARE.
 typedef struct fscc_port {
     WDFDEVICE device;
 
-    struct fscc_card card;	
+    struct fscc_card card;    
 
     unsigned channel;
     struct fscc_registers register_storage; /* Only valid on suspend/resume */
@@ -156,17 +156,21 @@ typedef struct fscc_port {
 
     WDFINTERRUPT interrupt;
     BOOLEAN dma;
-	/*
-	WDFDMAENABLER dma_enabler;
-	struct fscc_descriptor rx_descriptors[NUM_TX_DESCRIPTORS];
-	struct fscc_descriptor tx_descriptors[NUM_RX_DESCRIPTORS];
-	
-	WDFCOMMONBUFFER *tx_buffers;
-	WDFCOMMONBUFFER *rx_buffers;
-	
-	size_t current_rx_desc;
-	size_t current_tx_desc;
-	*/
+    
+    WDFDMAENABLER dma_enabler;
+    /*
+    //struct fscc_descriptor rx_descriptors[NUM_TX_DESCRIPTORS];
+    //struct fscc_descriptor tx_descriptors[NUM_RX_DESCRIPTORS];
+    // These are declared as WDFCOMMONBUFFERS, but they can be mapped to a 'descriptor'.
+    WDFCOMMONBUFFER rx_descriptors[NUM_TX_DESCRIPTORS];
+    WDFCOMMONBUFFER tx_descriptors[NUM_RX_DESCRIPTORS];
+    
+    WDFCOMMONBUFFER tx_buffers[NUM_TX_DESCRIPTORS];
+    WDFCOMMONBUFFER rx_buffers[NUM_RX_DESCRIPTORS];
+    
+    size_t current_rx_desc;
+    size_t current_tx_desc;
+    */
 } FSCC_PORT;
 
 WDF_DECLARE_CONTEXT_TYPE(FSCC_PORT);
@@ -240,7 +244,7 @@ unsigned fscc_port_get_output_memory_usage(struct fscc_port *port);
 BOOLEAN fscc_port_has_iframes(struct fscc_port *port, unsigned lock);
 BOOLEAN fscc_port_has_oframes(struct fscc_port *port, unsigned lock);
 
-BOOLEAN fscc_port_has_dma(struct fscc_port *port);
+BOOLEAN fscc_port_uses_dma(struct fscc_port *port);
 
 UINT32 fscc_port_get_TXCNT(struct fscc_port *port);
 
@@ -254,8 +258,8 @@ void fscc_port_reset_timer(struct fscc_port *port);
 unsigned fscc_port_has_incoming_data(struct fscc_port *port);
 unsigned fscc_port_transmit_frame(struct fscc_port *port, struct fscc_frame *frame);
 
-/*
 NTSTATUS fscc_port_initialize_dma(struct fscc_port *port);
+/*
 NTSTATUS fscc_port_prepare_tx_dma(struct fscc_port *port);
 NTSTATUS fscc_port_prepare_rx_dma(struct fscc_port *port);
 */

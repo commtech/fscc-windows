@@ -29,17 +29,17 @@ THE SOFTWARE.
 // in some DDK build environments (XP).
 //
 #if !defined(TRACE_LEVEL_NONE)
-	#define TRACE_LEVEL_NONE        0
-	#define TRACE_LEVEL_CRITICAL    1
-	#define TRACE_LEVEL_FATAL       1
-	#define TRACE_LEVEL_ERROR       2
-	#define TRACE_LEVEL_WARNING     3
-	#define TRACE_LEVEL_INFORMATION 4
-	#define TRACE_LEVEL_VERBOSE     5
-	#define TRACE_LEVEL_RESERVED6   6
-	#define TRACE_LEVEL_RESERVED7   7
-	#define TRACE_LEVEL_RESERVED8   8
-	#define TRACE_LEVEL_RESERVED9   9
+    #define TRACE_LEVEL_NONE        0
+    #define TRACE_LEVEL_CRITICAL    1
+    #define TRACE_LEVEL_FATAL       1
+    #define TRACE_LEVEL_ERROR       2
+    #define TRACE_LEVEL_WARNING     3
+    #define TRACE_LEVEL_INFORMATION 4
+    #define TRACE_LEVEL_VERBOSE     5
+    #define TRACE_LEVEL_RESERVED6   6
+    #define TRACE_LEVEL_RESERVED7   7
+    #define TRACE_LEVEL_RESERVED8   8
+    #define TRACE_LEVEL_RESERVED9   9
 #endif
 
 //
@@ -47,7 +47,7 @@ THE SOFTWARE.
 //
 #define TRACE_DRIVER                0x00000001
 #define TRACE_DEBUG                 0x00000002
-#define TRACE_QUEUE					0x00000004
+#define TRACE_QUEUE                    0x00000004
 
 
 VOID
