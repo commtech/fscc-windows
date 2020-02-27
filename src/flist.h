@@ -33,6 +33,7 @@ THE SOFTWARE.
 struct fscc_flist {
     LIST_ENTRY frames;
     unsigned estimated_memory_usage;
+    LIST_ENTRY *next_to_process;
 };
 
 void fscc_flist_init(struct fscc_flist *flist);

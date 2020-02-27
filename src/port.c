@@ -579,14 +579,23 @@ NTSTATUS FsccEvtDevicePrepareHardware(WDFDEVICE Device,
     fscc_port_set_rx_multiple(port, DEFAULT_RX_MULTIPLE_VALUE);
     fscc_port_set_wait_on_write(port, DEFAULT_WAIT_ON_WRITE_VALUE);
     fscc_port_set_blocking_write(port, DEFAULT_BLOCKING_WRITE_VALUE);
+    fscc_port_set_force_fifo(port, DEFAULT_FORCE_FIFO_VALUE);
 
+    status = fscc_port_initialize_dma(port);
+    if (!NT_SUCCESS(status)) {
+        TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE, "Failed to enable DMA for CommonBuffers %!STATUS!", status);
+        return status;
+    }
+    
+    vstr = fscc_port_get_PREV(port);
+    if(vstr & 0x10) port->has_dma = 1;
+    else port->has_dma = 0;
+    
     memory_cap.input = DEFAULT_INPUT_MEMORY_CAP_VALUE;
     memory_cap.output = DEFAULT_OUTPUT_MEMORY_CAP_VALUE;
 
     fscc_port_set_memory_cap(port, &memory_cap);
-
-    port->force_fifo = DEFAULT_FORCE_FIFO_VALUE;
-
+    
     port->pending_oframe = 0;
     port->pending_iframe = 0;
 
@@ -614,19 +623,7 @@ NTSTATUS FsccEvtDevicePrepareHardware(WDFDEVICE Device,
     fscc_port_set_registers(port, &port->register_storage);
 
     fscc_port_set_clock_bits(port, clock_bits);
-    
-    // We do this regardless of FSCC or SuperFSCC to allow for CommonBuffers
-    status = fscc_port_initialize_dma(port);
-    if (!NT_SUCCESS(status)) {
-        TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE,
-            "Failed to enable DMA for CommonBuffers %!STATUS!", status);
-        return status;
-    }
-    
-    vstr = fscc_port_get_PREV(port);
-    if(vstr & 0x10) port->dma = 1;
-    else port->dma = 0;
-    
+        
     fscc_port_purge_rx(port);
     fscc_port_purge_tx(port);
   
@@ -1091,8 +1088,7 @@ VOID FsccEvtIoDeviceControl(IN WDFQUEUE Queue, IN WDFREQUEST Request,
 
         bytes_returned = sizeof(*blocking_write);
     }
-
-                                 break;
+    break;
 
     case FSCC_ENABLE_BLOCKING_WRITE:
         fscc_port_set_blocking_write(port, TRUE);
@@ -1100,6 +1096,32 @@ VOID FsccEvtIoDeviceControl(IN WDFQUEUE Queue, IN WDFREQUEST Request,
 
     case FSCC_DISABLE_BLOCKING_WRITE:
         fscc_port_set_blocking_write(port, FALSE);
+        break;
+    case FSCC_ENABLE_FORCE_FIFO:
+        fscc_port_set_force_fifo(port, TRUE);
+        break;
+
+    case FSCC_DISABLE_FORCE_FIFO:
+        fscc_port_set_force_fifo(port, FALSE);
+        break;
+
+    case FSCC_GET_FORCE_FIFO: {
+            BOOLEAN *force_fifo = 0;
+
+            status = WdfRequestRetrieveOutputBuffer(Request,
+                        sizeof(*force_fifo), (PVOID *)&force_fifo,
+                        NULL);
+            if (!NT_SUCCESS(status)) {
+                TraceEvents(TRACE_LEVEL_WARNING, TRACE_DEVICE,
+                    "WdfRequestRetrieveOutputBuffer failed %!STATUS!", status);
+                break;
+            }
+
+            *force_fifo = fscc_port_get_force_fifo(port);
+
+            bytes_returned = sizeof(*force_fifo);
+        }
+
         break;
 
     default:
@@ -1540,7 +1562,7 @@ NTSTATUS fscc_port_execute_RRES(struct fscc_port *port)
     return fscc_port_set_register(port, 0, CMDR_OFFSET, 0x00020000);
 }
 
-//TODO: Call the other purge for DMA?
+// Apparently this should only done with CCR0:RECD=1
 NTSTATUS fscc_port_purge_rx(struct fscc_port *port)
 {
     NTSTATUS status;
@@ -1551,9 +1573,9 @@ NTSTATUS fscc_port_purge_rx(struct fscc_port *port)
                 "Purging receive data");
 
     WdfSpinLockAcquire(port->board_rx_spinlock);
+    if(fscc_port_uses_dma(port)) status = fscc_port_execute_RSTR(port);
     status = fscc_port_execute_RRES(port);
     WdfSpinLockRelease(port->board_rx_spinlock);
-
     if (!NT_SUCCESS(status)) {
         TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE,
             "fscc_port_execute_RRES failed %!STATUS!", status);
@@ -1573,17 +1595,21 @@ NTSTATUS fscc_port_purge_rx(struct fscc_port *port)
         fscc_frame_delete(port->pending_iframe);
         port->pending_iframe = 0;
     }
+    
     WdfSpinLockRelease(port->pending_iframe_spinlock);
 
     WdfIoQueuePurgeSynchronously(port->read_queue);
     WdfIoQueuePurgeSynchronously(port->read_queue2);
     WdfIoQueueStart(port->read_queue);
     WdfIoQueueStart(port->read_queue2);
-
+    
+    // Write the top of the rx_dma_desc to the appropriate registers
+    if(fscc_port_uses_dma(port)) fscc_port_execute_GO_R(port);
+        
     return STATUS_SUCCESS;
 }
 
-//TODO: Call the other purge for DMA?
+// Apparently this should only be done after ALLS
 NTSTATUS fscc_port_purge_tx(struct fscc_port *port)
 {
     NTSTATUS status;
@@ -1594,9 +1620,9 @@ NTSTATUS fscc_port_purge_tx(struct fscc_port *port)
                 "Purging transmit data");
 
     WdfSpinLockAcquire(port->board_tx_spinlock);
+    if(fscc_port_uses_dma(port)) fscc_port_execute_RSTT(port);
     status = fscc_port_execute_TRES(port);
     WdfSpinLockRelease(port->board_tx_spinlock);
-
     if (!NT_SUCCESS(status)) {
         TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE,
             "fscc_port_execute_TRES failed %!STATUS!", status);
@@ -1619,6 +1645,8 @@ NTSTATUS fscc_port_purge_tx(struct fscc_port *port)
     WdfIoQueueStart(port->write_queue);
     WdfIoQueueStart(port->write_queue2);
 
+    // Clear the TX base buffer desc?
+    
     return STATUS_SUCCESS;
 }
 
@@ -1822,8 +1850,7 @@ unsigned fscc_port_get_output_memory_cap(struct fscc_port *port)
     return port->memory_cap.output;
 }
 
-//TODO: DMA, for receive, should we set this here?
-void fscc_port_set_memory_cap(struct fscc_port *port,  fscc_memory_cap *value)
+void fscc_port_set_memory_cap(struct fscc_port *port, struct fscc_memory_cap *value)
 {
     return_if_untrue(port);
     return_if_untrue(value);
@@ -1857,6 +1884,13 @@ void fscc_port_set_memory_cap(struct fscc_port *port,  fscc_memory_cap *value)
 
         port->memory_cap.output = value->output;
     }
+    
+    /*
+    if(port_uses_dma(port)) reinitialize_rx_descriptors
+    // Destroy previous buffers, issue STOP_R
+    // Allocate a single CommonBuffer of memory_cap.input size
+    // Allocate a single CommonBuffer o
+    */
 }
 
 #define STRB_BASE 0x00000008
@@ -2027,7 +2061,7 @@ BOOLEAN fscc_port_uses_dma(struct fscc_port *port)
 
     if (port->force_fifo) return FALSE;
 
-    return port->dma;
+    return port->has_dma;
 }
 
 UINT32 fscc_port_get_TXCNT(struct fscc_port *port)
@@ -2268,6 +2302,30 @@ unsigned fscc_port_transmit_frame(struct fscc_port *port, struct fscc_frame *fra
     return result;
 }
 
+void fscc_port_set_force_fifo(struct fscc_port *port, BOOLEAN value)
+{
+    return_if_untrue(port);
+
+    if (port->force_fifo != value) {
+        TraceEvents(TRACE_LEVEL_INFORMATION, TRACE_DEVICE,
+                    "Force FIFO %i => %i",
+                    port->force_fifo, value);
+    }
+    else {
+        TraceEvents(TRACE_LEVEL_VERBOSE, TRACE_DEVICE,
+                    "Force FIFO = %i", value);
+    }
+
+    port->force_fifo = (value) ? TRUE : FALSE;
+}
+
+BOOLEAN fscc_port_get_force_fifo(struct fscc_port *port)
+{
+    return_val_if_untrue(port, 0);
+
+    return port->force_fifo;
+}
+
 // This is done regardless of if there's DMA or not, to allow CommonBuffer usage.
 NTSTATUS fscc_port_initialize_dma(struct fscc_port *port)
 {
@@ -2292,33 +2350,95 @@ NTSTATUS fscc_port_initialize_dma(struct fscc_port *port)
 NTSTATUS fscc_port_execute_RSTR(struct fscc_port *port)
 {
     NTSTATUS status;
-    UINT32 orig_dmaccr_value;
     
     return_val_if_untrue(port, 0);
-
-    orig_dmaccr_value = fscc_port_get_register(port, 2, DMACCR_OFFSET);
-    //orig_dmaccr_value &= 0xF3000000;
-    // The old drivers call these 'enable dma' bits. Why?
-    status = fscc_port_set_register(port, 2, DMACCR_OFFSET, (orig_dmaccr_value & 0x03000000) | 0x100);
-    status |= fscc_port_set_register(port, 2, DMACCR_OFFSET, (orig_dmaccr_value & 0x03000000) | 0x10);
-    status |= fscc_port_set_register(port, 2, DMACCR_OFFSET, orig_dmaccr_value | 0x1);
+    status  = fscc_port_set_register(port, 2, DMACCR_OFFSET, 0x100);
+    status |= fscc_port_set_register(port, 2, DMACCR_OFFSET, 0x10);
     
     return status;
+}
+
+NTSTATUS fscc_port_execute_GO_R(struct fscc_port *port)
+{
+    return fscc_port_set_register(port, 2, DMACCR_OFFSET, 0x1);
 }
 
 NTSTATUS fscc_port_execute_RSTT(struct fscc_port *port)
 {
     NTSTATUS status;
-    UINT32 orig_dmaccr_value;
     
     return_val_if_untrue(port, 0);
-    
-    orig_dmaccr_value = fscc_port_get_register(port, 2, DMACCR_OFFSET);
-    //orig_dmaccr_value &= 0xF3000000;
-    // The old drivers call these 'enable dma' bits. Why?
-    status = fscc_port_set_register(port, 2, DMACCR_OFFSET, (orig_dmaccr_value & 0x03000000) | 0x200);
-    status |= fscc_port_set_register(port, 2, DMACCR_OFFSET, (orig_dmaccr_value & 0x03000000) | 0x20);
-    status |= fscc_port_set_register(port, 2, DMACCR_OFFSET, orig_dmaccr_value | 0x2);
+    status  = fscc_port_set_register(port, 2, DMACCR_OFFSET, 0x200);
+    status |= fscc_port_set_register(port, 2, DMACCR_OFFSET, 0x20);
     
     return status;
 }
+
+NTSTATUS fscc_port_execute_GO_T(struct fscc_port *port)
+{
+    return fscc_port_set_register(port, 2, DMACCR_OFFSET, 0x2);
+}
+/*
+Doing RX DMA means that I need to take the flist, and fill it with frames of COMMON_FRAME_SIZE.
+Then, I set every single one to have the HI bit enabled
+
+*/
+
+
+/*
+NTSTATUS fscc_port_prepare_rx_dma(struct fscc_port *port)
+{
+    NTSTATUS status;
+    PHYSICAL_ADDRESS full_address;
+    int i;
+    int num_rx_desc;
+    int buffer_size;
+    
+    PAGED_CODE();
+    
+    if(num_rx_desc < 2) return STATUS_BUFFER_TOO_SMALL;
+    num_rx_desc = memcap.input / port->common_frame_size;
+    // Magic math forces us to be 4 byte aligned.
+    // Actually, do this when COMMON_FRAME_SIZE is set.
+    buffer_size = (port->common_frame_size + 3) & ~0x3;
+    // These need their own function.
+    if(port->rx_descriptors) free(port->rx_descriptors);
+    if(port->rx_buffers) free(port->rx_buffers);
+    
+    port->rx_descriptors = ()
+    for(i = 0; i < num_rx_desc; i++)
+    {
+        status = WdfCommonBufferCreate(port->dma_enabler, sizeof(struct fscc_descriptor), WDF_NO_OBJECT_ATTRIBUTES, &port->rx_descriptors[i]);
+        if(!NT_SUCCESS(status)) {
+            port->has_dma = 0;
+            return status;
+        }
+        status = WdfCommonBufferCreate(port->dma_enabler, RX_BUFFER_SIZE, WDF_NO_OBJECT_ATTRIBUTES, &port->rx_buffers[i]);
+        if(!NT_SUCCESS(status)) {
+            port->has_dma = 0;
+            return status;
+        }
+        RtlZeroMemory(port->rx_descriptors[i], sizeof(struct fscc_descriptor));
+        RtlZeroMemory(port->rx_buffers[i], RX_BUFFER_SIZE);
+        port->rx_descriptors[i].control = 0;
+        port->rx_descriptors[i].data_count = 0;
+        full_address = WdfCommonBufferGetAlignedLogicalAddress(port->rx_buffers[i]);
+        port->rx_descriptors[i].data_address = full_address.LowPart;
+        full_address = WdfCommonBufferGetAlignedVirtualAddress(port->rx_buffers[i]);
+        port->rx_descriptors[i].virtual_address = full_address.LowPart;
+    }
+    
+    // This is here because the rx_descriptor addresses need to be completed before it'll work.
+    // The number of loops needs to be the same for both.
+    for(i = 0; i < num_rx_desc; i++)
+    {
+        full_address = WdfCommonBufferGetAlignedLogicalAddress(port->rx_descriptors[i < num_rx_desc ? i + 1 : 0]);
+        port->rx_descriptors[i].next_descriptor = full_address.LowPart;
+    }
+    
+    // Write the first descriptors address to the base rx descriptor address
+    port->current_rx_desc = 0;
+    
+    return status;
+}
+*/

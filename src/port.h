@@ -108,10 +108,10 @@ typedef struct fscc_port {
     BOOLEAN rx_multiple;
     BOOLEAN wait_on_write;
     BOOLEAN blocking_write;
+    BOOLEAN force_fifo;
     int tx_modifiers;
     unsigned last_isr_value;
     unsigned open_counter;
-    unsigned force_fifo;
     struct fscc_memory_cap memory_cap;
 
     WDFQUEUE write_queue;
@@ -155,18 +155,18 @@ typedef struct fscc_port {
 
 
     WDFINTERRUPT interrupt;
-    BOOLEAN dma;
+    BOOLEAN has_dma;
     
     WDFDMAENABLER dma_enabler;
     /*
     //struct fscc_descriptor rx_descriptors[NUM_TX_DESCRIPTORS];
     //struct fscc_descriptor tx_descriptors[NUM_RX_DESCRIPTORS];
     // These are declared as WDFCOMMONBUFFERS, but they can be mapped to a 'descriptor'.
-    WDFCOMMONBUFFER rx_descriptors[NUM_TX_DESCRIPTORS];
-    WDFCOMMONBUFFER tx_descriptors[NUM_RX_DESCRIPTORS];
+    WDFCOMMONBUFFER **rx_descriptors;
+    WDFCOMMONBUFFER **tx_descriptors;
     
-    WDFCOMMONBUFFER tx_buffers[NUM_TX_DESCRIPTORS];
-    WDFCOMMONBUFFER rx_buffers[NUM_RX_DESCRIPTORS];
+    unsigned char **tx_buffers;
+    unsigned char **rx_buffers;
     
     size_t current_rx_desc;
     size_t current_tx_desc;
@@ -213,11 +213,14 @@ BOOLEAN fscc_port_get_append_timestamp(struct fscc_port *port);
 void fscc_port_set_ignore_timeout(struct fscc_port *port,
                                   BOOLEAN ignore_timeout);
 BOOLEAN fscc_port_get_ignore_timeout(struct fscc_port *port);
-void fscc_port_set_rx_multiple(struct fscc_port *port,
-                                  BOOLEAN rx_multiple);
+void fscc_port_set_rx_multiple(struct fscc_port *port, BOOLEAN rx_multiple);
+
 BOOLEAN fscc_port_get_rx_multiple(struct fscc_port *port);
-void fscc_port_set_wait_on_write(struct fscc_port *port,
-                                  BOOLEAN wait_on_write);
+void fscc_port_set_wait_on_write(struct fscc_port *port, BOOLEAN wait_on_write);
+
+BOOLEAN fscc_port_get_force_fifo(struct fscc_port *port);
+void fscc_port_set_force_fifo(struct fscc_port *port, BOOLEAN force_fifo);
+
 BOOLEAN fscc_port_get_wait_on_write(struct fscc_port *port);
 void fscc_port_set_blocking_write(struct fscc_port *port,
     BOOLEAN blocking);
@@ -259,6 +262,10 @@ unsigned fscc_port_has_incoming_data(struct fscc_port *port);
 unsigned fscc_port_transmit_frame(struct fscc_port *port, struct fscc_frame *frame);
 
 NTSTATUS fscc_port_initialize_dma(struct fscc_port *port);
+NTSTATUS fscc_port_execute_GO_T(struct fscc_port *port);
+NTSTATUS fscc_port_execute_GO_R(struct fscc_port *port);
+NTSTATUS fscc_port_execute_RSTT(struct fscc_port *port);
+NTSTATUS fscc_port_execute_RSTR(struct fscc_port *port);
 /*
 NTSTATUS fscc_port_prepare_tx_dma(struct fscc_port *port);
 NTSTATUS fscc_port_prepare_rx_dma(struct fscc_port *port);

@@ -30,6 +30,7 @@ struct fscc_descriptor {
     volatile UINT32 data_address;
     volatile UINT32 data_count;
     volatile UINT32 next_descriptor;
+    volatile UINT32 virtual_address;
 };
 
 #endif

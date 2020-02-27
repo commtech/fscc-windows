@@ -32,16 +32,15 @@ THE SOFTWARE.
 
 typedef struct fscc_frame {
     LIST_ENTRY list;
-    unsigned dma_initialized;
+    WDFCOMMONBUFFER dma_buffer;
     unsigned char *buffer;
+    WDFCOMMONBUFFER desc_buffer;
+    struct fscc_descriptor *desc;
+    UINT32 logical_desc;
     unsigned buffer_size;
     unsigned number;
     LARGE_INTEGER timestamp;
     struct fscc_port *port;
-    UINT32 logical_desc;
-    struct fscc_descriptor *desc;
-    WDFCOMMONBUFFER dma_buffer;
-    WDFCOMMONBUFFER desc_buffer;
 } FSCC_FRAME;
 
 struct fscc_frame *fscc_frame_new(struct fscc_port *port);

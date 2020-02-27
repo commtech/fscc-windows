@@ -57,7 +57,7 @@ struct fscc_frame *fscc_frame_new(struct fscc_port *port)
     physadd = WdfCommonBufferGetAlignedLogicalAddress(frame->desc_buffer);
     // Our DMA option forces a 32-bit address, so we can discard the high part.
     frame->logical_desc = physadd.LowPart;
-    frame->desc->control = 0x40000000;
+    frame->desc->control = 0;
     frame->desc->data_count = 0;
     
     frame->dma_buffer = 0;
@@ -241,4 +241,3 @@ int fscc_frame_setup_descriptors(struct fscc_frame *frame)
 
     return 1;
 }
-
