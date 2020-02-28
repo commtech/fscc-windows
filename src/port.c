@@ -581,7 +581,7 @@ NTSTATUS FsccEvtDevicePrepareHardware(WDFDEVICE Device,
     fscc_port_set_blocking_write(port, DEFAULT_BLOCKING_WRITE_VALUE);
     fscc_port_set_force_fifo(port, DEFAULT_FORCE_FIFO_VALUE);
 
-    status = fscc_port_initialize_dma(port);
+    status = fscc_dma_initialize(port);
     if (!NT_SUCCESS(status)) {
         TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE, "Failed to enable DMA for CommonBuffers %!STATUS!", status);
         return status;
@@ -1562,7 +1562,7 @@ NTSTATUS fscc_port_execute_RRES(struct fscc_port *port)
     return fscc_port_set_register(port, 0, CMDR_OFFSET, 0x00020000);
 }
 
-// Apparently this should only done with CCR0:RECD=1
+// TODO Apparently this should only done with CCR0:RECD=1
 NTSTATUS fscc_port_purge_rx(struct fscc_port *port)
 {
     NTSTATUS status;
@@ -1609,7 +1609,7 @@ NTSTATUS fscc_port_purge_rx(struct fscc_port *port)
     return STATUS_SUCCESS;
 }
 
-// Apparently this should only be done after ALLS
+// TODO Apparently this should only be done after ALLS
 NTSTATUS fscc_port_purge_tx(struct fscc_port *port)
 {
     NTSTATUS status;
@@ -1860,6 +1860,10 @@ void fscc_port_set_memory_cap(struct fscc_port *port, struct fscc_memory_cap *va
             TraceEvents(TRACE_LEVEL_INFORMATION, TRACE_DEVICE,
                         "Memory cap (input) %i => %i",
                         port->memory_cap.input, value->input);
+            port->memory_cap.input = value->input;
+            WdfSpinLockAcquire(port->board_rx_spinlock);
+            fscc_dma_rebuild_rx(port);
+            WdfSpinLockRelease(port->board_rx_spinlock);
         }
         else {
             TraceEvents(TRACE_LEVEL_VERBOSE, TRACE_DEVICE,
@@ -1867,7 +1871,6 @@ void fscc_port_set_memory_cap(struct fscc_port *port, struct fscc_memory_cap *va
                         value->input);
         }
 
-        port->memory_cap.input = value->input;
     }
 
     if (value->output >= 0) {
@@ -1875,22 +1878,17 @@ void fscc_port_set_memory_cap(struct fscc_port *port, struct fscc_memory_cap *va
             TraceEvents(TRACE_LEVEL_INFORMATION, TRACE_DEVICE,
                         "Memory cap (output) %i => %i",
                         port->memory_cap.output, value->output);
+            port->memory_cap.output = value->output;
+            WdfSpinLockAcquire(port->board_tx_spinlock);
+            fscc_dma_rebuild_tx(port);
+            WdfSpinLockRelease(port->board_tx_spinlock);
         }
         else {
             TraceEvents(TRACE_LEVEL_VERBOSE, TRACE_DEVICE,
                         "Memory cap (output) = %i",
                         value->output);
         }
-
-        port->memory_cap.output = value->output;
     }
-    
-    /*
-    if(port_uses_dma(port)) reinitialize_rx_descriptors
-    // Destroy previous buffers, issue STOP_R
-    // Allocate a single CommonBuffer of memory_cap.input size
-    // Allocate a single CommonBuffer o
-    */
 }
 
 #define STRB_BASE 0x00000008
@@ -2167,7 +2165,6 @@ unsigned fscc_port_has_incoming_data(struct fscc_port *port)
     return status;
 }
 
-
 NTSTATUS fscc_port_get_port_num(struct fscc_port *port, unsigned *port_num)
 {
     NTSTATUS status;
@@ -2326,27 +2323,6 @@ BOOLEAN fscc_port_get_force_fifo(struct fscc_port *port)
     return port->force_fifo;
 }
 
-// This is done regardless of if there's DMA or not, to allow CommonBuffer usage.
-NTSTATUS fscc_port_initialize_dma(struct fscc_port *port)
-{
-    NTSTATUS status;
-    WDF_OBJECT_ATTRIBUTES attributes;
-    WDF_DMA_ENABLER_CONFIG dma_config;
-
-    PAGED_CODE();
-
-    // The registers are 4 bytes.
-    WdfDeviceSetAlignmentRequirement(port->device, FILE_LONG_ALIGNMENT);
-    // Technically the descriptors allowed for 536870911 (0x1FFFFFFF) but rounding might be best.
-    WDF_DMA_ENABLER_CONFIG_INIT(&dma_config, WdfDmaProfilePacket, 536870000);
-    status = WdfDmaEnablerCreate(port->device, &dma_config, WDF_NO_OBJECT_ATTRIBUTES, &port->dma_enabler);
-    if(!NT_SUCCESS(status)) {
-        TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE, "WdfDmaEnablerCreate failed: %!STATUS!", status);
-        return status;
-    }
-    return status;
-}
-
 NTSTATUS fscc_port_execute_RSTR(struct fscc_port *port)
 {
     NTSTATUS status;
@@ -2378,67 +2354,29 @@ NTSTATUS fscc_port_execute_GO_T(struct fscc_port *port)
 {
     return fscc_port_set_register(port, 2, DMACCR_OFFSET, 0x2);
 }
-/*
-Doing RX DMA means that I need to take the flist, and fill it with frames of COMMON_FRAME_SIZE.
-Then, I set every single one to have the HI bit enabled
 
-*/
-
-
-/*
-NTSTATUS fscc_port_prepare_rx_dma(struct fscc_port *port)
+NTSTATUS fscc_port_set_common_frame_size(struct fscc_port *port, int size)
 {
-    NTSTATUS status;
-    PHYSICAL_ADDRESS full_address;
-    int i;
-    int num_rx_desc;
-    int buffer_size;
+    int real_size;
     
-    PAGED_CODE();
+    return_val_if_untrue(port, 0);
+    return_val_if_untrue(size > 0, 0);
     
-    if(num_rx_desc < 2) return STATUS_BUFFER_TOO_SMALL;
-    num_rx_desc = memcap.input / port->common_frame_size;
-    // Magic math forces us to be 4 byte aligned.
-    // Actually, do this when COMMON_FRAME_SIZE is set.
-    buffer_size = (port->common_frame_size + 3) & ~0x3;
-    // These need their own function.
-    if(port->rx_descriptors) free(port->rx_descriptors);
-    if(port->rx_buffers) free(port->rx_buffers);
-    
-    port->rx_descriptors = ()
-    for(i = 0; i < num_rx_desc; i++)
-    {
-        status = WdfCommonBufferCreate(port->dma_enabler, sizeof(struct fscc_descriptor), WDF_NO_OBJECT_ATTRIBUTES, &port->rx_descriptors[i]);
-        if(!NT_SUCCESS(status)) {
-            port->has_dma = 0;
-            return status;
-        }
-        status = WdfCommonBufferCreate(port->dma_enabler, RX_BUFFER_SIZE, WDF_NO_OBJECT_ATTRIBUTES, &port->rx_buffers[i]);
-        if(!NT_SUCCESS(status)) {
-            port->has_dma = 0;
-            return status;
-        }
-        RtlZeroMemory(port->rx_descriptors[i], sizeof(struct fscc_descriptor));
-        RtlZeroMemory(port->rx_buffers[i], RX_BUFFER_SIZE);
-        port->rx_descriptors[i].control = 0;
-        port->rx_descriptors[i].data_count = 0;
-        full_address = WdfCommonBufferGetAlignedLogicalAddress(port->rx_buffers[i]);
-        port->rx_descriptors[i].data_address = full_address.LowPart;
-        full_address = WdfCommonBufferGetAlignedVirtualAddress(port->rx_buffers[i]);
-        port->rx_descriptors[i].virtual_address = full_address.LowPart;
+    // Magic math to force it up to 4 byte aligned.
+    real_size = (size + 3) & ~0x3;
+    if (real_size != port->common_frame_size) {
+        TraceEvents(TRACE_LEVEL_INFORMATION, TRACE_DEVICE, "Common frame size %i => %i", port->common_frame_size, real_size);
+        port->common_frame_size = real_size;
+        WdfSpinLockAcquire(port->board_rx_spinlock);
+        fscc_dma_rebuild_rx(port);
+        WdfSpinLockRelease(port->board_rx_spinlock);
+        WdfSpinLockAcquire(port->board_tx_spinlock);
+        fscc_dma_rebuild_tx(port);
+        WdfSpinLockRelease(port->board_tx_spinlock);
+    }
+    else {
+        TraceEvents(TRACE_LEVEL_VERBOSE, TRACE_DEVICE, "Common frame size = %i", real_size);
     }
     
-    // This is here because the rx_descriptor addresses need to be completed before it'll work.
-    // The number of loops needs to be the same for both.
-    for(i = 0; i < num_rx_desc; i++)
-    {
-        full_address = WdfCommonBufferGetAlignedLogicalAddress(port->rx_descriptors[i < num_rx_desc ? i + 1 : 0]);
-        port->rx_descriptors[i].next_descriptor = full_address.LowPart;
-    }
-    
-    // Write the first descriptors address to the base rx descriptor address
-    port->current_rx_desc = 0;
-    
-    return status;
+    return STATUS_SUCCESS;
 }
-*/
