@@ -580,6 +580,7 @@ NTSTATUS FsccEvtDevicePrepareHardware(WDFDEVICE Device,
     fscc_port_set_wait_on_write(port, DEFAULT_WAIT_ON_WRITE_VALUE);
     fscc_port_set_blocking_write(port, DEFAULT_BLOCKING_WRITE_VALUE);
     fscc_port_set_force_fifo(port, DEFAULT_FORCE_FIFO_VALUE);
+    
 
     status = fscc_dma_initialize(port);
     if (!NT_SUCCESS(status)) {
@@ -591,6 +592,7 @@ NTSTATUS FsccEvtDevicePrepareHardware(WDFDEVICE Device,
     if(vstr & 0x10) port->has_dma = 1;
     else port->has_dma = 0;
     
+    port->common_frame_size = DEFAULT_COMMON_FRAME_SIZE;
     memory_cap.input = DEFAULT_INPUT_MEMORY_CAP_VALUE;
     memory_cap.output = DEFAULT_OUTPUT_MEMORY_CAP_VALUE;
 
@@ -1344,6 +1346,7 @@ VOID FsccEvtIoWrite(IN WDFQUEUE Queue, IN WDFREQUEST Request, IN size_t Length)
         return;
     }
 
+    // Do something different for DMA.
     frame = fscc_frame_new(port);
 
     if (!frame) {
