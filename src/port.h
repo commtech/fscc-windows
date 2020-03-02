@@ -157,20 +157,14 @@ typedef struct fscc_port {
     WDFINTERRUPT interrupt;
     BOOLEAN has_dma;
     
+    unsigned common_frame_size;
     WDFDMAENABLER dma_enabler;
-    /*
-    //struct fscc_descriptor rx_descriptors[NUM_TX_DESCRIPTORS];
-    //struct fscc_descriptor tx_descriptors[NUM_RX_DESCRIPTORS];
-    // These are declared as WDFCOMMONBUFFERS, but they can be mapped to a 'descriptor'.
-    WDFCOMMONBUFFER **rx_descriptors;
-    WDFCOMMONBUFFER **tx_descriptors;
-    
-    unsigned char **tx_buffers;
-    unsigned char **rx_buffers;
-    
-    size_t current_rx_desc;
-    size_t current_tx_desc;
-    */
+    struct dma_frame **rx_descriptors;
+    struct dma_frame **tx_descriptors;
+    unsigned num_rx_desc;
+    unsigned num_tx_desc;
+    unsigned current_rx_desc;
+    unsigned current_tx_desc;
 } FSCC_PORT;
 
 WDF_DECLARE_CONTEXT_TYPE(FSCC_PORT);
