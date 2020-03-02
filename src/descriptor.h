@@ -24,13 +24,28 @@ THE SOFTWARE.
 #ifndef FSCC_DESCRIPTOR
 #define FSCC_DESCRIPTOR
 
+#define DESC_FE_BIT 0x80000000
+#define DESC_CSTOP_BIT 0x40000000
+#define DESC_HI_BIT 0x20000000
 #define DMA_MAX_LENGTH 0x1fffffff
+
 struct fscc_descriptor {
     volatile UINT32 control;
     volatile UINT32 data_address;
     volatile UINT32 data_count;
     volatile UINT32 next_descriptor;
-    volatile UINT32 virtual_address;
 };
+
+typedef struct dma_frame {
+    WDFCOMMONBUFFER desc_buffer;
+    struct fscc_descriptor *desc;
+    UINT32 desc_physical_address;
+    WDFCOMMONBUFFER data_buffer;
+    unsigned char *buffer;
+} DMA_FRAME;
+
+NTSTATUS fscc_dma_initialize(struct fscc_port *port);
+NTSTATUS fscc_dma_rebuild_rx(struct fscc_port *port);
+NTSTATUS fscc_dma_rebuild_tx(struct fscc_port *port);
 
 #endif
