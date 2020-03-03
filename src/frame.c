@@ -34,17 +34,13 @@ THE SOFTWARE.
 
 static unsigned frame_counter = 1;
 
-int fscc_frame_update_buffer_size(struct fscc_frame *frame, unsigned size);
-
 struct fscc_frame *fscc_frame_new(struct fscc_port *port)
 {
     struct fscc_frame *frame = 0;
     NTSTATUS status;
     PHYSICAL_ADDRESS physadd;
 
-    frame = (struct fscc_frame *)ExAllocatePoolWithTag(NonPagedPool,
-                                     sizeof(*frame), 'marF');
-
+    frame = (struct fscc_frame *)ExAllocatePoolWithTag(NonPagedPool, sizeof(*frame), 'marF');
     if (frame == NULL)
         return 0;
     
@@ -55,10 +51,9 @@ struct fscc_frame *fscc_frame_new(struct fscc_port *port)
     }
     frame->desc = WdfCommonBufferGetAlignedVirtualAddress(frame->desc_buffer);
     physadd = WdfCommonBufferGetAlignedLogicalAddress(frame->desc_buffer);
+    RtlZeroMemory(frame->desc, sizeof(struct fscc_descriptor));
     // Our DMA option forces a 32-bit address, so we can discard the high part.
     frame->logical_desc = physadd.LowPart;
-    frame->desc->control = 0;
-    frame->desc->data_count = 0;
     
     frame->dma_buffer = 0;
     frame->buffer_size = 0;
@@ -188,7 +183,6 @@ void fscc_frame_clear(struct fscc_frame *frame)
     fscc_frame_update_buffer_size(frame, 0);
 }
 
-
 int fscc_frame_update_buffer_size(struct fscc_frame *frame, unsigned size)
 {
     WDFCOMMONBUFFER new_dma_buffer;
@@ -214,7 +208,8 @@ int fscc_frame_update_buffer_size(struct fscc_frame *frame, unsigned size)
     }
     
     new_buffer = WdfCommonBufferGetAlignedVirtualAddress(new_dma_buffer);
-    memset(new_buffer, 0, size);
+    //memset(new_buffer, 0, size);
+    RtlZeroMemory(new_buffer, size);
 
     if (frame->buffer) {
         if (frame->desc->data_count) {

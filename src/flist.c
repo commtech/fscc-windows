@@ -21,6 +21,13 @@ THE SOFTWARE.
 */
 
 
+/*
+Design notes: I'm effectively having to recreate the 'Doubly Linked List' design
+that is already being used inside flist. The reason is that the descriptors need
+physical addresses of the next descriptor. So every add/delete/clear must also
+modify the descriptor of the appropriate frame.
+*/
+
 #include "flist.h"
 #include "utils.h" /* return_{val_}if_true */
 #include "frame.h"
@@ -49,6 +56,8 @@ void fscc_flist_add_frame(struct fscc_flist *flist, struct fscc_frame *frame)
 {
     InsertTailList(&flist->frames, &frame->list);
     if(flist->next_to_process == 0) flist->next_to_process = frame->list.Flink;
+    // TODO set the .Blink frame's descriptor to point to the new descriptor
+    // and set this descriptor to point to the Head() descriptor
 
     flist->estimated_memory_usage += fscc_frame_get_buffer_size(frame);
 }

@@ -42,6 +42,7 @@ NTSTATUS fscc_dma_create_rx_desc(struct fscc_port *port);
 NTSTATUS fscc_dma_create_tx_desc(struct fscc_port *port);
 NTSTATUS fscc_dma_create_rx_buffers(struct fscc_port *port);
 NTSTATUS fscc_dma_create_tx_buffers(struct fscc_port *port);
+int fscc_dma_rx_next_frame_size(struct fscc_port *port);
 
 NTSTATUS fscc_dma_initialize(struct fscc_port *port)
 {
@@ -57,6 +58,7 @@ NTSTATUS fscc_dma_initialize(struct fscc_port *port)
     WDF_DMA_ENABLER_CONFIG_INIT(&dma_config, WdfDmaProfilePacket, 536870000);
     status = WdfDmaEnablerCreate(port->device, &dma_config, WDF_NO_OBJECT_ATTRIBUTES, &port->dma_enabler);
     if(!NT_SUCCESS(status)) {
+        port->has_dma = 0;
         TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE, "WdfDmaEnablerCreate failed: %!STATUS!", status);
         return status;
     }
@@ -167,7 +169,6 @@ NTSTATUS fscc_dma_add_write_data(struct fscc_port *port, char *data_buffer, unsi
     }
     
     // Now we do it.
-    // Spinlock this stuff?
     current_desc = port->current_tx_desc;
     for(i=0;i<required_descriptors;i++)
     {
@@ -181,7 +182,6 @@ NTSTATUS fscc_dma_add_write_data(struct fscc_port *port, char *data_buffer, unsi
     }
     port->current_tx_desc = current_desc+1;
     if(port->current_tx_desc >= port->num_tx_desc-1) port->current_tx_desc = 0;
-    // Done with spinlock?
     
     return STATUS_SUCCESS;
 }
@@ -192,7 +192,6 @@ int fscc_dma_get_stream_data(struct fscc_port *port, char *data_buffer, size_t b
     
     bytes_to_move = 0;
     
-    // Spinlock probably
     current_desc = port->current_rx_desc;
     for(*out_length=0;*out_length<buffer_size;)
     {
@@ -215,24 +214,8 @@ int fscc_dma_get_stream_data(struct fscc_port *port, char *data_buffer, size_t b
         *out_length += bytes_to_move;
     }
     port->current_rx_desc = current_desc;
-    // Spinlock done
     
     return STATUS_SUCCESS;
-}
-
-int fscc_dma_rx_next_frame_size(struct fscc_port *port)
-{
-    size_t frame_size = 0;
-    unsigned current_desc, i;
-    
-    current_desc = port->current_rx_desc;
-    for(i = 0; i < port->num_rx_desc; i++)
-    {
-        if((port->rx_descriptors[current_desc]->desc->control&DESC_CSTOP_BIT)==DESC_CSTOP_BIT) return port->rx_descriptors[current_desc]->desc->control&DMA_MAX_LENGTH;
-        current_desc++;
-        if(current_desc >= port->num_rx_desc-1) current_desc = 0;
-    }
-    return 0;
 }
 
 int fscc_dma_get_frame_data(struct fscc_port *port, char *data_buffer, size_t buffer_size, size_t *out_length)
@@ -243,7 +226,6 @@ int fscc_dma_get_frame_data(struct fscc_port *port, char *data_buffer, size_t bu
     if(bytes_in_frame > buffer_size) return STATUS_BUFFER_TOO_SMALL;
     if(bytes_in_frame == 0) return STATUS_UNSUCCESSFUL;
     
-    //spinlock?
     *out_length = 0;
     current_desc = port->current_rx_desc;
     for(*out_length=0;*out_length<buffer_size;)
@@ -413,3 +395,17 @@ void fscc_dma_destroy_tx(struct fscc_port *port)
     ExFreePoolWithTag(port->tx_descriptors, 'CSED');
 }
 
+int fscc_dma_rx_next_frame_size(struct fscc_port *port)
+{
+    size_t frame_size = 0;
+    unsigned current_desc, i;
+    
+    current_desc = port->current_rx_desc;
+    for(i = 0; i < port->num_rx_desc; i++)
+    {
+        if((port->rx_descriptors[current_desc]->desc->control&DESC_CSTOP_BIT)==DESC_CSTOP_BIT) return port->rx_descriptors[current_desc]->desc->control&DMA_MAX_LENGTH;
+        current_desc++;
+        if(current_desc >= port->num_rx_desc-1) current_desc = 0;
+    }
+    return 0;
+}

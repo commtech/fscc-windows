@@ -571,6 +571,12 @@ NTSTATUS FsccEvtDevicePrepareHardware(WDFDEVICE Device,
 
     TraceEvents(TRACE_LEVEL_VERBOSE, TRACE_DEVICE, "Channel = %i",
                 port->channel);
+                
+    vstr = fscc_port_get_PREV(port);
+    if(vstr & 0x10) port->has_dma = 1;
+    else port->has_dma = 0;
+                
+    fscc_dma_initialize(port);
 
     fscc_port_set_append_status(port, DEFAULT_APPEND_STATUS_VALUE);
     fscc_port_set_append_timestamp(port, DEFAULT_APPEND_TIMESTAMP_VALUE);
@@ -580,22 +586,13 @@ NTSTATUS FsccEvtDevicePrepareHardware(WDFDEVICE Device,
     fscc_port_set_wait_on_write(port, DEFAULT_WAIT_ON_WRITE_VALUE);
     fscc_port_set_blocking_write(port, DEFAULT_BLOCKING_WRITE_VALUE);
     fscc_port_set_force_fifo(port, DEFAULT_FORCE_FIFO_VALUE);
-    
-
-    status = fscc_dma_initialize(port);
-    if (!NT_SUCCESS(status)) {
-        TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE, "Failed to enable DMA for CommonBuffers %!STATUS!", status);
-        return status;
-    }
-    
-    vstr = fscc_port_get_PREV(port);
-    if(vstr & 0x10) port->has_dma = 1;
-    else port->has_dma = 0;
-    
+    // we choose not to run 'set_common_frame_size' because both
+    // memcap and common frame size need to be filled before 
+    // creating DMA, and both set_common_frame and 
+    // set_mem run it.
     port->common_frame_size = DEFAULT_COMMON_FRAME_SIZE;
     memory_cap.input = DEFAULT_INPUT_MEMORY_CAP_VALUE;
     memory_cap.output = DEFAULT_OUTPUT_MEMORY_CAP_VALUE;
-
     fscc_port_set_memory_cap(port, &memory_cap);
     
     port->pending_oframe = 0;
@@ -1279,9 +1276,15 @@ void FsccProcessRead(WDFDPC Dpc)
     }
 
     if (fscc_port_is_streaming(port))
-        status = fscc_port_stream_read(port, data_buffer, length, &read_count);
+    {
+        if(fscc_port_uses_dma(port)) status = fscc_dma_get_stream_data(port, data_buffer, length, &read_count);
+        else status = fscc_port_stream_read(port, data_buffer, length, &read_count);
+    }
     else
-        status = fscc_port_frame_read(port, data_buffer, length, &read_count);
+    {
+        if(fscc_port_uses_dma(port)) status = fscc_dma_get_frame_data(port, data_buffer, length, &read_count);
+        else status = fscc_port_frame_read(port, data_buffer, length, &read_count);
+    }
 
     if (!NT_SUCCESS(status)) {
         TraceEvents(TRACE_LEVEL_WARNING, TRACE_DEVICE,
@@ -1299,6 +1302,7 @@ VOID FsccEvtIoWrite(IN WDFQUEUE Queue, IN WDFREQUEST Request, IN size_t Length)
     char *data_buffer = NULL;
     struct fscc_port *port = 0;
     struct fscc_frame *frame = 0;
+    size_t bytes_written = 0;
 
     port = WdfObjectGet_FSCC_PORT(WdfIoQueueGetDevice(Queue));
 
@@ -1346,34 +1350,43 @@ VOID FsccEvtIoWrite(IN WDFQUEUE Queue, IN WDFREQUEST Request, IN size_t Length)
         return;
     }
 
-    // Do something different for DMA.
-    frame = fscc_frame_new(port);
-
-    if (!frame) {
-        WdfRequestComplete(Request, STATUS_INSUFFICIENT_RESOURCES);
-        return;
+    if(fscc_port_uses_dma(port))
+    {
+        WdfSpinLockAcquire(port->board_tx_spinlock);
+        status = fscc_dma_add_write_data(port, data_buffer, Length, &bytes_written);
+        WdfSpinLockRelease(port->board_tx_spinlock);
+        WdfRequestCompleteWithInformation(Request, status, bytes_written);
     }
+    else
+    {
+        frame = fscc_frame_new(port);
 
-    fscc_frame_add_data(frame, data_buffer, Length);
-
-    WdfSpinLockAcquire(port->queued_oframes_spinlock);
-    fscc_flist_add_frame(&port->queued_oframes, frame);
-    WdfSpinLockRelease(port->queued_oframes_spinlock);
-
-    if (port->wait_on_write) {
-        status = WdfRequestForwardToIoQueue(Request, port->write_queue2);
-        if (!NT_SUCCESS(status)) {
-            TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE,
-                        "WdfRequestForwardToIoQueue failed %!STATUS!", status);
-            WdfRequestComplete(Request, status);
+        if (!frame) {
+            WdfRequestComplete(Request, STATUS_INSUFFICIENT_RESOURCES);
             return;
         }
-    }
-    else {
-        WdfRequestCompleteWithInformation(Request, STATUS_SUCCESS, Length);
-    }
 
-    WdfDpcEnqueue(port->oframe_dpc);
+        fscc_frame_add_data(frame, data_buffer, Length);
+
+        WdfSpinLockAcquire(port->queued_oframes_spinlock);
+        fscc_flist_add_frame(&port->queued_oframes, frame);
+        WdfSpinLockRelease(port->queued_oframes_spinlock);
+
+        if (port->wait_on_write) {
+            status = WdfRequestForwardToIoQueue(Request, port->write_queue2);
+            if (!NT_SUCCESS(status)) {
+                TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE,
+                            "WdfRequestForwardToIoQueue failed %!STATUS!", status);
+                WdfRequestComplete(Request, status);
+                return;
+            }
+        }
+        else {
+            WdfRequestCompleteWithInformation(Request, STATUS_SUCCESS, Length);
+        }
+
+        WdfDpcEnqueue(port->oframe_dpc);
+    }
 }
 
 UINT32 fscc_port_get_register(struct fscc_port *port, unsigned bar,
