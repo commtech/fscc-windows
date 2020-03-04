@@ -32,14 +32,13 @@ THE SOFTWARE.
 
 typedef struct fscc_frame {
     LIST_ENTRY list;
-    WDFCOMMONBUFFER dma_buffer;
-    unsigned char *buffer;
-    WDFCOMMONBUFFER desc_buffer;
-    struct fscc_descriptor *desc;
-    UINT32 logical_desc;
+    char *buffer;
     unsigned buffer_size;
+    unsigned data_length;
     unsigned number;
     LARGE_INTEGER timestamp;
+    unsigned dma_initialized;
+    unsigned fifo_initialized;
     struct fscc_port *port;
 } FSCC_FRAME;
 
@@ -60,6 +59,7 @@ int fscc_frame_remove_data(struct fscc_frame *frame, char *destination,
 unsigned fscc_frame_is_empty(struct fscc_frame *frame);
 void fscc_frame_clear(struct fscc_frame *frame);
 int fscc_frame_setup_descriptors(struct fscc_frame *frame);
-int fscc_frame_update_buffer_size(struct fscc_frame *frame, unsigned size);
+unsigned fscc_frame_is_dma(struct fscc_frame *frame);
+unsigned fscc_frame_is_fifo(struct fscc_frame *frame);
 
 #endif

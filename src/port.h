@@ -255,13 +255,5 @@ void fscc_port_reset_timer(struct fscc_port *port);
 unsigned fscc_port_has_incoming_data(struct fscc_port *port);
 unsigned fscc_port_transmit_frame(struct fscc_port *port, struct fscc_frame *frame);
 
-NTSTATUS fscc_port_initialize_dma(struct fscc_port *port);
-NTSTATUS fscc_port_execute_GO_T(struct fscc_port *port);
-NTSTATUS fscc_port_execute_GO_R(struct fscc_port *port);
-NTSTATUS fscc_port_execute_RSTT(struct fscc_port *port);
-NTSTATUS fscc_port_execute_RSTR(struct fscc_port *port);
-/*
-NTSTATUS fscc_port_prepare_tx_dma(struct fscc_port *port);
-NTSTATUS fscc_port_prepare_rx_dma(struct fscc_port *port);
-*/
+void fscc_port_execute_transmit(struct fscc_port *port, unsigned dma);
 #endif

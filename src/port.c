@@ -28,6 +28,7 @@ THE SOFTWARE.
 #include "public.h"
 #include "driver.h"
 #include "debug.h"
+#include "descriptor.h"
 
 #include <ntddser.h>
 #include <ntstrsafe.h>
@@ -575,7 +576,7 @@ NTSTATUS FsccEvtDevicePrepareHardware(WDFDEVICE Device,
     vstr = fscc_port_get_PREV(port);
     if(vstr & 0x10) port->has_dma = 1;
     else port->has_dma = 0;
-                
+    TraceEvents(TRACE_LEVEL_INFORMATION, TRACE_DEVICE, "Board has DMA: %d!", port->has_dma);
     fscc_dma_initialize(port);
 
     fscc_port_set_append_status(port, DEFAULT_APPEND_STATUS_VALUE);
@@ -653,6 +654,14 @@ NTSTATUS FsccEvtDeviceReleaseHardware(WDFDEVICE Device,
 
     port = WdfObjectGet_FSCC_PORT(Device);
 
+    WdfSpinLockAcquire(port->board_tx_spinlock);
+    fscc_dma_destroy_tx(port);
+    WdfSpinLockRelease(port->board_tx_spinlock);
+    
+    WdfSpinLockAcquire(port->board_rx_spinlock);
+    fscc_dma_destroy_rx(port);
+    WdfSpinLockRelease(port->board_rx_spinlock);
+    
     WdfSpinLockAcquire(port->istream_spinlock);
     fscc_frame_delete(port->istream);
     WdfSpinLockRelease(port->istream_spinlock);
@@ -1589,7 +1598,7 @@ NTSTATUS fscc_port_purge_rx(struct fscc_port *port)
                 "Purging receive data");
 
     WdfSpinLockAcquire(port->board_rx_spinlock);
-    if(fscc_port_uses_dma(port)) status = fscc_port_execute_RSTR(port);
+    if(fscc_port_uses_dma(port)) status = fscc_dma_execute_RSTR(port);
     status = fscc_port_execute_RRES(port);
     WdfSpinLockRelease(port->board_rx_spinlock);
     if (!NT_SUCCESS(status)) {
@@ -1620,7 +1629,7 @@ NTSTATUS fscc_port_purge_rx(struct fscc_port *port)
     WdfIoQueueStart(port->read_queue2);
     
     // Write the top of the rx_dma_desc to the appropriate registers
-    if(fscc_port_uses_dma(port)) fscc_port_execute_GO_R(port);
+    if(fscc_port_uses_dma(port)) fscc_dma_execute_GO_R(port);
         
     return STATUS_SUCCESS;
 }
@@ -1636,7 +1645,7 @@ NTSTATUS fscc_port_purge_tx(struct fscc_port *port)
                 "Purging transmit data");
 
     WdfSpinLockAcquire(port->board_tx_spinlock);
-    if(fscc_port_uses_dma(port)) fscc_port_execute_RSTT(port);
+    if(fscc_port_uses_dma(port)) fscc_dma_execute_RSTT(port);
     status = fscc_port_execute_TRES(port);
     WdfSpinLockRelease(port->board_tx_spinlock);
     if (!NT_SUCCESS(status)) {
@@ -2244,7 +2253,7 @@ NTSTATUS fscc_port_set_port_num(struct fscc_port *port, unsigned value)
 
 int prepare_frame_for_dma(struct fscc_port *port, struct fscc_frame *frame, unsigned *length)
 {
-    fscc_port_set_register(port, 0x2, DMA_TX_BASE_OFFSET, frame->logical_desc);
+    //fscc_port_set_register(port, 0x2, DMA_TX_BASE_OFFSET, frame->logical_desc);
     return 2;
 }
 
@@ -2297,11 +2306,11 @@ unsigned fscc_port_transmit_frame(struct fscc_port *port, struct fscc_frame *fra
     unsigned transmit_length = 0;
     int result;
 
-    if (fscc_port_uses_dma(port)) transmit_dma = 1;
+    //if (fscc_port_uses_dma(port)) transmit_dma = 1;
 
-    if (transmit_dma)
-        result = prepare_frame_for_dma(port, frame, &transmit_length);
-    else
+    //if (transmit_dma)
+    //    result = prepare_frame_for_dma(port, frame, &transmit_length);
+    //else
         result = prepare_frame_for_fifo(port, frame, &transmit_length);
 
     if (result) fscc_port_execute_transmit(port, transmit_dma);
@@ -2337,38 +2346,6 @@ BOOLEAN fscc_port_get_force_fifo(struct fscc_port *port)
     return_val_if_untrue(port, 0);
 
     return port->force_fifo;
-}
-
-NTSTATUS fscc_port_execute_RSTR(struct fscc_port *port)
-{
-    NTSTATUS status;
-    
-    return_val_if_untrue(port, 0);
-    status  = fscc_port_set_register(port, 2, DMACCR_OFFSET, 0x100);
-    status |= fscc_port_set_register(port, 2, DMACCR_OFFSET, 0x10);
-    
-    return status;
-}
-
-NTSTATUS fscc_port_execute_GO_R(struct fscc_port *port)
-{
-    return fscc_port_set_register(port, 2, DMACCR_OFFSET, 0x1);
-}
-
-NTSTATUS fscc_port_execute_RSTT(struct fscc_port *port)
-{
-    NTSTATUS status;
-    
-    return_val_if_untrue(port, 0);
-    status  = fscc_port_set_register(port, 2, DMACCR_OFFSET, 0x200);
-    status |= fscc_port_set_register(port, 2, DMACCR_OFFSET, 0x20);
-    
-    return status;
-}
-
-NTSTATUS fscc_port_execute_GO_T(struct fscc_port *port)
-{
-    return fscc_port_set_register(port, 2, DMACCR_OFFSET, 0x2);
 }
 
 NTSTATUS fscc_port_set_common_frame_size(struct fscc_port *port, int size)
