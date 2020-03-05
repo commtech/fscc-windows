@@ -98,7 +98,7 @@ NTSTATUS registry_create_key(WDFKEY parent_key, PUNICODE_STRING key_str,
 
     return status;
 }
-
+/*
 NTSTATUS registry_get_ulong(WDFKEY key, PCUNICODE_STRING value_name,
                             ULONG *value)
 {
@@ -126,8 +126,7 @@ NTSTATUS registry_get_or_create_ulong(WDFKEY key, PCUNICODE_STRING value_name,
         return status;
     }
 
-    /* This is the first time loading the driver so initialize the starting port
-       number to 0 */
+    // This is the first time loading the driver so initialize the starting port number to 0
     if (status == STATUS_OBJECT_NAME_NOT_FOUND) {
         status = WdfRegistryAssignULong(key, value_name, initial_value);
         if (!NT_SUCCESS(status)) {
@@ -161,3 +160,4 @@ NTSTATUS registry_set_ulong(WDFKEY key, PCUNICODE_STRING value_name,
 
     return status;
 }
+*/

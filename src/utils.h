@@ -54,10 +54,10 @@ unsigned is_read_only_register(unsigned offset);
 unsigned port_offset(struct fscc_port *port, unsigned bar, unsigned offset);
 
 NTSTATUS registry_create_key(WDFKEY parent_key, PUNICODE_STRING key_str, WDFKEY *key);
-
+/*
 NTSTATUS registry_get_ulong(WDFKEY key, PCUNICODE_STRING value_name, ULONG *value);
 NTSTATUS registry_get_or_create_ulong(WDFKEY key, PCUNICODE_STRING value_name,
                                       ULONG *value, ULONG initial_value);
 NTSTATUS registry_set_ulong(WDFKEY key, PCUNICODE_STRING value_name, ULONG value);
-
+*/
 #endif
