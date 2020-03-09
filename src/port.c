@@ -599,7 +599,6 @@ NTSTATUS FsccEvtDevicePrepareHardware(WDFDEVICE Device,
     fscc_dma_build_rx(port);
     fscc_dma_build_tx(port);
     
-    DbgPrint("%s: Done with DMA stuff..\n", __FUNCTION__);
     port->pending_oframe = 0;
     port->pending_iframe = 0;
 
@@ -627,6 +626,8 @@ NTSTATUS FsccEvtDevicePrepareHardware(WDFDEVICE Device,
     fscc_port_set_registers(port, &port->register_storage);
 
     fscc_port_set_clock_bits(port, clock_bits);
+    
+    fscc_dma_port_enable(port);
         
     fscc_port_purge_rx(port);
     fscc_port_purge_tx(port);
@@ -1238,6 +1239,10 @@ VOID FsccEvtIoRead(IN WDFQUEUE Queue, IN WDFREQUEST Request, IN size_t Length)
         return;
     }
 
+    if(fscc_port_uses_dma(port))
+    {
+        fscc_peek_rx_desc(port);
+    }
     status = WdfRequestForwardToIoQueue(Request, port->read_queue2);
     if (!NT_SUCCESS(status)) {
         TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE,
@@ -1290,11 +1295,13 @@ void FsccProcessRead(WDFDPC Dpc)
 
     if (fscc_port_is_streaming(port))
     {
+        DbgPrint("\n%s: Streaming.. ", __FUNCTION__);
         if(fscc_port_uses_dma(port)) status = fscc_dma_get_stream_data(port, data_buffer, length, &read_count);
         else status = fscc_port_stream_read(port, data_buffer, length, &read_count);
     }
     else
     {
+        DbgPrint("\n%s: Framing.. ", __FUNCTION__);
         if(fscc_port_uses_dma(port)) status = fscc_dma_get_frame_data(port, data_buffer, length, &read_count);
         else status = fscc_port_frame_read(port, data_buffer, length, &read_count);
     }
@@ -1365,11 +1372,10 @@ VOID FsccEvtIoWrite(IN WDFQUEUE Queue, IN WDFREQUEST Request, IN size_t Length)
 
     if(fscc_port_uses_dma(port))
     {
-        DbgPrint("%s: Doing a DMA write..\n", __FUNCTION__);
         //WdfSpinLockAcquire(port->board_tx_spinlock);
         status = fscc_dma_add_write_data(port, data_buffer, Length, &bytes_written);
         //WdfSpinLockRelease(port->board_tx_spinlock);
-        DbgPrint("%s: Now we complete?\n", __FUNCTION__);
+        fscc_peek_tx_desc(port);
         WdfRequestCompleteWithInformation(Request, status, bytes_written);
     }
     else
@@ -1446,6 +1452,8 @@ NTSTATUS fscc_port_set_register(struct fscc_port *port, unsigned bar,
         && fscc_port_timed_out(port)) {
         return STATUS_IO_TIMEOUT;
     }
+    //TODO maybe remove this.
+    if((register_offset == DMACCR_OFFSET) && fscc_port_uses_dma(port) && bar == 2) value |= 0x03000000;
 
     fscc_card_set_register(&port->card, bar, offset, value);
 
@@ -1910,11 +1918,9 @@ void fscc_port_set_memory_cap(struct fscc_port *port, struct fscc_memory_cap *va
                         "Memory cap (output) %i => %i",
                         port->memory_cap.output, value->output);
             port->memory_cap.output = value->output;
-            DbgPrint("%s: Starting spinlock.\n", __FUNCTION__);
             //WdfSpinLockAcquire(port->board_tx_spinlock);
             fscc_dma_rebuild_tx(port);
             //WdfSpinLockRelease(port->board_tx_spinlock);
-            DbgPrint("%s: Ending spinlock.\n", __FUNCTION__);
         }
         else {
             TraceEvents(TRACE_LEVEL_VERBOSE, TRACE_DEVICE,
@@ -2115,6 +2121,7 @@ void fscc_port_execute_transmit(struct fscc_port *port, unsigned dma)
     return_if_untrue(port);
 
     if (dma) {
+        DbgPrint("\n%s: DMA transmit command being sent!", __FUNCTION__);
         command_bar = 2;
         command_register = DMACCR_OFFSET;
         command_value = 0x00000002;
@@ -2186,6 +2193,12 @@ unsigned fscc_port_has_incoming_data(struct fscc_port *port)
 
     return_val_if_untrue(port, 0);
 
+    if(fscc_port_uses_dma(port))
+    {
+        if(fscc_dma_rx_data_waiting(port)) return 1;
+        else return 0;
+    }
+    
     if (fscc_port_is_streaming(port)) {
         status = (fscc_frame_is_empty(port->istream)) ? 0 : 1;
     }

@@ -42,6 +42,7 @@ BOOLEAN fscc_isr(WDFINTERRUPT Interrupt, ULONG MessageID)
     BOOLEAN handled = FALSE;
     unsigned isr_value = 0;
     unsigned streaming = 0;
+    unsigned using_dma = 0;
 
     UNREFERENCED_PARAMETER(MessageID);
 
@@ -58,15 +59,22 @@ BOOLEAN fscc_isr(WDFINTERRUPT Interrupt, ULONG MessageID)
 
     port->last_isr_value |= isr_value;
     streaming = fscc_port_is_streaming(port);
-
-    if (streaming) {
-        if (isr_value & (RFT | RFS))
-            WdfDpcEnqueue(port->istream_dpc);
+    using_dma = fscc_port_uses_dma(port);
+    if (using_dma)
+    {
+        if (isr_value & (DR_HI | DR_FE)) WdfDpcEnqueue(port->process_read_dpc);
     }
     else {
-        if (isr_value & (RFE | RFT | RFS))
-            WdfDpcEnqueue(port->iframe_dpc);
+        if (streaming) {
+            if (isr_value & (RFT | RFS ))
+                WdfDpcEnqueue(port->istream_dpc);
+        }
+        else {
+            if (isr_value & (RFE | RFT | RFS ))
+                WdfDpcEnqueue(port->iframe_dpc);
+        }
     }
+        
 
     if (isr_value & TFT)
         WdfDpcEnqueue(port->oframe_dpc);
@@ -549,61 +557,3 @@ VOID timer_handler(WDFTIMER Timer)
     // queue forever if the condition changed.
     WdfDpcEnqueue(port->orequest_worker);
 }
-
-/*
-//TODO: Figure out if/what to do there's data in excess of a complete frame in a 
-// descriptor. 
-int dma_read(struct fscc_port *port)
-{
-    int status = 0;
-    size_t i;
-    size_t data_count;
-    size_t data_to_move;
-    size_t data_remaining;
-    unsigned memory_cap = 0;
-    unsigned current_memory = 0;
-    
-    // Should this be inside the loop?
-    WdfSpinLockAcquire(port->board_rx_spinlock);
-    WdfSpinLockAcquire(port->pending_iframe_spinlock);
-    i = port->current_rx_desc;
-    while(port->rx_descriptors[i].control & DMA_CSTOP)
-    {
-        current_memory = fscc_port_get_input_memory_usage(port);
-        memory_cap = fscc_port_get_input_memory_cap(port);
-        
-        if(!port->pending_iframe) port->pending_iframe = fscc_frame_new(port);
-        if(!port->pending_iframe) break;
-        
-        data_count = port->rx_descriptors.count;
-        if(port->rx_descriptors[i].control & DMA_FRAME_END)
-            data_to_move = (port->rx_descriptors[i].control & DMA_CNT) - fscc_frame_get_length(port->pending_iframe);
-        else
-            data_to_move = data_count;
-        data_remaining = data_count - data_to_move;
-        
-        if(data_to_move > (memory_cap - current_memory)) break;
-        
-        status = fscc_frame_add_data(port->pending_iframe, port->rx_descriptors[i].data_address, data_count);
-        if(!status) break;
-        
-        // if data to move != data count, there's still more in the descriptor but its for a new frame
-        if(data_to_move != data_count)
-        {
-            if(!port->pending_iframe) port->pending_iframe = fscc_frame_new(port, fscc_port_uses_dma(port));
-            if(!port->pending_iframe) break;
-        }
-        
-        port->rx_descriptors[i].control = 0x20000000;
-        i++;
-        if(i >= NUM_RX_DESCRIPTORS) i=0;
-    
-    }
-    port->current_rx_desc = i;
-    WdfSpinLockRelease(port->pending_iframe_spinlock);
-    WdfSpinLockRelease(port->board_rx_spinlock);
-    
-    return status;
-}
-
-*/

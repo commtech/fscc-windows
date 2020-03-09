@@ -73,7 +73,6 @@ NTSTATUS fscc_card_init(struct fscc_card *card,
 
             card->bar[bar_num].address =
                 ULongToPtr(descriptor->u.Port.Start.LowPart);
-
             card->bar[bar_num].memory_mapped = FALSE;
             break;
 

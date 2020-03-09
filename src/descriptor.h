@@ -60,5 +60,10 @@ NTSTATUS fscc_dma_execute_GO_T(struct fscc_port *port);
 NTSTATUS fscc_dma_execute_GO_R(struct fscc_port *port);
 NTSTATUS fscc_dma_execute_RSTT(struct fscc_port *port);
 NTSTATUS fscc_dma_execute_RSTR(struct fscc_port *port);
+int fscc_dma_rx_data_waiting(port);
+NTSTATUS fscc_dma_port_enable(struct fscc_port *port);
+NTSTATUS fscc_dma_port_disable(struct fscc_port *port);
+void fscc_peek_tx_desc(struct fscc_port *port);
+void fscc_peek_rx_desc(struct fscc_port *port);
 
 #endif
