@@ -1241,8 +1241,14 @@ VOID FsccEvtIoRead(IN WDFQUEUE Queue, IN WDFREQUEST Request, IN size_t Length)
 
     if(fscc_port_uses_dma(port))
     {
-        fscc_peek_rx_desc(port);
+        UINT32 cur_rx;
+        cur_rx = fscc_port_get_register(port, 2, DMA_CURRENT_RX_BASE_OFFSET);
+        DbgPrint("\n%s: Current RX desc: 0x%8.8x ", __FUNCTION__, cur_rx);
+        cur_rx = fscc_card_get_register(&port->card, 2, DSTAR_OFFSET);
+        DbgPrint("\n%s: Current DSTAR: 0x%8.8x ", __FUNCTION__, cur_rx);
+        fscc_peek_rx_desc(port, 0);
     }
+    
     status = WdfRequestForwardToIoQueue(Request, port->read_queue2);
     if (!NT_SUCCESS(status)) {
         TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE,
@@ -1372,10 +1378,15 @@ VOID FsccEvtIoWrite(IN WDFQUEUE Queue, IN WDFREQUEST Request, IN size_t Length)
 
     if(fscc_port_uses_dma(port))
     {
+        UINT32 cur_tx;
+        cur_tx = fscc_port_get_register(port, 2, DMA_CURRENT_TX_BASE_OFFSET);
+        DbgPrint("\n%s: Current TX desc: 0x%8.8x ", __FUNCTION__, cur_tx);
+        cur_tx = fscc_card_get_register(&port->card, 2, DSTAR_OFFSET);
+        DbgPrint("\n%s: Current DSTAR: 0x%8.8x ", __FUNCTION__, cur_tx);
         //WdfSpinLockAcquire(port->board_tx_spinlock);
         status = fscc_dma_add_write_data(port, data_buffer, Length, &bytes_written);
         //WdfSpinLockRelease(port->board_tx_spinlock);
-        fscc_peek_tx_desc(port);
+        fscc_peek_tx_desc(port, 20);
         WdfRequestCompleteWithInformation(Request, status, bytes_written);
     }
     else
@@ -1643,7 +1654,7 @@ NTSTATUS fscc_port_purge_rx(struct fscc_port *port)
     WdfIoQueueStart(port->read_queue2);
     
     // Write the top of the rx_dma_desc to the appropriate registers
-    //if(fscc_port_uses_dma(port)) fscc_dma_execute_GO_R(port);
+    if(fscc_port_uses_dma(port)) fscc_dma_execute_GO_R(port);
         
     return STATUS_SUCCESS;
 }
@@ -2121,7 +2132,6 @@ void fscc_port_execute_transmit(struct fscc_port *port, unsigned dma)
     return_if_untrue(port);
 
     if (dma) {
-        DbgPrint("\n%s: DMA transmit command being sent!", __FUNCTION__);
         command_bar = 2;
         command_register = DMACCR_OFFSET;
         command_value = 0x00000002;
