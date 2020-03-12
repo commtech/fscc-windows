@@ -43,7 +43,8 @@ NTSTATUS fscc_dma_create_rx_desc(struct fscc_port *port);
 NTSTATUS fscc_dma_create_tx_desc(struct fscc_port *port);
 NTSTATUS fscc_dma_create_rx_buffers(struct fscc_port *port);
 NTSTATUS fscc_dma_create_tx_buffers(struct fscc_port *port);
-unsigned fscc_dma_rx_next_frame_size(struct fscc_port *port, unsigned *bytes);
+//unsigned fscc_dma_rx_next_frame_size(struct fscc_port *port, unsigned *bytes);
+NTSTATUS fscc_dma_rx_find_next_frame(struct fscc_port *port, unsigned *bytes, unsigned *start_desc, unsigned *end_desc);
 unsigned fscc_dma_tx_required_desc(struct fscc_port *port, unsigned size);
 
 NTSTATUS fscc_dma_initialize(struct fscc_port *port)
@@ -92,7 +93,6 @@ NTSTATUS fscc_dma_build_rx(struct fscc_port *port)
     NTSTATUS status;
     // Recalculate the RX DMA stuff.
     port->num_rx_desc = port->memory_cap.input / port->common_frame_size;
-    DbgPrint("\n%s: Number of RX desc: %d ", __FUNCTION__, port->num_rx_desc);
     
     // Rebuild the RX DMA stuff.
     status = fscc_dma_create_rx_desc(port);
@@ -146,7 +146,6 @@ NTSTATUS fscc_dma_build_tx(struct fscc_port *port)
     NTSTATUS status;
     
     port->num_tx_desc = port->memory_cap.output / port->common_frame_size;
-    DbgPrint("\n%s: Number of TX desc: %d ", __FUNCTION__, port->num_tx_desc);
     
     // Rebuild the TX DMA stuff.
     status = fscc_dma_create_tx_desc(port);
@@ -242,6 +241,7 @@ int fscc_dma_get_stream_data(struct fscc_port *port, char *data_buffer, size_t b
     return STATUS_SUCCESS;
 }
 
+/*
 int fscc_dma_get_frame_data(struct fscc_port *port, char *data_buffer, size_t buffer_size, size_t *out_length)
 {
     unsigned bytes_in_frame, current_desc, bytes_to_move, descriptors, i;
@@ -268,7 +268,9 @@ int fscc_dma_get_frame_data(struct fscc_port *port, char *data_buffer, size_t bu
         else
             bytes_to_move = port->rx_descriptors[current_desc]->desc->data_count;
         
-        memmove(data_buffer + *out_length, port->rx_descriptors[current_desc]->buffer, bytes_to_move);
+        // TODO: This is commented out because reads are crashing.
+        // Is this why, or is it something else?
+        //memmove(data_buffer + *out_length, port->rx_descriptors[current_desc]->buffer, bytes_to_move);
         port->rx_descriptors[current_desc]->desc->control = 0x20000000;
         *out_length += bytes_to_move;
         
@@ -280,6 +282,41 @@ int fscc_dma_get_frame_data(struct fscc_port *port, char *data_buffer, size_t bu
     
     return STATUS_SUCCESS;
 }
+*/
+
+int fscc_dma_get_frame_data(struct fscc_port *port, char *data_buffer, size_t buffer_size, size_t *out_length)
+{
+    unsigned bytes_in_frame, bytes_to_move, i, start_desc, end_desc;
+    
+    //WdfSpinLockAcquire(port->board_rx_spinlock);
+    if(fscc_dma_rx_find_next_frame(port, &bytes_in_frame, &start_desc, &end_desc)!=STATUS_SUCCESS)
+    {
+        return STATUS_UNSUCCESSFUL;
+    }
+    if(bytes_in_frame > buffer_size) 
+    {
+        //WdfSpinLockRelease(port->board_rx_spinlock);
+        return STATUS_BUFFER_TOO_SMALL;
+    }
+    DbgPrint("\n%s: We're gonna try to move data in now. ", __FUNCTION__);
+    for(i = start_desc; i <= end_desc; i++)
+    {
+        if(port->rx_descriptors[i]->desc->data_count > (bytes_in_frame - *out_length))
+            bytes_to_move = bytes_in_frame - *out_length;
+        else
+            bytes_to_move = port->rx_descriptors[i]->desc->data_count;
+        
+        DbgPrint("\n%s: adding %d bytes from desc %d:  ", __FUNCTION__, bytes_to_move, i);
+        fscc_peek_desc(port->rx_descriptors[i]);
+        RtlCopyMemory(data_buffer + *out_length, port->rx_descriptors[i]->buffer, bytes_to_move);
+        port->rx_descriptors[i]->desc->control = 0x20000000;
+        *out_length += bytes_to_move;
+    }
+    //WdfSpinLockRelease(port->board_rx_spinlock);
+    
+    return STATUS_SUCCESS;
+}
+
 
 BOOLEAN fscc_dma_is_rx_running(struct fscc_port *port)
 {
@@ -503,10 +540,14 @@ void fscc_dma_destroy_tx(struct fscc_port *port)
 
 int fscc_dma_rx_data_waiting(struct fscc_port *port)
 {
-    unsigned current_desc;
-    current_desc = port->current_rx_desc;
-    if((port->rx_descriptors[current_desc]->desc->control&DESC_FE_BIT)==DESC_FE_BIT) return 1;
-    if((port->rx_descriptors[current_desc]->desc->control&DESC_CSTOP_BIT)==DESC_CSTOP_BIT) return 1;
+    unsigned i, streaming;
+    streaming = fscc_port_is_streaming(port);
+    for(i = 0; i < port->num_rx_desc; i++)
+    {
+        if((port->rx_descriptors[i]->desc->control&(DESC_CSTOP_BIT|DESC_FE_BIT))==0) return 0;
+        if((port->rx_descriptors[i]->desc->control&DESC_FE_BIT)==DESC_FE_BIT&&streaming) return 1;
+        if((port->rx_descriptors[i]->desc->control&DESC_CSTOP_BIT)==DESC_CSTOP_BIT) return 1;
+    }
     return 0;
 }
 
@@ -515,10 +556,11 @@ void fscc_peek_rx_desc(struct fscc_port *port, unsigned num)
 {
     unsigned i;
     if(num < 1 || num > port->num_rx_desc) num = port->num_rx_desc;
+    DbgPrint("\n%s: Peeking at RX descriptors: ", __FUNCTION__);
     for(i=0;i<num;i++)
     {
-        DbgPrint("\n%s: Desc %d, Data Count: %d, Control: 0x%8.8x ", __FUNCTION__, i, port->rx_descriptors[i]->desc->data_count, port->rx_descriptors[i]->desc->control);
-        DbgPrint(" Address: 0x%8.8x ", port->rx_descriptors[i]->desc_physical_address);
+        DbgPrint("\n%s: Desc %8.8d ", __FUNCTION__, i);
+        fscc_peek_desc(port->rx_descriptors[i]);
     }
 }
 
@@ -527,13 +569,21 @@ void fscc_peek_tx_desc(struct fscc_port *port, unsigned num)
 {
     unsigned i;
     if(num < 1 || num > port->num_tx_desc) num = port->num_tx_desc;
+    DbgPrint("\n%s: Peeking at TX descriptors: ", __FUNCTION__);
     for(i=0;i<num;i++)
     {
-        DbgPrint("\n%s: Desc %d, Data Count: %d, Control: 0x%8.8x ", __FUNCTION__, i, port->tx_descriptors[i]->desc->data_count, port->tx_descriptors[i]->desc->control);
-        DbgPrint(" Address: 0x%8.8x ", port->tx_descriptors[i]->desc_physical_address);
+        DbgPrint("\n%s: Desc %8.8d ", __FUNCTION__, i);
+        fscc_peek_desc(port->tx_descriptors[i]);
     }
 }
 
+void fscc_peek_desc(struct dma_frame *frame)
+{
+    DbgPrint(" Data Count: %8.8d, Control: 0x%8.8X,", frame->desc->data_count, frame->desc->control);
+    DbgPrint(" Cur Add: 0x%8.8X, Next Add: 0x%8.8X ", frame->desc_physical_address, frame->desc->next_descriptor);
+}
+
+/*
 // This sets 'bytes' to the number of bytes in the next frame and returns the number of descriptors
 unsigned fscc_dma_rx_next_frame_size(struct fscc_port *port, unsigned *bytes)
 {
@@ -558,6 +608,37 @@ unsigned fscc_dma_rx_next_frame_size(struct fscc_port *port, unsigned *bytes)
         if(current_desc >= port->num_rx_desc-1) current_desc = 0;
     }
     return 0;
+}
+*/
+
+// This sets 'bytes' to the number of bytes in the next frame and returns the number of descriptors
+NTSTATUS fscc_dma_rx_find_next_frame(struct fscc_port *port, unsigned *bytes, unsigned *start_desc, unsigned *end_desc)
+{
+    unsigned i;
+    int start_found = 0;
+    
+    // The manual says 'FE' could be off in a complete frame, but previous drivers
+    // always assumed it was required, so I'm going to do the same.
+    for(i = 0; i < port->num_rx_desc; i++)
+    {
+        if((port->rx_descriptors[i]->desc->control&DESC_FE_BIT)==DESC_FE_BIT) 
+        {
+            if(start_found==0) 
+            {
+                *start_desc = i;
+                start_found = 1;
+            }
+            if((port->rx_descriptors[i]->desc->control&DESC_CSTOP_BIT)==DESC_CSTOP_BIT)
+            {
+                *bytes = port->rx_descriptors[i]->desc->control&DMA_MAX_LENGTH;
+                *end_desc = i;
+                DbgPrint("\n%s: Found an RX frame, start desc: %d, end desc: %d, bytes: %d ", __FUNCTION__, *start_desc, *end_desc, *bytes);
+                return STATUS_SUCCESS;
+            }
+        }
+    }
+    DbgPrint("\n%s: No RX frame found! ", __FUNCTION__);
+    return STATUS_UNSUCCESSFUL;
 }
 
 unsigned fscc_dma_tx_required_desc(struct fscc_port *port, unsigned size)
@@ -589,4 +670,13 @@ NTSTATUS fscc_dma_port_enable(struct fscc_port *port)
 NTSTATUS fscc_dma_port_disable(struct fscc_port *port)
 {
     return fscc_port_set_register(port, 2, DMACCR_OFFSET, 0x00000000);
+}
+
+void fscc_dma_current_regs(struct fscc_port *port)
+{
+    UINT32 cur_reg;
+    cur_reg = fscc_port_get_register(port, 2, DMA_CURRENT_TX_BASE_OFFSET);
+    DbgPrint("\n%s: Current TX desc: 0x%8.8x ", __FUNCTION__, cur_reg);
+    cur_reg = fscc_port_get_register(port, 2, DMA_CURRENT_RX_BASE_OFFSET);
+    DbgPrint("\n%s: Current RX desc: 0x%8.8x ", __FUNCTION__, cur_reg);
 }

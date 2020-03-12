@@ -598,6 +598,8 @@ NTSTATUS FsccEvtDevicePrepareHardware(WDFDEVICE Device,
     port->memory_cap.output = DEFAULT_OUTPUT_MEMORY_CAP_VALUE;
     fscc_dma_build_rx(port);
     fscc_dma_build_tx(port);
+    DbgPrint("\n%s: Just built everything.. ", __FUNCTION__);
+    fscc_dma_current_regs(port);
     
     port->pending_oframe = 0;
     port->pending_iframe = 0;
@@ -631,7 +633,8 @@ NTSTATUS FsccEvtDevicePrepareHardware(WDFDEVICE Device,
         
     fscc_port_purge_rx(port);
     fscc_port_purge_tx(port);
-  
+    fscc_peek_rx_desc(port, 20);
+    fscc_peek_tx_desc(port, 20);
     WDF_TIMER_CONFIG_INIT(&timerConfig, timer_handler);
 
     timerConfig.Period = TIMER_DELAY_MS;
@@ -1241,12 +1244,8 @@ VOID FsccEvtIoRead(IN WDFQUEUE Queue, IN WDFREQUEST Request, IN size_t Length)
 
     if(fscc_port_uses_dma(port))
     {
-        UINT32 cur_rx;
-        cur_rx = fscc_port_get_register(port, 2, DMA_CURRENT_RX_BASE_OFFSET);
-        DbgPrint("\n%s: Current RX desc: 0x%8.8x ", __FUNCTION__, cur_rx);
-        cur_rx = fscc_card_get_register(&port->card, 2, DSTAR_OFFSET);
-        DbgPrint("\n%s: Current DSTAR: 0x%8.8x ", __FUNCTION__, cur_rx);
-        fscc_peek_rx_desc(port, 0);
+        DbgPrint("\n%s: Reading.. ", __FUNCTION__);
+        fscc_dma_current_regs(port);
     }
     
     status = WdfRequestForwardToIoQueue(Request, port->read_queue2);
@@ -1271,7 +1270,7 @@ void FsccProcessRead(WDFDPC Dpc)
     WDF_REQUEST_PARAMETERS params;
 
     port = WdfObjectGet_FSCC_PORT(WdfDpcGetParentObject(Dpc));
-
+    DbgPrint("\n%s: Checking for incoming data.. ", __FUNCTION__);
     if (!fscc_port_has_incoming_data(port))
         return;
 
@@ -1301,7 +1300,6 @@ void FsccProcessRead(WDFDPC Dpc)
 
     if (fscc_port_is_streaming(port))
     {
-        DbgPrint("\n%s: Streaming.. ", __FUNCTION__);
         if(fscc_port_uses_dma(port)) status = fscc_dma_get_stream_data(port, data_buffer, length, &read_count);
         else status = fscc_port_stream_read(port, data_buffer, length, &read_count);
     }
@@ -1378,15 +1376,11 @@ VOID FsccEvtIoWrite(IN WDFQUEUE Queue, IN WDFREQUEST Request, IN size_t Length)
 
     if(fscc_port_uses_dma(port))
     {
-        UINT32 cur_tx;
-        cur_tx = fscc_port_get_register(port, 2, DMA_CURRENT_TX_BASE_OFFSET);
-        DbgPrint("\n%s: Current TX desc: 0x%8.8x ", __FUNCTION__, cur_tx);
-        cur_tx = fscc_card_get_register(&port->card, 2, DSTAR_OFFSET);
-        DbgPrint("\n%s: Current DSTAR: 0x%8.8x ", __FUNCTION__, cur_tx);
         //WdfSpinLockAcquire(port->board_tx_spinlock);
         status = fscc_dma_add_write_data(port, data_buffer, Length, &bytes_written);
         //WdfSpinLockRelease(port->board_tx_spinlock);
-        fscc_peek_tx_desc(port, 20);
+        DbgPrint("\n%s: Writing..", __FUNCTION__);
+        fscc_dma_current_regs(port);
         WdfRequestCompleteWithInformation(Request, status, bytes_written);
     }
     else
@@ -1463,9 +1457,9 @@ NTSTATUS fscc_port_set_register(struct fscc_port *port, unsigned bar,
         && fscc_port_timed_out(port)) {
         return STATUS_IO_TIMEOUT;
     }
-    //TODO maybe remove this.
+    // TODO Maybe remove this?
     if((register_offset == DMACCR_OFFSET) && fscc_port_uses_dma(port) && bar == 2) value |= 0x03000000;
-
+    else if((register_offset == DMACCR_OFFSET) && !fscc_port_uses_dma(port) && bar == 2) value &= ~0x03000000;
     fscc_card_set_register(&port->card, bar, offset, value);
 
     if (bar == 0) {
@@ -1654,7 +1648,15 @@ NTSTATUS fscc_port_purge_rx(struct fscc_port *port)
     WdfIoQueueStart(port->read_queue2);
     
     // Write the top of the rx_dma_desc to the appropriate registers
-    if(fscc_port_uses_dma(port)) fscc_dma_execute_GO_R(port);
+    // TODO write the base rx address again?
+    if(fscc_port_uses_dma(port)) 
+    {
+        //port->current_rx_desc = 0;
+        //status = fscc_port_set_register(port, 2, DMA_RX_BASE_OFFSET, port->rx_descriptors[0]->desc_physical_address);
+        DbgPrint("\n%s: Issuing GO_R, current regs.. ",__FUNCTION__);
+        fscc_dma_current_regs(port);
+        fscc_dma_execute_GO_R(port);
+    }
         
     return STATUS_SUCCESS;
 }
@@ -1695,8 +1697,6 @@ NTSTATUS fscc_port_purge_tx(struct fscc_port *port)
     WdfIoQueueStart(port->write_queue);
     WdfIoQueueStart(port->write_queue2);
 
-    // Clear the TX base buffer desc?
-    
     return STATUS_SUCCESS;
 }
 
@@ -2386,6 +2386,10 @@ NTSTATUS fscc_port_set_common_frame_size(struct fscc_port *port, int size)
     return_val_if_untrue(port, 0);
     return_val_if_untrue(size > 0, 0);
     
+    // Add two, because DMA likes to append two status bytes to each desc.
+    // This will help make sure that the frames don't overflow the descriptors
+    // by 2 bytes and waste large amounts of memory.
+    size += 2;
     // Magic math to force it up to 4 byte aligned.
     real_size = (size + 3) & ~0x3;
     if (real_size != port->common_frame_size) {
