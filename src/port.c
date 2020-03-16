@@ -598,7 +598,6 @@ NTSTATUS FsccEvtDevicePrepareHardware(WDFDEVICE Device,
     port->memory_cap.output = DEFAULT_OUTPUT_MEMORY_CAP_VALUE;
     fscc_dma_build_rx(port);
     fscc_dma_build_tx(port);
-    DbgPrint("\n%s: Just built everything.. ", __FUNCTION__);
     fscc_dma_current_regs(port);
     
     port->pending_oframe = 0;
@@ -1242,12 +1241,6 @@ VOID FsccEvtIoRead(IN WDFQUEUE Queue, IN WDFREQUEST Request, IN size_t Length)
         return;
     }
 
-    if(fscc_port_uses_dma(port))
-    {
-        DbgPrint("\n%s: Reading.. ", __FUNCTION__);
-        fscc_dma_current_regs(port);
-    }
-    
     status = WdfRequestForwardToIoQueue(Request, port->read_queue2);
     if (!NT_SUCCESS(status)) {
         TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE,
@@ -1270,7 +1263,6 @@ void FsccProcessRead(WDFDPC Dpc)
     WDF_REQUEST_PARAMETERS params;
 
     port = WdfObjectGet_FSCC_PORT(WdfDpcGetParentObject(Dpc));
-    DbgPrint("\n%s: Checking for incoming data.. ", __FUNCTION__);
     if (!fscc_port_has_incoming_data(port))
         return;
 
@@ -1305,7 +1297,6 @@ void FsccProcessRead(WDFDPC Dpc)
     }
     else
     {
-        DbgPrint("\n%s: Framing.. ", __FUNCTION__);
         if(fscc_port_uses_dma(port)) status = fscc_dma_get_frame_data(port, data_buffer, length, &read_count);
         else status = fscc_port_frame_read(port, data_buffer, length, &read_count);
     }
@@ -1379,8 +1370,6 @@ VOID FsccEvtIoWrite(IN WDFQUEUE Queue, IN WDFREQUEST Request, IN size_t Length)
         //WdfSpinLockAcquire(port->board_tx_spinlock);
         status = fscc_dma_add_write_data(port, data_buffer, Length, &bytes_written);
         //WdfSpinLockRelease(port->board_tx_spinlock);
-        DbgPrint("\n%s: Writing..", __FUNCTION__);
-        fscc_dma_current_regs(port);
         WdfRequestCompleteWithInformation(Request, status, bytes_written);
     }
     else
@@ -1651,10 +1640,6 @@ NTSTATUS fscc_port_purge_rx(struct fscc_port *port)
     // TODO write the base rx address again?
     if(fscc_port_uses_dma(port)) 
     {
-        //port->current_rx_desc = 0;
-        //status = fscc_port_set_register(port, 2, DMA_RX_BASE_OFFSET, port->rx_descriptors[0]->desc_physical_address);
-        DbgPrint("\n%s: Issuing GO_R, current regs.. ",__FUNCTION__);
-        fscc_dma_current_regs(port);
         fscc_dma_execute_GO_R(port);
     }
         
