@@ -632,8 +632,8 @@ NTSTATUS FsccEvtDevicePrepareHardware(WDFDEVICE Device,
         
     fscc_port_purge_rx(port);
     fscc_port_purge_tx(port);
-    fscc_peek_rx_desc(port, 20);
-    fscc_peek_tx_desc(port, 20);
+    //fscc_peek_rx_desc(port, 20);
+    //fscc_peek_tx_desc(port, 20);
     WDF_TIMER_CONFIG_INIT(&timerConfig, timer_handler);
 
     timerConfig.Period = TIMER_DELAY_MS;
@@ -661,13 +661,13 @@ NTSTATUS FsccEvtDeviceReleaseHardware(WDFDEVICE Device,
 
     port = WdfObjectGet_FSCC_PORT(Device);
 
-    //WdfSpinLockAcquire(port->board_tx_spinlock);
+    WdfSpinLockAcquire(port->board_tx_spinlock);
     fscc_dma_destroy_tx(port);
-    //WdfSpinLockRelease(port->board_tx_spinlock);
+    WdfSpinLockRelease(port->board_tx_spinlock);
     
-    //WdfSpinLockAcquire(port->board_rx_spinlock);
+    WdfSpinLockAcquire(port->board_rx_spinlock);
     fscc_dma_destroy_rx(port);
-    //WdfSpinLockRelease(port->board_rx_spinlock);
+    WdfSpinLockRelease(port->board_rx_spinlock);
     
     WdfSpinLockAcquire(port->istream_spinlock);
     fscc_frame_delete(port->istream);
@@ -1263,8 +1263,7 @@ void FsccProcessRead(WDFDPC Dpc)
     WDF_REQUEST_PARAMETERS params;
 
     port = WdfObjectGet_FSCC_PORT(WdfDpcGetParentObject(Dpc));
-    if (!fscc_port_has_incoming_data(port))
-        return;
+    if (!fscc_port_has_incoming_data(port)) return;
 
     status = WdfIoQueueRetrieveNextRequest(port->read_queue2, &request);
     if (!NT_SUCCESS(status)) {
@@ -1289,15 +1288,17 @@ void FsccProcessRead(WDFDPC Dpc)
         WdfRequestComplete(request, status);
         return;
     }
-
-    if (fscc_port_is_streaming(port))
+    
+    if(fscc_port_uses_dma(port))
     {
-        if(fscc_port_uses_dma(port)) status = fscc_dma_get_stream_data(port, data_buffer, length, &read_count);
-        else status = fscc_port_stream_read(port, data_buffer, length, &read_count);
+        WdfSpinLockAcquire(port->board_rx_spinlock);
+        if(fscc_port_is_streaming(port)) status = fscc_dma_get_stream_data(port, data_buffer, length, &read_count);
+        else status = fscc_dma_get_frame_data(port, data_buffer, length, &read_count);
+        WdfSpinLockRelease(port->board_rx_spinlock);
     }
-    else
+    else 
     {
-        if(fscc_port_uses_dma(port)) status = fscc_dma_get_frame_data(port, data_buffer, length, &read_count);
+        if (fscc_port_is_streaming(port)) fscc_port_stream_read(port, data_buffer, length, &read_count);
         else status = fscc_port_frame_read(port, data_buffer, length, &read_count);
     }
 
@@ -1367,9 +1368,9 @@ VOID FsccEvtIoWrite(IN WDFQUEUE Queue, IN WDFREQUEST Request, IN size_t Length)
 
     if(fscc_port_uses_dma(port))
     {
-        //WdfSpinLockAcquire(port->board_tx_spinlock);
+        WdfSpinLockAcquire(port->board_tx_spinlock);
         status = fscc_dma_add_write_data(port, data_buffer, Length, &bytes_written);
-        //WdfSpinLockRelease(port->board_tx_spinlock);
+        WdfSpinLockRelease(port->board_tx_spinlock);
         WdfRequestCompleteWithInformation(Request, status, bytes_written);
     }
     else
@@ -1896,9 +1897,9 @@ void fscc_port_set_memory_cap(struct fscc_port *port, struct fscc_memory_cap *va
                         "Memory cap (input) %i => %i",
                         port->memory_cap.input, value->input);
             port->memory_cap.input = value->input;
-            //WdfSpinLockAcquire(port->board_rx_spinlock);
+            WdfSpinLockAcquire(port->board_rx_spinlock);
             fscc_dma_rebuild_rx(port);
-            //WdfSpinLockRelease(port->board_rx_spinlock);
+            WdfSpinLockRelease(port->board_rx_spinlock);
         }
         else {
             TraceEvents(TRACE_LEVEL_VERBOSE, TRACE_DEVICE,
@@ -1914,9 +1915,9 @@ void fscc_port_set_memory_cap(struct fscc_port *port, struct fscc_memory_cap *va
                         "Memory cap (output) %i => %i",
                         port->memory_cap.output, value->output);
             port->memory_cap.output = value->output;
-            //WdfSpinLockAcquire(port->board_tx_spinlock);
+            WdfSpinLockAcquire(port->board_tx_spinlock);
             fscc_dma_rebuild_tx(port);
-            //WdfSpinLockRelease(port->board_tx_spinlock);
+            WdfSpinLockRelease(port->board_tx_spinlock);
         }
         else {
             TraceEvents(TRACE_LEVEL_VERBOSE, TRACE_DEVICE,
@@ -2190,7 +2191,10 @@ unsigned fscc_port_has_incoming_data(struct fscc_port *port)
 
     if(fscc_port_uses_dma(port))
     {
-        if(fscc_dma_rx_data_waiting(port)) return 1;
+        WdfSpinLockAcquire(port->board_rx_spinlock);
+        status = fscc_dma_rx_data_waiting(port);
+        WdfSpinLockRelease(port->board_rx_spinlock);
+        if(status) return 1;
         else return 0;
     }
     
@@ -2380,12 +2384,12 @@ NTSTATUS fscc_port_set_common_frame_size(struct fscc_port *port, int size)
     if (real_size != port->common_frame_size) {
         TraceEvents(TRACE_LEVEL_INFORMATION, TRACE_DEVICE, "Common frame size %i => %i", port->common_frame_size, real_size);
         port->common_frame_size = real_size;
-        //WdfSpinLockAcquire(port->board_rx_spinlock);
+        WdfSpinLockAcquire(port->board_rx_spinlock);
         fscc_dma_rebuild_rx(port);
-        //WdfSpinLockRelease(port->board_rx_spinlock);
-        //WdfSpinLockAcquire(port->board_tx_spinlock);
+        WdfSpinLockRelease(port->board_rx_spinlock);
+        WdfSpinLockAcquire(port->board_tx_spinlock);
         fscc_dma_rebuild_tx(port);
-        //WdfSpinLockRelease(port->board_tx_spinlock);
+        WdfSpinLockRelease(port->board_tx_spinlock);
     }
     else {
         TraceEvents(TRACE_LEVEL_VERBOSE, TRACE_DEVICE, "Common frame size = %i", real_size);
