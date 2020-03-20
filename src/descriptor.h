@@ -52,8 +52,6 @@ NTSTATUS fscc_dma_build_tx(struct fscc_port *port);
 NTSTATUS fscc_dma_add_write_data(struct fscc_port *port, char *data_buffer, unsigned length, size_t *out_length);
 int fscc_dma_get_stream_data(struct fscc_port *port, char *data_buffer, size_t buffer_size, size_t *out_length);
 int fscc_dma_get_frame_data(struct fscc_port *port, char *data_buffer, size_t buffer_size, size_t *out_length);
-BOOLEAN fscc_dma_is_rx_running(struct fscc_port *port);
-BOOLEAN fscc_dma_is_tx_running(struct fscc_port *port);
 void fscc_dma_destroy_rx(struct fscc_port *port);
 void fscc_dma_destroy_tx(struct fscc_port *port);
 NTSTATUS fscc_dma_execute_GO_T(struct fscc_port *port);

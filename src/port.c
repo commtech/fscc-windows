@@ -587,7 +587,8 @@ NTSTATUS FsccEvtDevicePrepareHardware(WDFDEVICE Device,
     fscc_port_set_wait_on_write(port, DEFAULT_WAIT_ON_WRITE_VALUE);
     fscc_port_set_blocking_write(port, DEFAULT_BLOCKING_WRITE_VALUE);
     fscc_port_set_force_fifo(port, DEFAULT_FORCE_FIFO_VALUE);
-    // we choose not to run 'set_common_frame_size' because both
+    
+    // We choose not to run 'set_common_frame_size' because both
     // memcap and common frame size need to be filled before 
     // creating DMA, and both set_common_frame and 
     // set_mem run it.
@@ -598,7 +599,6 @@ NTSTATUS FsccEvtDevicePrepareHardware(WDFDEVICE Device,
     port->memory_cap.output = DEFAULT_OUTPUT_MEMORY_CAP_VALUE;
     fscc_dma_build_rx(port);
     fscc_dma_build_tx(port);
-    fscc_dma_current_regs(port);
     
     port->pending_oframe = 0;
     port->pending_iframe = 0;

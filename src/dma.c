@@ -34,7 +34,6 @@ THE SOFTWARE.
 #include "dma.tmh"
 #endif
 
-// These should probably not be accessed outside of this file.
 void fscc_dma_destroy_data(struct fscc_port *port, struct dma_frame *frame);
 void fscc_dma_destroy_desc(struct fscc_port *port, struct dma_frame *frame);
 void fscc_dma_destroy_rx(struct fscc_port *port);
@@ -45,6 +44,8 @@ NTSTATUS fscc_dma_create_rx_buffers(struct fscc_port *port);
 NTSTATUS fscc_dma_create_tx_buffers(struct fscc_port *port);
 NTSTATUS fscc_dma_rx_find_next_frame(struct fscc_port *port, unsigned *bytes, unsigned *start_desc, unsigned *end_desc);
 unsigned fscc_dma_tx_required_desc(struct fscc_port *port, unsigned size);
+BOOLEAN fscc_dma_is_rx_running(struct fscc_port *port);
+BOOLEAN fscc_dma_is_tx_running(struct fscc_port *port);
 
 NTSTATUS fscc_dma_initialize(struct fscc_port *port)
 {
@@ -177,12 +178,11 @@ NTSTATUS fscc_dma_add_write_data(struct fscc_port *port, char *data_buffer, unsi
 {
     unsigned required_descriptors, data_to_move,i, current_desc;
 
-    // First we verify we have space for the data.
+    *out_length = 0;
     required_descriptors = fscc_dma_tx_required_desc(port, length);
     if(required_descriptors < 1) return STATUS_BUFFER_TOO_SMALL;
     
-    //DbgPrint("\nfscc_dma_add_write_data: writing %d bytes ", length);
-    // Now we do it.
+    
     current_desc = port->current_tx_desc;
     for(i=0;i<required_descriptors;i++)
     {
@@ -191,9 +191,8 @@ NTSTATUS fscc_dma_add_write_data(struct fscc_port *port, char *data_buffer, unsi
         port->tx_descriptors[current_desc]->desc->data_count = data_to_move;
         if(i==0) port->tx_descriptors[current_desc]->desc->control = DESC_FE_BIT | length;
         else     port->tx_descriptors[current_desc]->desc->control = length;
-        //DbgPrint("\nfscc_dma_add_write_data: moved %d bytes to descriptor %d: ", data_to_move, current_desc);
-        //fscc_peek_desc(port->tx_descriptors[current_desc]);
         length -= data_to_move;
+        *out_length += data_to_move;
         current_desc++;
         if(current_desc == port->num_tx_desc) current_desc = 0; 
     }
@@ -203,78 +202,69 @@ NTSTATUS fscc_dma_add_write_data(struct fscc_port *port, char *data_buffer, unsi
         fscc_port_execute_transmit(port, 1);
     }
     port->current_tx_desc = current_desc;
-    if(port->current_tx_desc >= port->num_tx_desc-1) port->current_tx_desc = 0;
     
     return STATUS_SUCCESS;
 }
 
-// TODO Fix this, like the frame it should start from 0?
 int fscc_dma_get_stream_data(struct fscc_port *port, char *data_buffer, size_t buffer_size, size_t *out_length)
 {
     unsigned bytes_in_desc, bytes_to_move, current_desc;
     
     bytes_to_move = 0;
-    //DbgPrint("+++++++I SHOULD NOT BE HERE+++++++++");
-    //WdfSpinLockAcquire(port->board_rx_spinlock);
+
     current_desc = port->current_rx_desc;
-    for(*out_length=0;*out_length<buffer_size;)
+    for(*out_length = 0; *out_length < buffer_size; )
     {
         if((port->rx_descriptors[current_desc]->desc->control&DESC_FE_BIT)!=DESC_FE_BIT) break;
-        // See if this adds two status bytes - if so, remove them
         bytes_in_desc = port->rx_descriptors[current_desc]->desc->data_count;
+        // TODO accomodate for append_status
         bytes_to_move = (bytes_in_desc > buffer_size - *out_length) ? buffer_size - *out_length : bytes_in_desc;
-        memmove(data_buffer + *out_length, port->rx_descriptors[current_desc]->buffer, bytes_to_move);
-        // If we're emptying the descriptor, we're done with it.
+        RtlCopyMemory(data_buffer + *out_length, port->rx_descriptors[current_desc]->buffer, bytes_to_move);
         if(bytes_to_move == bytes_in_desc) 
         {
             port->rx_descriptors[current_desc]->desc->control = 0;
             current_desc++;
-            if(current_desc >= port->num_rx_desc-1) current_desc = 0; 
+            if(current_desc == port->num_rx_desc) current_desc = 0; 
         }
         else
         {
-            memmove(port->rx_descriptors[current_desc]->buffer, port->rx_descriptors[current_desc]->buffer + bytes_to_move, bytes_in_desc - bytes_to_move);
+            RtlMoveMemory(port->rx_descriptors[current_desc]->buffer, port->rx_descriptors[current_desc]->buffer + bytes_to_move, bytes_in_desc - bytes_to_move);
             port->rx_descriptors[current_desc]->desc->data_count = bytes_in_desc - bytes_to_move;
         }
         *out_length += bytes_to_move;
     }
     port->current_rx_desc = current_desc;
-    //WdfSpinLockRelease(port->board_rx_spinlock);
     
     return STATUS_SUCCESS;
 }
 
-// TODO Determine if spinlocks are necessary and should be used.
 int fscc_dma_get_frame_data(struct fscc_port *port, char *data_buffer, size_t buffer_size, size_t *out_length)
 {
-    unsigned bytes_in_frame, bytes_to_move, i, start_desc, end_desc;
-    //DbgPrint("\nfscc_dma_get_frame_data: I'm in here now..");
-    //WdfSpinLockAcquire(port->board_rx_spinlock);
-    if(fscc_dma_rx_find_next_frame(port, &bytes_in_frame, &start_desc, &end_desc)!=STATUS_SUCCESS)
-    {
+    unsigned bytes_in_frame, bytes_to_move, start_desc, end_desc, cur_desc;
+    
+    if(fscc_dma_rx_find_next_frame(port, &bytes_in_frame, &start_desc, &end_desc)!=STATUS_SUCCESS) 
         return STATUS_UNSUCCESSFUL;
-    }
     if(bytes_in_frame > buffer_size) 
-    {
-        //WdfSpinLockRelease(port->board_rx_spinlock);
         return STATUS_BUFFER_TOO_SMALL;
-    }
-    //DbgPrint("\nfscc_dma_get_frame_data: bytes: %d, start: %d, end: %d ", bytes_in_frame, start_desc, end_desc);
-    *out_length = 0;
-    for(i = start_desc; i <= end_desc; i++)
+    
+    cur_desc = start_desc;
+    for(*out_length = 0; *out_length < bytes_in_frame; )
     {
-        if(port->rx_descriptors[i]->desc->data_count > (bytes_in_frame - *out_length))
+        if(port->rx_descriptors[cur_desc]->desc->data_count > (bytes_in_frame - *out_length))
             bytes_to_move = bytes_in_frame - *out_length;
         else
-            bytes_to_move = port->rx_descriptors[i]->desc->data_count;
+            bytes_to_move = port->rx_descriptors[cur_desc]->desc->data_count;
         
-        //DbgPrint("\nfscc_dma_get_frame_data: Moving %d bytes from desc: ", bytes_to_move);
-        //fscc_peek_desc(port->rx_descriptors[i]);
-        RtlCopyMemory(data_buffer + *out_length, port->rx_descriptors[i]->buffer, bytes_to_move);
-        port->rx_descriptors[i]->desc->control = 0x20000000;
+        RtlCopyMemory(data_buffer + *out_length, port->rx_descriptors[cur_desc]->buffer, bytes_to_move);
+        port->rx_descriptors[cur_desc]->desc->control = 0x20000000;
         *out_length += bytes_to_move;
+        
+        cur_desc++;
+        if(cur_desc == port->num_rx_desc) cur_desc = 0;
+        // This is just to make sure there's no infinite loop.
+        if(cur_desc == start_desc) break;
     }
-    //WdfSpinLockRelease(port->board_rx_spinlock);
+    port->current_rx_desc = cur_desc;
     
     return STATUS_SUCCESS;
 }
@@ -286,7 +276,7 @@ BOOLEAN fscc_dma_is_rx_running(struct fscc_port *port)
 
     return_val_if_untrue(port, 0);
     dstar_value = fscc_port_get_register(port, 2, DSTAR_OFFSET);
-    //DbgPrint("\nDSTAR: 0x%8.8X ", dstar_value);
+    
     if(port->channel==0) return (dstar_value&0x1) ? 0 : 1;
     else return (dstar_value&0x4) ? 0 : 1;
 }
@@ -298,7 +288,7 @@ BOOLEAN fscc_dma_is_tx_running(struct fscc_port *port)
 
     return_val_if_untrue(port, 0);
     dstar_value = fscc_port_get_register(port, 2, DSTAR_OFFSET);
-    //DbgPrint("\nDSTAR: 0x%8.8X ", dstar_value);
+    
     if(port->channel==0) return (dstar_value&0x2) ? 0 : 1;
     else return (dstar_value&0x8) ? 0 : 1;
 }
@@ -357,7 +347,6 @@ NTSTATUS fscc_dma_create_rx_desc(struct fscc_port *port)
     PHYSICAL_ADDRESS temp_address;
     
     // Allocate space for the list of dma_frames
-    // Should this be dma_frame*? We're gonna try it.
     port->rx_descriptors = (struct dma_frame **)ExAllocatePoolWithTag(NonPagedPool, (sizeof(struct dma_frame) * port->num_rx_desc), 'CSED');
     if(port->rx_descriptors == NULL)
     {
@@ -511,7 +500,7 @@ void fscc_dma_destroy_tx(struct fscc_port *port)
 
 int fscc_dma_rx_data_waiting(struct fscc_port *port)
 {
-    unsigned i, streaming;
+    unsigned i, streaming, cur_desc;
     streaming = fscc_port_is_streaming(port);
     
     for(i = 0; i < port->num_rx_desc; i++)
@@ -519,36 +508,35 @@ int fscc_dma_rx_data_waiting(struct fscc_port *port)
         if((port->rx_descriptors[i]->desc->control&DESC_FE_BIT)==DESC_FE_BIT&&streaming) return 1;
         if((port->rx_descriptors[i]->desc->control&DESC_CSTOP_BIT)==DESC_CSTOP_BIT) return 1;
     }
-    DbgPrint("\nfscc_dma_rx_data_waiting: No data found waiting..");
     return 0;
 }
 
 NTSTATUS fscc_dma_rx_find_next_frame(struct fscc_port *port, unsigned *bytes, unsigned *start_desc, unsigned *end_desc)
 {
-    unsigned i;
+    unsigned i, cur_desc;
     int start_found = 0;
     
-    // The manual says 'FE' could be off in a complete frame, but previous drivers
-    // always assumed it was required, so I'm going to do the same.
+    cur_desc = port->current_rx_desc;
     for(i = 0; i < port->num_rx_desc; i++)
     {
-        if((port->rx_descriptors[i]->desc->control&DESC_FE_BIT)==DESC_FE_BIT) 
+        if((port->rx_descriptors[cur_desc]->desc->control&DESC_FE_BIT)==DESC_FE_BIT) 
         {
             if(start_found==0) 
             {
-                *start_desc = i;
+                *start_desc = cur_desc;
                 start_found = 1;
             }
-            if((port->rx_descriptors[i]->desc->control&DESC_CSTOP_BIT)==DESC_CSTOP_BIT)
+            if((port->rx_descriptors[cur_desc]->desc->control&DESC_CSTOP_BIT)==DESC_CSTOP_BIT)
             {
-                *bytes = port->rx_descriptors[i]->desc->control&DMA_MAX_LENGTH;
-                *end_desc = i;
-                //DbgPrint("\nfscc_dma_rx_find_next_frame: Found an RX frame, start desc: %d, end desc: %d, bytes: %d ", *start_desc, *end_desc, *bytes);
+                *bytes = port->rx_descriptors[cur_desc]->desc->control&DMA_MAX_LENGTH;
+                if(!port->append_status) *bytes -= 2;
+                *end_desc = cur_desc;
                 return STATUS_SUCCESS;
             }
         }
+        cur_desc++;
+        if(cur_desc == port->num_rx_desc) cur_desc = 0;
     }
-    //DbgPrint("\nfscc_dma_rx_find_next_frame: No RX frame found! ");
     return STATUS_UNSUCCESSFUL;
 }
 
@@ -583,15 +571,15 @@ NTSTATUS fscc_dma_port_disable(struct fscc_port *port)
     return fscc_port_set_register(port, 2, DMACCR_OFFSET, 0x00000000);
 }
 
-// Everything from here is for debugging.
+// Everything from here down is for debugging.
 void fscc_peek_rx_desc(struct fscc_port *port, unsigned num)
 {
     unsigned i;
     if(num < 1 || num > port->num_rx_desc) num = port->num_rx_desc;
-    //DbgPrint("\nPeeking at RX descriptors: ");
+    DbgPrint("\nPeeking at RX descriptors: ");
     for(i=0;i<num;i++)
     {
-        //DbgPrint("\nDesc %8.8d, ", i);
+        DbgPrint("\nDesc %8.8d, ", i);
         fscc_peek_desc(port->rx_descriptors[i]);
     }
 }
@@ -600,18 +588,18 @@ void fscc_peek_tx_desc(struct fscc_port *port, unsigned num)
 {
     unsigned i;
     if(num < 1 || num > port->num_tx_desc) num = port->num_tx_desc;
-    //DbgPrint("\nPeeking at TX descriptors: ");
+    DbgPrint("\nPeeking at TX descriptors: ");
     for(i=0;i<num;i++)
     {
-        //DbgPrint("\nDesc %8.8d,  ", i);
+        DbgPrint("\nDesc %8.8d,  ", i);
         fscc_peek_desc(port->tx_descriptors[i]);
     }
 }
 
 void fscc_peek_desc(struct dma_frame *frame)
 {
-    //DbgPrint(" Data Count: %8.8d, Control: 0x%8.8X,", frame->desc->data_count, frame->desc->control);
-    //DbgPrint(" Cur Add: 0x%8.8X, Next Add: 0x%8.8X ", frame->desc_physical_address, frame->desc->next_descriptor);
+    DbgPrint(" Data Count: %8.8d, Control: 0x%8.8X,", frame->desc->data_count, frame->desc->control);
+    DbgPrint(" Cur Add: 0x%8.8X, Next Add: 0x%8.8X ", frame->desc_physical_address, frame->desc->next_descriptor);
     return;
 }
 
@@ -619,7 +607,7 @@ void fscc_dma_current_regs(struct fscc_port *port)
 {
     UINT32 cur_reg;
     cur_reg = fscc_port_get_register(port, 2, DMA_CURRENT_TX_BASE_OFFSET);
-    //DbgPrint("\n%s: Current TX desc: 0x%8.8x ", __FUNCTION__, cur_reg);
+    DbgPrint("\n%s: Current TX desc: 0x%8.8x ", __FUNCTION__, cur_reg);
     cur_reg = fscc_port_get_register(port, 2, DMA_CURRENT_RX_BASE_OFFSET);
-    //DbgPrint("\n%s: Current RX desc: 0x%8.8x ", __FUNCTION__, cur_reg);
+    DbgPrint("\n%s: Current RX desc: 0x%8.8x ", __FUNCTION__, cur_reg);
 }
