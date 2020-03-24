@@ -70,22 +70,22 @@ NTSTATUS fscc_dma_initialize(struct fscc_port *port)
 
 NTSTATUS fscc_dma_rebuild_rx(struct fscc_port *port)
 {
-    NTSTATUS status;
-    
     if(!port) return STATUS_UNSUCCESSFUL;
     
-    // Destroy the current RX DMA stuff.
     fscc_dma_destroy_rx(port);
     if(!fscc_port_uses_dma(port)) return STATUS_UNSUCCESSFUL;
     
-    status = fscc_dma_build_rx(port);
-    if(status != STATUS_SUCCESS)
-    {
-        port->has_dma = 0;
-        return status;
-    }
+    return fscc_dma_build_rx(port);
+}
+
+NTSTATUS fscc_dma_rebuild_tx(struct fscc_port *port)
+{
+    if(!port) return STATUS_UNSUCCESSFUL;
     
-    return STATUS_SUCCESS;
+    fscc_dma_destroy_tx(port);
+    if(!fscc_port_uses_dma(port)) return STATUS_UNSUCCESSFUL;
+    
+    return fscc_dma_build_tx(port);
 }
 
 NTSTATUS fscc_dma_build_rx(struct fscc_port *port)
@@ -112,26 +112,6 @@ NTSTATUS fscc_dma_build_rx(struct fscc_port *port)
     // Reset the RX DMA stuff.
     port->current_rx_desc = 0;
     status = fscc_port_set_register(port, 2, DMA_RX_BASE_OFFSET, port->rx_descriptors[0]->desc_physical_address);
-    if(status != STATUS_SUCCESS)
-    {
-        port->has_dma = 0;
-        return status;
-    }
-    
-    return STATUS_SUCCESS;
-}
-
-NTSTATUS fscc_dma_rebuild_tx(struct fscc_port *port)
-{
-    NTSTATUS status;
-    
-    if(!port) return STATUS_UNSUCCESSFUL;
-    
-    // Destroy the current TX DMA stuff.
-    fscc_dma_destroy_tx(port);
-    if(!fscc_port_uses_dma(port)) return STATUS_UNSUCCESSFUL;
-    
-    status = fscc_dma_build_tx(port);
     if(status != STATUS_SUCCESS)
     {
         port->has_dma = 0;
@@ -172,6 +152,69 @@ NTSTATUS fscc_dma_build_tx(struct fscc_port *port)
     }
     
     return STATUS_SUCCESS;
+}
+
+void fscc_dma_reset_rx(struct fscc_port *port)
+{
+    unsigned i;
+    
+    fscc_dma_execute_RSTR(port);
+    for(i=0;i<port->num_rx_desc;i++)
+    {
+        port->rx_descriptors[i]->desc->control = 0x20000000;
+        port->rx_descriptors[i]->desc->data_count = port->common_frame_size;
+    }
+    port->current_rx_desc = 0;
+    fscc_port_set_register(port, 2, DMA_RX_BASE_OFFSET, port->rx_descriptors[0]->desc_physical_address);
+    fscc_dma_execute_GO_R(port);
+}
+
+void fscc_dma_reset_tx(struct fscc_port *port)
+{
+    unsigned i;
+    
+    fscc_port_execute_TRES(port);
+    for(i=0;i<port->num_tx_desc;i++)
+    {
+        port->tx_descriptors[i]->desc->control = 0x40000000;
+        port->tx_descriptors[i]->desc->data_count = 0;
+    }
+    port->current_tx_desc = 0;
+    fscc_port_set_register(port, 2, DMA_TX_BASE_OFFSET, port->tx_descriptors[0]->desc_physical_address);
+}
+
+void fscc_dma_destroy_rx(struct fscc_port *port)
+{
+    unsigned i;
+    
+    fscc_dma_execute_RSTR(port);
+    fscc_port_set_register(port, 2, DMA_RX_BASE_OFFSET, 0);
+    if(!port->rx_descriptors) return;
+    
+    for(i=0;i<port->num_rx_desc;i++) 
+    {
+        fscc_dma_destroy_desc(port, port->rx_descriptors[i]);
+        if(port->rx_descriptors[i]) ExFreePoolWithTag(port->rx_descriptors[i], 'CSED');
+    }
+    
+    ExFreePoolWithTag(port->rx_descriptors, 'CSED');
+}
+
+void fscc_dma_destroy_tx(struct fscc_port *port)
+{
+    unsigned i;
+    
+    fscc_dma_execute_RSTT(port);
+    fscc_port_set_register(port, 2, DMA_TX_BASE_OFFSET, 0);
+    if(!port->tx_descriptors) return;
+    
+    for(i=0;i<port->num_tx_desc;i++)
+    {
+        fscc_dma_destroy_desc(port, port->tx_descriptors[i]);
+        if(port->tx_descriptors[i]) ExFreePoolWithTag(port->tx_descriptors[i], 'CSED');
+    }
+    
+    ExFreePoolWithTag(port->tx_descriptors, 'CSED');
 }
 
 NTSTATUS fscc_dma_add_write_data(struct fscc_port *port, char *data_buffer, unsigned length, size_t *out_length)
@@ -462,40 +505,6 @@ NTSTATUS fscc_dma_create_tx_buffers(struct fscc_port *port)
         port->tx_descriptors[i]->desc->data_address = temp_address.LowPart;
     }
     return STATUS_SUCCESS;
-}
-
-void fscc_dma_destroy_rx(struct fscc_port *port)
-{
-    unsigned i;
-    
-    fscc_dma_execute_RSTR(port);
-    fscc_port_set_register(port, 2, DMA_RX_BASE_OFFSET, 0);
-    if(!port->rx_descriptors) return;
-    
-    for(i=0;i<port->num_rx_desc;i++) 
-    {
-        fscc_dma_destroy_desc(port, port->rx_descriptors[i]);
-        if(port->rx_descriptors[i]) ExFreePoolWithTag(port->rx_descriptors[i], 'CSED');
-    }
-    
-    ExFreePoolWithTag(port->rx_descriptors, 'CSED');
-}
-
-void fscc_dma_destroy_tx(struct fscc_port *port)
-{
-    unsigned i;
-    
-    fscc_dma_execute_RSTT(port);
-    fscc_port_set_register(port, 2, DMA_TX_BASE_OFFSET, 0);
-    if(!port->tx_descriptors) return;
-    
-    for(i=0;i<port->num_tx_desc;i++)
-    {
-        fscc_dma_destroy_desc(port, port->tx_descriptors[i]);
-        if(port->tx_descriptors[i]) ExFreePoolWithTag(port->tx_descriptors[i], 'CSED');
-    }
-    
-    ExFreePoolWithTag(port->tx_descriptors, 'CSED');
 }
 
 int fscc_dma_rx_data_waiting(struct fscc_port *port)

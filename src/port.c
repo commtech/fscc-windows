@@ -632,8 +632,7 @@ NTSTATUS FsccEvtDevicePrepareHardware(WDFDEVICE Device,
         
     fscc_port_purge_rx(port);
     fscc_port_purge_tx(port);
-    //fscc_peek_rx_desc(port, 20);
-    //fscc_peek_tx_desc(port, 20);
+    
     WDF_TIMER_CONFIG_INIT(&timerConfig, timer_handler);
 
     timerConfig.Period = TIMER_DELAY_MS;
@@ -1138,7 +1137,45 @@ VOID FsccEvtIoDeviceControl(IN WDFQUEUE Queue, IN WDFREQUEST Request,
         }
 
         break;
+        // NYI
+/*
+    case FSCC_SET_COMMON_FRAME_SIZE: {
+            unsigned *frame_size = 0;
 
+            status = WdfRequestRetrieveInputBuffer(Request,
+                        sizeof(*frame_size), (PVOID *)&frame_size, NULL);
+            if (!NT_SUCCESS(status)) {
+                TraceEvents(TRACE_LEVEL_WARNING, TRACE_DEVICE,
+                    "WdfRequestRetrieveInputBuffer failed %!STATUS!", status);
+                break;
+            }
+
+            status = fscc_port_set_common_frame_size(port, *frame_size);
+            if (!NT_SUCCESS(status)) {
+                TraceEvents(TRACE_LEVEL_WARNING, TRACE_DEVICE,
+                    "fscc_port_set_common_frame_size %!STATUS!", status);
+                break;
+            }
+        
+        }
+        break;
+    case FSCC_GET_COMMON_FRAME_SIZE: {
+            unsigned *frame_size = 0;
+
+            status = WdfRequestRetrieveOutputBuffer(Request,
+                        sizeof(*frame_size), (PVOID *)&frame_size, NULL);
+            if (!NT_SUCCESS(status)) {
+                TraceEvents(TRACE_LEVEL_WARNING, TRACE_DEVICE,
+                    "WdfRequestRetrieveOutputBuffer failed %!STATUS!", status);
+                break;
+            }
+
+            *frame_size = port->common_frame_size;
+
+            bytes_returned = sizeof(*frame_size);
+        }
+        break;
+*/
     default:
         TraceEvents(TRACE_LEVEL_WARNING, TRACE_DEVICE,
             "Unknown DeviceIoControl 0x%x", IoControlCode);
@@ -1607,8 +1644,8 @@ NTSTATUS fscc_port_purge_rx(struct fscc_port *port)
                 "Purging receive data");
 
     WdfSpinLockAcquire(port->board_rx_spinlock);
-    if(fscc_port_uses_dma(port)) status = fscc_dma_execute_RSTR(port);
     status = fscc_port_execute_RRES(port);
+    if(fscc_port_uses_dma(port)) fscc_dma_reset_rx(port);
     WdfSpinLockRelease(port->board_rx_spinlock);
     if (!NT_SUCCESS(status)) {
         TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE,
@@ -1637,17 +1674,9 @@ NTSTATUS fscc_port_purge_rx(struct fscc_port *port)
     WdfIoQueueStart(port->read_queue);
     WdfIoQueueStart(port->read_queue2);
     
-    // Write the top of the rx_dma_desc to the appropriate registers
-    // TODO write the base rx address again?
-    if(fscc_port_uses_dma(port)) 
-    {
-        fscc_dma_execute_GO_R(port);
-    }
-        
     return STATUS_SUCCESS;
 }
 
-// TODO Apparently this should only be done after ALLS
 NTSTATUS fscc_port_purge_tx(struct fscc_port *port)
 {
     NTSTATUS status;
@@ -1658,8 +1687,8 @@ NTSTATUS fscc_port_purge_tx(struct fscc_port *port)
                 "Purging transmit data");
 
     WdfSpinLockAcquire(port->board_tx_spinlock);
-    if(fscc_port_uses_dma(port)) fscc_dma_execute_RSTT(port);
     status = fscc_port_execute_TRES(port);
+    if(fscc_port_uses_dma(port)) fscc_dma_reset_tx(port);
     WdfSpinLockRelease(port->board_tx_spinlock);
     if (!NT_SUCCESS(status)) {
         TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE,
@@ -2368,25 +2397,29 @@ BOOLEAN fscc_port_get_force_fifo(struct fscc_port *port)
     return port->force_fifo;
 }
 
-NTSTATUS fscc_port_set_common_frame_size(struct fscc_port *port, int size)
+/*
+NTSTATUS fscc_port_set_common_frame_size(struct fscc_port *port, unsigned size)
 {
-    int real_size;
+    unsigned real_size;
     
-    return_val_if_untrue(port, 0);
-    return_val_if_untrue(size > 0, 0);
+    return_val_if_untrue(size > 0, STATUS_UNSUCCESSFUL);
+    return_val_if_untrue(port, STATUS_UNSUCCESSFUL);
+    return_val_if_untrue(fscc_port_uses_dma(port), STATUS_UNSUCCESSFUL);
     
-    // Add two, because DMA likes to append two status bytes to each desc.
-    // This will help make sure that the frames don't overflow the descriptors
-    // by 2 bytes and waste large amounts of memory.
-    size += 2;
+    if(size > (unsigned)port->memory_cap.input) return STATUS_UNSUCCESSFUL;
+    if(size > (unsigned)port->memory_cap.output) return STATUS_UNSUCCESSFUL;
+    
     // Magic math to force it up to 4 byte aligned.
-    real_size = (size + 3) & ~0x3;
+    // We add an additional 2 to accomodate the status word.
+    real_size = (size + 3 + 2) & ~0x3;
     if (real_size != port->common_frame_size) {
         TraceEvents(TRACE_LEVEL_INFORMATION, TRACE_DEVICE, "Common frame size %i => %i", port->common_frame_size, real_size);
         port->common_frame_size = real_size;
+        
         WdfSpinLockAcquire(port->board_rx_spinlock);
         fscc_dma_rebuild_rx(port);
         WdfSpinLockRelease(port->board_rx_spinlock);
+        
         WdfSpinLockAcquire(port->board_tx_spinlock);
         fscc_dma_rebuild_tx(port);
         WdfSpinLockRelease(port->board_tx_spinlock);
@@ -2397,3 +2430,4 @@ NTSTATUS fscc_port_set_common_frame_size(struct fscc_port *port, int size)
     
     return STATUS_SUCCESS;
 }
+*/

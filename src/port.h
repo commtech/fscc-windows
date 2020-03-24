@@ -256,4 +256,5 @@ unsigned fscc_port_has_incoming_data(struct fscc_port *port);
 unsigned fscc_port_transmit_frame(struct fscc_port *port, struct fscc_frame *frame);
 
 void fscc_port_execute_transmit(struct fscc_port *port, unsigned dma);
+NTSTATUS fscc_port_set_common_frame_size(struct fscc_port *port, unsigned size);
 #endif
