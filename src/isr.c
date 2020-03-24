@@ -75,7 +75,6 @@ BOOLEAN fscc_isr(WDFINTERRUPT Interrupt, ULONG MessageID)
         }
     }
         
-
     if (isr_value & TFT)
         WdfDpcEnqueue(port->oframe_dpc);
 
@@ -266,8 +265,8 @@ void iframe_worker(WDFDPC Dpc)
                get our values. The rest will be read on the next interrupt. */
             receive_length = rxcnt - (rxcnt % 4);
         }
-        receive_length = max(receive_length, 0);
-        
+		receive_length = max(receive_length, 0);
+		
         /* Leave the interrupt handler if there is no data to read. */
         if (!receive_length) {
             WdfSpinLockRelease(port->pending_iframe_spinlock);

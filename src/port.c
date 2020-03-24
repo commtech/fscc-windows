@@ -640,6 +640,7 @@ NTSTATUS FsccEvtDevicePrepareHardware(WDFDEVICE Device,
 
     WDF_OBJECT_ATTRIBUTES_INIT(&timerAttributes);
     timerAttributes.ParentObject = port->device;
+
     status = WdfTimerCreate(&timerConfig, &timerAttributes, &port->timer);
     if (!NT_SUCCESS(status)) {
         TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE,
@@ -2300,12 +2301,6 @@ NTSTATUS fscc_port_set_port_num(struct fscc_port *port, unsigned value)
     return status;
 }
 
-int prepare_frame_for_dma(struct fscc_port *port, struct fscc_frame *frame, unsigned *length)
-{
-    //fscc_port_set_register(port, 0x2, DMA_TX_BASE_OFFSET, frame->logical_desc);
-    return 2;
-}
-
 #define TX_FIFO_SIZE 4096
 int prepare_frame_for_fifo(struct fscc_port *port, struct fscc_frame *frame, unsigned *length)
 {
@@ -2355,13 +2350,7 @@ unsigned fscc_port_transmit_frame(struct fscc_port *port, struct fscc_frame *fra
     unsigned transmit_length = 0;
     int result;
 
-    //if (fscc_port_uses_dma(port)) transmit_dma = 1;
-
-    //if (transmit_dma)
-    //    result = prepare_frame_for_dma(port, frame, &transmit_length);
-    //else
-        result = prepare_frame_for_fifo(port, frame, &transmit_length);
-
+    result = prepare_frame_for_fifo(port, frame, &transmit_length);
     if (result) fscc_port_execute_transmit(port, transmit_dma);
 
     TraceEvents(TRACE_LEVEL_VERBOSE, TRACE_DEVICE,
@@ -2377,17 +2366,25 @@ void fscc_port_set_force_fifo(struct fscc_port *port, BOOLEAN value)
 {
     return_if_untrue(port);
 
-    if (port->force_fifo != value) {
-        TraceEvents(TRACE_LEVEL_INFORMATION, TRACE_DEVICE,
-                    "Force FIFO %i => %i",
-                    port->force_fifo, value);
+    // We only care if it's changing, and if it can even do DMA.
+    if (port->force_fifo != value && port->has_dma) 
+    {
+        TraceEvents(TRACE_LEVEL_INFORMATION, TRACE_DEVICE, "Force FIFO %i => %i", port->force_fifo, value);
+        port->force_fifo = (value) ? TRUE : FALSE;
+        
+        if(port->force_fifo)
+        {
+            fscc_dma_port_disable(port);
+            fscc_dma_destroy_rx(port);
+            fscc_dma_destroy_tx(port);
+        }
+        else
+        {
+            fscc_dma_build_rx(port);
+            fscc_dma_build_tx(port);
+            fscc_dma_port_enable(port);
+        }
     }
-    else {
-        TraceEvents(TRACE_LEVEL_VERBOSE, TRACE_DEVICE,
-                    "Force FIFO = %i", value);
-    }
-
-    port->force_fifo = (value) ? TRUE : FALSE;
 }
 
 BOOLEAN fscc_port_get_force_fifo(struct fscc_port *port)
