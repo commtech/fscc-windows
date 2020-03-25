@@ -198,6 +198,7 @@ void fscc_dma_destroy_rx(struct fscc_port *port)
     }
     
     ExFreePoolWithTag(port->rx_descriptors, 'CSED');
+    port->rx_descriptors = 0;
 }
 
 void fscc_dma_destroy_tx(struct fscc_port *port)
@@ -215,6 +216,7 @@ void fscc_dma_destroy_tx(struct fscc_port *port)
     }
     
     ExFreePoolWithTag(port->tx_descriptors, 'CSED');
+    port->tx_descriptors = 0;
 }
 
 NTSTATUS fscc_dma_add_write_data(struct fscc_port *port, char *data_buffer, unsigned length, size_t *out_length)
@@ -341,6 +343,7 @@ void fscc_dma_destroy_data(struct fscc_port *port, struct dma_frame *frame)
     frame->desc->data_address = 0;
     frame->buffer = 0;
     if(frame->data_buffer) WdfObjectDelete(frame->data_buffer);
+    frame->data_buffer = 0;
 }
 
 void fscc_dma_destroy_desc(struct fscc_port *port, struct dma_frame *frame)
@@ -349,6 +352,7 @@ void fscc_dma_destroy_desc(struct fscc_port *port, struct dma_frame *frame)
     RtlZeroMemory(frame->desc, sizeof(struct fscc_descriptor));
     frame->desc_physical_address = 0;
     if(frame->desc_buffer) WdfObjectDelete(frame->desc_buffer);
+    frame->desc_buffer = 0;
 }
 
 NTSTATUS fscc_dma_execute_RSTR(struct fscc_port *port)

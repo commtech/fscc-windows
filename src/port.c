@@ -1929,6 +1929,7 @@ void fscc_port_set_memory_cap(struct fscc_port *port, struct fscc_memory_cap *va
             port->memory_cap.input = value->input;
             WdfSpinLockAcquire(port->board_rx_spinlock);
             fscc_dma_rebuild_rx(port);
+            fscc_dma_reset_rx(port);
             WdfSpinLockRelease(port->board_rx_spinlock);
         }
         else {
@@ -1947,6 +1948,7 @@ void fscc_port_set_memory_cap(struct fscc_port *port, struct fscc_memory_cap *va
             port->memory_cap.output = value->output;
             WdfSpinLockAcquire(port->board_tx_spinlock);
             fscc_dma_rebuild_tx(port);
+            fscc_dma_reset_tx(port);
             WdfSpinLockRelease(port->board_tx_spinlock);
         }
         else {
