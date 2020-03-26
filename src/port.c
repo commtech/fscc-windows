@@ -574,7 +574,7 @@ NTSTATUS FsccEvtDevicePrepareHardware(WDFDEVICE Device,
                 port->channel);
                 
     vstr = fscc_port_get_PREV(port);
-    if(vstr & 0x10) port->has_dma = 1;
+    if(vstr & 0x04) port->has_dma = 1;
     else port->has_dma = 0;
     TraceEvents(TRACE_LEVEL_INFORMATION, TRACE_DEVICE, "Board has DMA: %d!", port->has_dma);
     fscc_dma_initialize(port);
@@ -1113,11 +1113,11 @@ VOID FsccEvtIoDeviceControl(IN WDFQUEUE Queue, IN WDFREQUEST Request,
         fscc_port_set_blocking_write(port, FALSE);
         break;
     case FSCC_ENABLE_FORCE_FIFO:
-        fscc_port_set_force_fifo(port, TRUE);
+        status = fscc_port_set_force_fifo(port, TRUE);
         break;
 
     case FSCC_DISABLE_FORCE_FIFO:
-        fscc_port_set_force_fifo(port, FALSE);
+        status = fscc_port_set_force_fifo(port, FALSE);
         break;
 
     case FSCC_GET_FORCE_FIFO: {
@@ -2364,10 +2364,11 @@ unsigned fscc_port_transmit_frame(struct fscc_port *port, struct fscc_frame *fra
     return result;
 }
 
-void fscc_port_set_force_fifo(struct fscc_port *port, BOOLEAN value)
+NTSTATUS fscc_port_set_force_fifo(struct fscc_port *port, BOOLEAN value)
 {
-    return_if_untrue(port);
-
+    return_val_if_untrue(port, STATUS_UNSUCCESSFUL);
+    if(!value && !port->has_dma) return STATUS_NOT_SUPPORTED;
+    
     // We only care if it's changing, and if it can even do DMA.
     if (port->force_fifo != value && port->has_dma) 
     {
@@ -2387,6 +2388,7 @@ void fscc_port_set_force_fifo(struct fscc_port *port, BOOLEAN value)
             fscc_dma_port_enable(port);
         }
     }
+    return STATUS_SUCCESS;
 }
 
 BOOLEAN fscc_port_get_force_fifo(struct fscc_port *port)

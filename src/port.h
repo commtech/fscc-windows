@@ -185,11 +185,9 @@ void fscc_port_set_register_rep(struct fscc_port *port, unsigned bar,
                                 unsigned register_offset, const char *data,
                                 unsigned byte_count);
 
-NTSTATUS fscc_port_set_registers(struct fscc_port *port,
-                            const struct fscc_registers *regs);
+NTSTATUS fscc_port_set_registers(struct fscc_port *port, const struct fscc_registers *regs);
 
-void fscc_port_get_registers(struct fscc_port *port,
-                             struct fscc_registers *regs);
+void fscc_port_get_registers(struct fscc_port *port, struct fscc_registers *regs);
 
 UCHAR fscc_port_get_FREV(struct fscc_port *port);
 UCHAR fscc_port_get_PREV(struct fscc_port *port);
@@ -204,39 +202,36 @@ BOOLEAN fscc_port_get_append_status(struct fscc_port *port);
 void fscc_port_set_append_timestamp(struct fscc_port *port, BOOLEAN value);
 BOOLEAN fscc_port_get_append_timestamp(struct fscc_port *port);
 
-void fscc_port_set_ignore_timeout(struct fscc_port *port,
-                                  BOOLEAN ignore_timeout);
+void fscc_port_set_ignore_timeout(struct fscc_port *port, BOOLEAN ignore_timeout);
 BOOLEAN fscc_port_get_ignore_timeout(struct fscc_port *port);
+
 void fscc_port_set_rx_multiple(struct fscc_port *port, BOOLEAN rx_multiple);
-
 BOOLEAN fscc_port_get_rx_multiple(struct fscc_port *port);
+
 void fscc_port_set_wait_on_write(struct fscc_port *port, BOOLEAN wait_on_write);
-
-BOOLEAN fscc_port_get_force_fifo(struct fscc_port *port);
-void fscc_port_set_force_fifo(struct fscc_port *port, BOOLEAN force_fifo);
-
 BOOLEAN fscc_port_get_wait_on_write(struct fscc_port *port);
-void fscc_port_set_blocking_write(struct fscc_port *port,
-    BOOLEAN blocking);
+
+NTSTATUS fscc_port_set_force_fifo(struct fscc_port *port, BOOLEAN force_fifo);
+BOOLEAN fscc_port_get_force_fifo(struct fscc_port *port);
+
+void fscc_port_set_blocking_write(struct fscc_port *port, BOOLEAN blocking);
 BOOLEAN fscc_port_get_blocking_write(struct fscc_port *port);
+
 NTSTATUS fscc_port_set_tx_modifiers(struct fscc_port *port, int value);
 unsigned fscc_port_get_tx_modifiers(struct fscc_port *port);
 
+void fscc_port_set_memory_cap(struct fscc_port *port, struct fscc_memory_cap *memory_cap);
 unsigned fscc_port_get_input_memory_cap(struct fscc_port *port);
 unsigned fscc_port_get_output_memory_cap(struct fscc_port *port);
+unsigned fscc_port_get_input_memory_usage(struct fscc_port *port);
+unsigned fscc_port_get_output_memory_usage(struct fscc_port *port);
 
-void fscc_port_set_memory_cap(struct fscc_port *port,
-                              struct fscc_memory_cap *memory_cap);
-
-void fscc_port_set_clock_bits(struct fscc_port *port,
-                              unsigned char *clock_data);
+void fscc_port_set_clock_bits(struct fscc_port *port, unsigned char *clock_data);
 
 NTSTATUS fscc_port_execute_RRES(struct fscc_port *port);
 NTSTATUS fscc_port_execute_TRES(struct fscc_port *port);
 
 unsigned fscc_port_using_async(struct fscc_port *port);
-
-unsigned fscc_port_get_output_memory_usage(struct fscc_port *port);
 
 BOOLEAN fscc_port_has_iframes(struct fscc_port *port, unsigned lock);
 BOOLEAN fscc_port_has_oframes(struct fscc_port *port, unsigned lock);
@@ -250,7 +245,6 @@ unsigned fscc_port_is_streaming(struct fscc_port *port);
 unsigned fscc_port_get_RFCNT(struct fscc_port *port);
 unsigned fscc_port_get_RXCNT(struct fscc_port *port);
 
-unsigned fscc_port_get_input_memory_usage(struct fscc_port *port);
 void fscc_port_reset_timer(struct fscc_port *port);
 unsigned fscc_port_has_incoming_data(struct fscc_port *port);
 unsigned fscc_port_transmit_frame(struct fscc_port *port, struct fscc_frame *frame);
