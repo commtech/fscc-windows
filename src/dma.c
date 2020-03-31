@@ -221,47 +221,7 @@ void fscc_dma_destroy_tx(struct fscc_port *port)
     ExFreePoolWithTag(port->tx_descriptors, 'CSED');
     port->tx_descriptors = 0;
 }
-/*
-NTSTATUS fscc_dma_add_write_data(struct fscc_port *port, char *data_buffer, unsigned length, size_t *out_length)
-{
-    unsigned required_descriptors, data_to_move,i, current_desc;
 
-    *out_length = 0;
-    required_descriptors = fscc_dma_tx_required_desc(port, length);
-    if(required_descriptors < 1) return STATUS_BUFFER_TOO_SMALL;
-    
-    
-    current_desc = port->current_tx_desc;
-    for(i=0;i<required_descriptors;i++)
-    {
-        if(length == 0) 
-        {
-            //TraceEvents(TRACE_LEVEL_INFORMATION, TRACE_DEVICE, "add_write: throwing a CSTOP in desc %d at 0x%8.8X\n", current_desc, port->tx_descriptors[current_desc]->desc_physical_address);
-            port->tx_descriptors[current_desc]->desc->control = DESC_CSTOP_BIT;
-            port->tx_descriptors[current_desc]->desc->data_count = 0;
-            break;
-        }        
-        data_to_move = length > port->common_frame_size ? port->common_frame_size : length;
-        //TraceEvents(TRACE_LEVEL_INFORMATION, TRACE_DEVICE, "add_write: moving %d bytes into desc %d at 0x%8.8X\n", data_to_move, current_desc, port->tx_descriptors[current_desc]->desc_physical_address);
-        RtlCopyMemory(port->tx_descriptors[current_desc]->buffer, data_buffer, data_to_move);
-        port->tx_descriptors[current_desc]->desc->data_count = data_to_move;
-        if(i==0) port->tx_descriptors[current_desc]->desc->control = DESC_FE_BIT | length;
-        else     port->tx_descriptors[current_desc]->desc->control = length;
-        length -= data_to_move;
-        *out_length += data_to_move;
-        current_desc++;
-        if(current_desc == port->num_tx_desc) current_desc = 0; 
-    }
-    if(!fscc_dma_is_tx_running(port)) 
-    {
-        fscc_port_set_register(port, 2, DMA_TX_BASE_OFFSET, port->tx_descriptors[port->current_tx_desc]->desc_physical_address);
-        fscc_port_execute_transmit(port, 1);
-    }
-    port->current_tx_desc = current_desc;
-    
-    return STATUS_SUCCESS;
-}
-*/
 int fscc_dma_prepare_frame_for_dma(struct fscc_port *port, struct fscc_frame *frame, unsigned *out_length)
 {
     unsigned required_descriptors, data_to_move, i, current_desc, length;
@@ -300,6 +260,7 @@ int fscc_dma_prepare_frame_for_dma(struct fscc_port *port, struct fscc_frame *fr
     return 2;
 }
 
+// TODO Fix like get_frame_data and handle append_status.
 int fscc_dma_get_stream_data(struct fscc_port *port, char *data_buffer, size_t buffer_size, size_t *out_length)
 {
     unsigned bytes_in_desc, bytes_to_move, current_desc;
@@ -316,7 +277,7 @@ int fscc_dma_get_stream_data(struct fscc_port *port, char *data_buffer, size_t b
         RtlCopyMemory(data_buffer + *out_length, port->rx_descriptors[current_desc]->buffer, bytes_to_move);
         if(bytes_to_move == bytes_in_desc) 
         {
-            port->rx_descriptors[current_desc]->desc->control = 0;
+            port->rx_descriptors[current_desc]->desc->control = DESC_HI_BIT;
             current_desc++;
             if(current_desc == port->num_rx_desc) current_desc = 0; 
         }
@@ -341,7 +302,6 @@ int fscc_dma_get_frame_data(struct fscc_port *port, char *data_buffer, size_t bu
     if(bytes_in_frame > buffer_size) 
         return STATUS_BUFFER_TOO_SMALL;
     
-    TraceEvents(TRACE_LEVEL_INFORMATION, TRACE_DEVICE,"get_frame_data: start desc %d, end desc %d, bytes_in_frame %d\n", start_desc, end_desc, bytes_in_frame);
     cur_desc = start_desc;
     do
     {
@@ -351,9 +311,8 @@ int fscc_dma_get_frame_data(struct fscc_port *port, char *data_buffer, size_t bu
             bytes_to_move = port->rx_descriptors[cur_desc]->desc->data_count;
 
         if(!port->append_status && cur_desc == end_desc) bytes_to_move -= 2;
-        TraceEvents(TRACE_LEVEL_INFORMATION, TRACE_DEVICE,"get_frame_data: moving %d bytes out of desc %d, control: 0x%8.8X\n", bytes_to_move, cur_desc, port->rx_descriptors[cur_desc]->desc->control);
         RtlCopyMemory(data_buffer + *out_length, port->rx_descriptors[cur_desc]->buffer, bytes_to_move);
-        port->rx_descriptors[cur_desc]->desc->control = 0x20000000;
+        port->rx_descriptors[cur_desc]->desc->control = DESC_HI_BIT;
         *out_length += bytes_to_move;
         
         if(cur_desc == end_desc) break;
@@ -466,7 +425,7 @@ NTSTATUS fscc_dma_create_rx_desc(struct fscc_port *port)
         temp_address = WdfCommonBufferGetAlignedLogicalAddress(port->rx_descriptors[i]->desc_buffer);
         port->rx_descriptors[i]->desc_physical_address = temp_address.LowPart;
         RtlZeroMemory(port->rx_descriptors[i]->desc, sizeof(struct fscc_descriptor));
-        port->rx_descriptors[i]->desc->control = 0x20000000;
+        port->rx_descriptors[i]->desc->control = DESC_HI_BIT;
     }
     
     // Create the singly linked list
@@ -506,7 +465,7 @@ NTSTATUS fscc_dma_create_tx_desc(struct fscc_port *port)
         temp_address = WdfCommonBufferGetAlignedLogicalAddress(port->tx_descriptors[i]->desc_buffer);
         port->tx_descriptors[i]->desc_physical_address = temp_address.LowPart;
         RtlZeroMemory(port->tx_descriptors[i]->desc, sizeof(struct fscc_descriptor));
-        port->tx_descriptors[i]->desc->control = 0x40000000;
+        port->tx_descriptors[i]->desc->control = DESC_CSTOP_BIT;
     }
     
     // Create the singly linked list
@@ -593,7 +552,6 @@ NTSTATUS fscc_dma_rx_find_next_frame(struct fscc_port *port, unsigned *bytes, un
             if((port->rx_descriptors[cur_desc]->desc->control&DESC_CSTOP_BIT)==DESC_CSTOP_BIT)
             {
                 *bytes = port->rx_descriptors[cur_desc]->desc->control&DMA_MAX_LENGTH;
-                //if(!port->append_status) *bytes -= 2;
                 *end_desc = cur_desc;
                 return STATUS_SUCCESS;
             }
@@ -617,7 +575,7 @@ unsigned fscc_dma_tx_required_desc(struct fscc_port *port, unsigned size)
     current_desc = port->current_tx_desc;
     for(i=0;i<required_descriptors;i++)
     {
-        // If 0x40000000 is set, we own the descriptor for TX.
+        // If CSTOP is set, we own the descriptor for TX.
         if((port->tx_descriptors[current_desc]->desc->control&DESC_CSTOP_BIT)==0) return 0;
         current_desc++;
         if(current_desc == port->num_tx_desc) current_desc = 0;

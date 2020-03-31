@@ -1136,46 +1136,7 @@ VOID FsccEvtIoDeviceControl(IN WDFQUEUE Queue, IN WDFREQUEST Request,
 
             bytes_returned = sizeof(*force_fifo);
         }
-
         break;
-/*
-    case FSCC_SET_COMMON_FRAME_SIZE: {
-            unsigned *frame_size = 0;
-
-            status = WdfRequestRetrieveInputBuffer(Request,
-                        sizeof(*frame_size), (PVOID *)&frame_size, NULL);
-            if (!NT_SUCCESS(status)) {
-                TraceEvents(TRACE_LEVEL_WARNING, TRACE_DEVICE,
-                    "WdfRequestRetrieveInputBuffer failed %!STATUS!", status);
-                break;
-            }
-
-            status = fscc_port_set_common_frame_size(port, *frame_size);
-            if (!NT_SUCCESS(status)) {
-                TraceEvents(TRACE_LEVEL_WARNING, TRACE_DEVICE,
-                    "fscc_port_set_common_frame_size %!STATUS!", status);
-                break;
-            }
-        
-        }
-        break;
-    case FSCC_GET_COMMON_FRAME_SIZE: {
-            unsigned *frame_size = 0;
-
-            status = WdfRequestRetrieveOutputBuffer(Request,
-                        sizeof(*frame_size), (PVOID *)&frame_size, NULL);
-            if (!NT_SUCCESS(status)) {
-                TraceEvents(TRACE_LEVEL_WARNING, TRACE_DEVICE,
-                    "WdfRequestRetrieveOutputBuffer failed %!STATUS!", status);
-                break;
-            }
-
-            *frame_size = port->common_frame_size;
-
-            bytes_returned = sizeof(*frame_size);
-        }
-        break;
-*/
     default:
         TraceEvents(TRACE_LEVEL_WARNING, TRACE_DEVICE,
             "Unknown DeviceIoControl 0x%x", IoControlCode);
@@ -2404,40 +2365,3 @@ BOOLEAN fscc_port_get_force_fifo(struct fscc_port *port)
 
     return port->force_fifo;
 }
-
-/*
-NTSTATUS fscc_port_set_common_frame_size(struct fscc_port *port, unsigned size)
-{
-    unsigned real_size;
-    
-    return_val_if_untrue(size > 0, STATUS_UNSUCCESSFUL);
-    return_val_if_untrue(port, STATUS_UNSUCCESSFUL);
-    return_val_if_untrue(fscc_port_uses_dma(port), STATUS_UNSUCCESSFUL);
-    
-    if(size > (unsigned)port->memory_cap.input) return STATUS_UNSUCCESSFUL;
-    if(size > (unsigned)port->memory_cap.output) return STATUS_UNSUCCESSFUL;
-    
-    // Magic math to force it up to 4 byte aligned.
-    // We add an additional 2 to accomodate the status word.
-    real_size = (size + 3 + 2) & ~0x3;
-    if (real_size != port->common_frame_size) {
-        TraceEvents(TRACE_LEVEL_INFORMATION, TRACE_DEVICE, "Common frame size %i => %i", port->common_frame_size, real_size);
-        port->common_frame_size = real_size;
-        
-        WdfSpinLockAcquire(port->board_rx_spinlock);
-        fscc_dma_rebuild_rx(port);
-        fscc_dma_reset_rx(port);
-        WdfSpinLockRelease(port->board_rx_spinlock);
-        
-        WdfSpinLockAcquire(port->board_tx_spinlock);
-        fscc_dma_rebuild_tx(port);
-        fscc_dma_reset_tx(port);
-        WdfSpinLockRelease(port->board_tx_spinlock);
-    }
-    else {
-        TraceEvents(TRACE_LEVEL_VERBOSE, TRACE_DEVICE, "Common frame size = %i", real_size);
-    }
-    
-    return STATUS_SUCCESS;
-}
-*/
