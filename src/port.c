@@ -1316,10 +1316,9 @@ VOID FsccEvtIoWrite(IN WDFQUEUE Queue, IN WDFREQUEST Request, IN size_t Length)
     char *data_buffer = NULL;
     struct fscc_port *port = 0;
     struct fscc_frame *frame = 0;
-    size_t bytes_written = 0;
 
     port = WdfObjectGet_FSCC_PORT(WdfIoQueueGetDevice(Queue));
-    
+
     if (Length == 0) {
         WdfRequestCompleteWithInformation(Request, STATUS_SUCCESS, Length);
         return;
@@ -1363,17 +1362,6 @@ VOID FsccEvtIoWrite(IN WDFQUEUE Queue, IN WDFREQUEST Request, IN size_t Length)
         WdfRequestComplete(Request, status);
         return;
     }
-/*
-    if(fscc_port_uses_dma(port))
-    {
-        WdfSpinLockAcquire(port->board_tx_spinlock);
-        status = fscc_dma_add_write_data(port, data_buffer, Length, &bytes_written);
-        WdfSpinLockRelease(port->board_tx_spinlock);
-        WdfRequestCompleteWithInformation(Request, status, bytes_written);
-    }
-    else
-    {
-        */
         frame = fscc_frame_new(port);
 
         if (!frame) {
@@ -1401,7 +1389,6 @@ VOID FsccEvtIoWrite(IN WDFQUEUE Queue, IN WDFREQUEST Request, IN size_t Length)
         }
 
         WdfDpcEnqueue(port->oframe_dpc);
-  //  }
 }
 
 UINT32 fscc_port_get_register(struct fscc_port *port, unsigned bar,
@@ -1628,7 +1615,6 @@ NTSTATUS fscc_port_purge_rx(struct fscc_port *port)
         fscc_frame_delete(port->pending_iframe);
         port->pending_iframe = 0;
     }
-    
     WdfSpinLockRelease(port->pending_iframe_spinlock);
 
     WdfIoQueuePurgeSynchronously(port->read_queue);
