@@ -54,6 +54,7 @@ void fscc_dma_reset_tx(struct fscc_port *port);
 int fscc_dma_prepare_frame_for_dma(struct fscc_port *port, struct fscc_frame *frame, unsigned *out_length);
 int fscc_dma_get_stream_data(struct fscc_port *port, char *data_buffer, size_t buffer_size, size_t *out_length);
 int fscc_dma_get_frame_data(struct fscc_port *port, char *data_buffer, size_t buffer_size, size_t *out_length);
+int fscc_dma_tx_required_desc(struct fscc_port *port, unsigned size);
 void fscc_dma_destroy_rx(struct fscc_port *port);
 void fscc_dma_destroy_tx(struct fscc_port *port);
 NTSTATUS fscc_dma_execute_GO_T(struct fscc_port *port);

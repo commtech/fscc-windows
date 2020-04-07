@@ -44,7 +44,6 @@ NTSTATUS fscc_dma_create_tx_desc(struct fscc_port *port);
 NTSTATUS fscc_dma_create_rx_buffers(struct fscc_port *port);
 NTSTATUS fscc_dma_create_tx_buffers(struct fscc_port *port);
 NTSTATUS fscc_dma_rx_find_next_frame(struct fscc_port *port, unsigned *bytes, unsigned *start_desc, unsigned *end_desc);
-unsigned fscc_dma_tx_required_desc(struct fscc_port *port, unsigned size);
 BOOLEAN fscc_dma_is_rx_running(struct fscc_port *port);
 BOOLEAN fscc_dma_is_tx_running(struct fscc_port *port);
 
@@ -224,7 +223,8 @@ void fscc_dma_destroy_tx(struct fscc_port *port)
 
 int fscc_dma_prepare_frame_for_dma(struct fscc_port *port, struct fscc_frame *frame, unsigned *out_length)
 {
-    unsigned required_descriptors, data_to_move, i, current_desc, length;
+    unsigned data_to_move, current_desc, length;
+    int required_descriptors, i;
     
     length = fscc_frame_get_length(frame);
     *out_length = 0;
@@ -562,26 +562,26 @@ NTSTATUS fscc_dma_rx_find_next_frame(struct fscc_port *port, unsigned *bytes, un
     return STATUS_UNSUCCESSFUL;
 }
 
-unsigned fscc_dma_tx_required_desc(struct fscc_port *port, unsigned size)
+int fscc_dma_tx_required_desc(struct fscc_port *port, unsigned size)
 {
     unsigned leftover_bytes, required_descriptors, current_desc, i;
     
     leftover_bytes = size % port->common_frame_size;
     required_descriptors = size/port->common_frame_size;
+    required_descriptors++; // for the CSTOP at the end.
     if(leftover_bytes) required_descriptors++;
-    if(required_descriptors > port->num_tx_desc) return 0;
+    if(required_descriptors > port->num_tx_desc) return -1;
     
     // First we verify we have space for the data.
     current_desc = port->current_tx_desc;
     for(i=0;i<required_descriptors;i++)
     {
         // If CSTOP is set, we own the descriptor for TX.
-        if((port->tx_descriptors[current_desc]->desc->control&DESC_CSTOP_BIT)==0) return 0;
+        if((port->tx_descriptors[current_desc]->desc->control&DESC_CSTOP_BIT)==0) return -1;
         current_desc++;
         if(current_desc == port->num_tx_desc) current_desc = 0;
     }
-    // We may need one extra descriptor, to add a CSTOP after the data.
-    return required_descriptors+1;
+    return required_descriptors;
 }
 
 NTSTATUS fscc_dma_port_enable(struct fscc_port *port)

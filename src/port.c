@@ -1342,9 +1342,17 @@ VOID FsccEvtIoWrite(IN WDFQUEUE Queue, IN WDFREQUEST Request, IN size_t Length)
         return;
     }
 
-    if (fscc_port_get_output_memory_usage(port) + Length > fscc_port_get_output_memory_cap(port)) {
-        WdfRequestComplete(Request, STATUS_BUFFER_TOO_SMALL);
-        return;
+    if(fscc_port_uses_dma(port)) {
+        if(fscc_dma_tx_required_desc(port, Length) < 0) {
+            WdfRequestComplete(Request, STATUS_BUFFER_TOO_SMALL);
+            return;
+        }
+    }
+    else {
+        if (fscc_port_get_output_memory_usage(port) + Length > fscc_port_get_output_memory_cap(port)) {
+            WdfRequestComplete(Request, STATUS_BUFFER_TOO_SMALL);
+            return;
+        }
     }
 
     /* Checks to make sure there is a clock present. */
