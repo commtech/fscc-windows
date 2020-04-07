@@ -1826,6 +1826,7 @@ NTSTATUS fscc_port_set_tx_modifiers(struct fscc_port *port, int value)
         case XF|TXEXT:
         case XREP:
         case XREP|TXT:
+        case XREP|TXEXT:
             if (port->tx_modifiers != value) {
                 TraceEvents(TRACE_LEVEL_INFORMATION, TRACE_DEVICE,
                             "Transmit modifiers 0x%x => 0x%x",
