@@ -330,7 +330,7 @@ All `DeviceIoControl` values have changed even if their new names match their ol
 | | `FSCC_DISABLE_APPEND_STATUS` | |
 | | `FSCC_GET_APPEND_STATUS`     | |
 
-###### Status Bytes
+##### Status Bytes
 Getting the frame status has now been designed to be configurable. When using the 1.x driver, you will always have the frame status appended to your data on a read. When using the 2.x driver, this can be toggled and defaults to not appending the status to the data.
 
 All of the 2.2.X releases will not break API compatability. If a function in the 2.2.X series returns an incorrect value, it can be fixed to return the correct value in a later release.
@@ -355,6 +355,14 @@ To ensure Windows doesn't use a cached version in the future we will remove the 
 4. Delete all folders except for 'legacy'
 
 At this point you can install the 'legacy' version of the driver without the newer version interfering.
+
+
+##### Do I need to do anything special to use DMA?
+No! If you have a board with DMA enabled (the SuperFSCC family), the drivers will automatically utilize DMA for both transmit and receive (as of version 2.8.0). If you find you do not want to use DMA, you can disable it by using ENABLE_FORCE_FIFO. You can switch back to DMA by using DISABLE_FORCE_FIFO. 
+
+It is advisable to purge after switching between DMA and FIFO mode.
+
+DMA allocates an additional 1MB of space for transmit and 1MB of space for receive in addition to the memory cap.
 
 
 ## Build Dependencies
