@@ -1324,11 +1324,18 @@ VOID FsccEvtIoWrite(IN WDFQUEUE Queue, IN WDFREQUEST Request, IN size_t Length)
         return;
     }
 
-    if (port->blocking_write)
-    {
-        if (Length > fscc_port_get_output_memory_cap(port)) {
-            WdfRequestComplete(Request, STATUS_BUFFER_TOO_SMALL);
-            return;
+    if (port->blocking_write) {
+        if(fscc_port_uses_dma(port)) {
+            if(Length > port->common_frame_size * (port->num_tx_desc-1)) {
+                WdfRequestComplete(Request, STATUS_BUFFER_TOO_SMALL);
+                return;
+            }
+        }
+        else {
+            if (Length > fscc_port_get_output_memory_cap(port)) {
+                WdfRequestComplete(Request, STATUS_BUFFER_TOO_SMALL);
+                return;
+            }
         }
 
         status = WdfRequestForwardToIoQueue(Request, port->blocking_request_queue);
@@ -1370,33 +1377,33 @@ VOID FsccEvtIoWrite(IN WDFQUEUE Queue, IN WDFREQUEST Request, IN size_t Length)
         WdfRequestComplete(Request, status);
         return;
     }
-        frame = fscc_frame_new(port);
+    frame = fscc_frame_new(port);
 
-        if (!frame) {
-            WdfRequestComplete(Request, STATUS_INSUFFICIENT_RESOURCES);
+    if (!frame) {
+        WdfRequestComplete(Request, STATUS_INSUFFICIENT_RESOURCES);
+        return;
+    }
+
+    fscc_frame_add_data(frame, data_buffer, Length);
+
+    WdfSpinLockAcquire(port->queued_oframes_spinlock);
+    fscc_flist_add_frame(&port->queued_oframes, frame);
+    WdfSpinLockRelease(port->queued_oframes_spinlock);
+
+    if (port->wait_on_write) {
+        status = WdfRequestForwardToIoQueue(Request, port->write_queue2);
+        if (!NT_SUCCESS(status)) {
+            TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE,
+                        "WdfRequestForwardToIoQueue failed %!STATUS!", status);
+            WdfRequestComplete(Request, status);
             return;
         }
+    }
+    else {
+        WdfRequestCompleteWithInformation(Request, STATUS_SUCCESS, Length);
+    }
 
-        fscc_frame_add_data(frame, data_buffer, Length);
-
-        WdfSpinLockAcquire(port->queued_oframes_spinlock);
-        fscc_flist_add_frame(&port->queued_oframes, frame);
-        WdfSpinLockRelease(port->queued_oframes_spinlock);
-
-        if (port->wait_on_write) {
-            status = WdfRequestForwardToIoQueue(Request, port->write_queue2);
-            if (!NT_SUCCESS(status)) {
-                TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE,
-                            "WdfRequestForwardToIoQueue failed %!STATUS!", status);
-                WdfRequestComplete(Request, status);
-                return;
-            }
-        }
-        else {
-            WdfRequestCompleteWithInformation(Request, STATUS_SUCCESS, Length);
-        }
-
-        WdfDpcEnqueue(port->oframe_dpc);
+    WdfDpcEnqueue(port->oframe_dpc);
 }
 
 UINT32 fscc_port_get_register(struct fscc_port *port, unsigned bar,

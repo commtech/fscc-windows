@@ -509,7 +509,14 @@ void request_worker(WDFDPC Dpc)
         return;
     }
     Length = params.Parameters.Write.Length;
-    if (Length + fscc_port_get_output_memory_usage(port) > fscc_port_get_output_memory_cap(port)) return;
+    
+    if(fscc_port_uses_dma(port)) {
+        if(fscc_dma_tx_required_desc(port, Length) < 0) return;
+    }
+    else {
+        if (fscc_port_get_output_memory_usage(port) + Length > fscc_port_get_output_memory_cap(port)) return;
+    }
+    
     status = WdfIoQueueRetrieveFoundRequest(port->blocking_request_queue, tagRequest, &Request);
     WdfObjectDereference(tagRequest);
     if (!NT_SUCCESS(status)) return;
