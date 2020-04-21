@@ -1,5 +1,8 @@
 # ChangeLog
 
+## [2.8.0](https://github.com/commtech/fscc-windows/releases/tag/v2.8.0) (04/21/2020)
+- This version fully implements DMA. While it should be entirely transparent for the average user, it is advised to do thorough testing with your software to verify that your software is fully compatible with the DMA changes. If you find that the DMA changes don't work for your software, DMA can be disabled by using the IOCTL ENABLE_FORCED_FIFO. DMA is only available on the Super side of the SuperFSCC family of products (for example, the SuperFSCC/4-PCIe but not the FSCC/4-PCIe).
+
 ## [2.7.8](https://github.com/commtech/fscc-windows/releases/tag/v2.7.8) (12/12/2018)
 - Updated to serialfc-2.4.7.
 
