@@ -2159,6 +2159,17 @@ unsigned fscc_port_get_RFCNT(struct fscc_port *port)
     return (unsigned)(fifo_fc_value & 0x000003ff);
 }
 
+unsigned fscc_port_get_TFCNT(struct fscc_port *port)
+{
+    UINT32 fifo_fc_value = 0;
+
+    return_val_if_untrue(port, 0);
+
+    fifo_fc_value = fscc_port_get_register(port, 0, FIFO_FC_OFFSET);
+
+    return (unsigned)((fifo_fc_value & 0x01ff0000) >> 16);
+}
+
 unsigned fscc_port_get_RXCNT(struct fscc_port *port)
 {
     UINT32 fifo_bc_value = 0;
@@ -2279,6 +2290,7 @@ int prepare_frame_for_fifo(struct fscc_port *port, struct fscc_frame *frame, uns
     unsigned size_in_fifo = 0;
     unsigned transmit_length = 0;
 
+    if(fscc_port_get_TFCNT(port) > 255) return 0;
     current_length = fscc_frame_get_length(frame);
     buffer_size = fscc_frame_get_buffer_size(frame);    
     /* How much space this will take up in the FIFO */

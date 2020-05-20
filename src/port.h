@@ -243,6 +243,7 @@ UINT32 fscc_port_get_TXCNT(struct fscc_port *port);
 unsigned fscc_port_is_streaming(struct fscc_port *port);
 
 unsigned fscc_port_get_RFCNT(struct fscc_port *port);
+unsigned fscc_port_get_TFCNT(struct fscc_port *port);
 unsigned fscc_port_get_RXCNT(struct fscc_port *port);
 
 void fscc_port_reset_timer(struct fscc_port *port);
