@@ -47,7 +47,6 @@ struct fscc_frame *fscc_frame_new(struct fscc_port *port)
     frame->buffer_size = 0;
     frame->buffer = 0;
     frame->fifo_initialized = 0;
-    frame->dma_initialized = 0;
     frame->port = port;
 
     frame->number = frame_counter;
@@ -220,11 +219,6 @@ int fscc_frame_setup_descriptors(struct fscc_frame *frame)
     UNUSED(frame);
 
     return 1;
-}
-
-unsigned fscc_frame_is_dma(struct fscc_frame *frame)
-{
-    return (frame->dma_initialized);
 }
 
 unsigned fscc_frame_is_fifo(struct fscc_frame *frame)

@@ -142,29 +142,37 @@ typedef struct fscc_port {
     struct fscc_frame *pending_oframe; /* Frame being put in the FIFO */
 
     WDFDPC oframe_dpc;
-    WDFDPC clear_oframe_dpc;
     WDFDPC iframe_dpc;
     WDFDPC istream_dpc;
+    WDFDPC dma_iframe_dpc;
+    WDFDPC dma_istream_dpc;
     WDFDPC print_dpc;
     WDFDPC isr_alert_dpc;
     WDFDPC orequest_worker;
     WDFDPC process_read_dpc;
 
-
     WDFTIMER timer;
 
-
     WDFINTERRUPT interrupt;
-    BOOLEAN has_dma;
     
-    unsigned common_frame_size;
+    BOOLEAN has_dma;
     WDFDMAENABLER dma_enabler;
+	
     struct dma_frame **rx_descriptors;
+    unsigned desc_rx_num;  // Number of descriptors.
+    unsigned desc_rx_size; // Size of each descriptor
+    unsigned user_rx_desc; // DMA & FIFO, this is where the drivers are working.
+	unsigned fifo_rx_desc; // For non-DMA use, this is where the FIFO is currently working.
+	int rx_bytes_in_frame; // FIFO, How many bytes are in the current RX frame
+	int rx_frame_size; // FIFO, The current RX frame size
+	
     struct dma_frame **tx_descriptors;
-    unsigned num_rx_desc;
-    unsigned num_tx_desc;
-    unsigned current_rx_desc;
-    unsigned current_tx_desc;
+    unsigned desc_tx_num;  // Number of descriptors.
+    unsigned desc_tx_size; // Size of each descriptor.
+    unsigned user_tx_desc; // DMA & FIFO, this is where the drivers are working.
+	unsigned fifo_tx_desc; // For non-DMA use, this is where the FIFO is currently working.
+	int tx_bytes_in_frame; // FIFO, How many bytes are in the current TX frame
+	int tx_frame_size; // FIFO, The current TX frame size
 } FSCC_PORT;
 
 WDF_DECLARE_CONTEXT_TYPE(FSCC_PORT);
@@ -245,10 +253,11 @@ unsigned fscc_port_is_streaming(struct fscc_port *port);
 unsigned fscc_port_get_RFCNT(struct fscc_port *port);
 unsigned fscc_port_get_TFCNT(struct fscc_port *port);
 unsigned fscc_port_get_RXCNT(struct fscc_port *port);
-
+UINT32 fscc_port_get_DCTDB(struct fscc_port *port);
+UINT32 fscc_port_get_DCRDB(struct fscc_port *port);
 void fscc_port_reset_timer(struct fscc_port *port);
 unsigned fscc_port_has_incoming_data(struct fscc_port *port);
-unsigned fscc_port_transmit_frame(struct fscc_port *port, struct fscc_frame *frame);
+unsigned fscc_port_transmit_frame(struct fscc_port *port);
 
 void fscc_port_execute_transmit(struct fscc_port *port, unsigned dma);
 #endif
