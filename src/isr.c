@@ -41,7 +41,6 @@ BOOLEAN fscc_isr(WDFINTERRUPT Interrupt, ULONG MessageID)
     struct fscc_port *port = 0;
     BOOLEAN handled = FALSE;
     unsigned isr_value = 0;
-    unsigned streaming = 0;
     unsigned using_dma = 0;
 
     UNREFERENCED_PARAMETER(MessageID);
@@ -58,7 +57,7 @@ BOOLEAN fscc_isr(WDFINTERRUPT Interrupt, ULONG MessageID)
     handled = TRUE;
 
     port->last_isr_value |= isr_value;
-    streaming = fscc_port_is_streaming(port);
+	
     using_dma = fscc_port_uses_dma(port);
     if (using_dma) {
         if (isr_value & (DR_HI | DR_FE)) {
@@ -66,17 +65,20 @@ BOOLEAN fscc_isr(WDFINTERRUPT Interrupt, ULONG MessageID)
         }
     }
     else {
-		if (isr_value & (RFE | RFT | RFS ))
+		if (isr_value & (RFE | RFT | RFS | RFO | RDO ))
 			WdfDpcEnqueue(port->iframe_dpc);
+		
 		if (isr_value & (TFT | TDU | ALLS))
 			WdfDpcEnqueue(port->oframe_dpc);
     }
-
+	
+	// TODO error handling for RDO, RFO, TDU, etc?
     //if (isr_value & ALLS)
     //    WdfDpcEnqueue(port->clear_oframe_dpc);
 	//if (isr_value & ALLS)
 	//	wait on write?
     WdfDpcEnqueue(port->isr_alert_dpc);
+    //DbgPrint("--------ISR occurred: 0x%8.8x---------\n", isr_value);
 
     //fscc_port_reset_timer(port);
 
@@ -100,10 +102,7 @@ void isr_alert_worker(WDFDPC Dpc)
     isr_value = port->last_isr_value;
 	
     port->last_isr_value = 0;
-    DbgPrint("ISR occurred: 0x%8.8x\n", isr_value);
-	DbgPrint("RXCNT: %d, ", fscc_port_get_RXCNT(port));
-	DbgPrint("RFCNT: %d, ", fscc_port_get_RFCNT(port));
-	DbgPrint("TXCNT: %d\n", fscc_port_get_TXCNT(port));
+	//DbgPrint("RXCNT: %d, RFCNT: %d, TXCNT: %d\n", fscc_port_get_RXCNT(port),fscc_port_get_RFCNT(port),fscc_port_get_TXCNT(port));
 
     do {
         status = WdfIoQueueFindRequest(
@@ -209,7 +208,8 @@ void iframe_worker(WDFDPC Dpc)
 
     return_if_untrue(port);
 	
-	DbgPrint("%s: called\n", __FUNCTION__);
+	if(fscc_port_uses_dma(port)) return;
+	
 	fscc_fifo_read_data(port);
 
 	WdfDpcEnqueue(port->process_read_dpc);
@@ -219,19 +219,17 @@ void iframe_worker(WDFDPC Dpc)
 void oframe_worker(WDFDPC Dpc)
 {
     struct fscc_port *port = 0;
-	size_t bytes_ready = 0;
+	size_t bytes_ready = 0, frames = 0;
 
     port = WdfObjectGet_FSCC_PORT(WdfDpcGetParentObject(Dpc));
 
     return_if_untrue(port);
 	if(fscc_port_uses_dma(port)) return;
 	
-	DbgPrint("%s: called\n", __FUNCTION__);
-	
-    fscc_fifo_write_has_data(port, &bytes_ready);
+    frames = fscc_fifo_write_has_data(port, &bytes_ready);
 	if(bytes_ready == 0) return;
 	
-	DbgPrint("%s: called and there's data\n", __FUNCTION__);
+	DbgPrint("%s: frames: %d, bytes: %d\n", __FUNCTION__, frames, bytes_ready);
     fscc_port_transmit_frame(port);
 }
 

@@ -454,49 +454,6 @@ struct fscc_port *fscc_port_new(WDFDRIVER Driver,
         return 0;
     }
 
-    WDF_DPC_CONFIG_INIT(&dpcConfig, &istream_worker);
-    dpcConfig.AutomaticSerialization = TRUE;
-
-    WDF_OBJECT_ATTRIBUTES_INIT(&dpcAttributes);
-    dpcAttributes.ParentObject = port->device;
-
-    status = WdfDpcCreate(&dpcConfig, &dpcAttributes, &port->istream_dpc);
-    if (!NT_SUCCESS(status)) {
-        WdfObjectDelete(port->device);
-        TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE,
-            "WdfDpcCreate failed %!STATUS!", status);
-        return 0;
-    }
-    
-    WDF_DPC_CONFIG_INIT(&dpcConfig, &dma_iframe_worker);
-    dpcConfig.AutomaticSerialization = TRUE;
-
-    WDF_OBJECT_ATTRIBUTES_INIT(&dpcAttributes);
-    dpcAttributes.ParentObject = port->device;
-
-    status = WdfDpcCreate(&dpcConfig, &dpcAttributes, &port->dma_iframe_dpc);
-    if (!NT_SUCCESS(status)) {
-        WdfObjectDelete(port->device);
-        TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE,
-            "WdfDpcCreate failed %!STATUS!", status);
-        return 0;
-    }
-
-    WDF_DPC_CONFIG_INIT(&dpcConfig, &dma_istream_worker);
-    dpcConfig.AutomaticSerialization = TRUE;
-
-    WDF_OBJECT_ATTRIBUTES_INIT(&dpcAttributes);
-    dpcAttributes.ParentObject = port->device;
-
-    status = WdfDpcCreate(&dpcConfig, &dpcAttributes, &port->dma_istream_dpc);
-    if (!NT_SUCCESS(status)) {
-        WdfObjectDelete(port->device);
-        TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE,
-            "WdfDpcCreate failed %!STATUS!", status);
-        return 0;
-    }
-    
-
     WDF_DPC_CONFIG_INIT(&dpcConfig, &FsccProcessRead);
     dpcConfig.AutomaticSerialization = TRUE;
 
@@ -1193,10 +1150,9 @@ void FsccProcessRead(WDFDPC Dpc)
     
     port = WdfObjectGet_FSCC_PORT(WdfDpcGetParentObject(Dpc));
 	
-	DbgPrint("%s: called.. ", __FUNCTION__);
 	streaming = fscc_port_is_streaming(port);
 	frame_ready = fscc_user_next_read_size(port, &bytes_ready);
-	DbgPrint(" bytes_ready %d, frames %d, streaming %d\n", __FUNCTION__, bytes_ready, frame_ready, streaming);
+	DbgPrint("%s: bytes_ready %d, frames %d, streaming %d\n", __FUNCTION__, bytes_ready, frame_ready, streaming);
     if (bytes_ready == 0) return;
 	if (!streaming && !frame_ready) return;
     
@@ -1211,7 +1167,7 @@ void FsccProcessRead(WDFDPC Dpc)
         return;
     }
 
-	DbgPrint("%s: request ready.. ", __FUNCTION__);
+
     WDF_REQUEST_PARAMETERS_INIT(&params);
     WdfRequestGetParameters(request, &params);
     length = (unsigned)params.Parameters.Read.Length;
@@ -1228,7 +1184,6 @@ void FsccProcessRead(WDFDPC Dpc)
     if (streaming) status = fscc_user_read_stream(port, data_buffer, length, &read_count);
     else status = fscc_user_read_frame(port, data_buffer, length, &read_count);
 
-	DbgPrint(" ..finishing..?\n", __FUNCTION__);
     if (!NT_SUCCESS(status)) {
         TraceEvents(TRACE_LEVEL_WARNING, TRACE_DEVICE,
                     "fscc_port_{frame,stream}_read failed %!STATUS!", status);
