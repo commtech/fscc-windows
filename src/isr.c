@@ -24,7 +24,6 @@ THE SOFTWARE.
 #include "isr.h"
 #include "port.h" /* struct fscc_port */
 #include "utils.h" /* port_exists */
-#include "frame.h" /* struct fscc_frame */
 #include "debug.h"
 
 #if defined(EVENT_TRACING)
@@ -78,7 +77,6 @@ BOOLEAN fscc_isr(WDFINTERRUPT Interrupt, ULONG MessageID)
 	//if (isr_value & ALLS)
 	//	wait on write?
     WdfDpcEnqueue(port->isr_alert_dpc);
-    //DbgPrint("--------ISR occurred: 0x%8.8x---------\n", isr_value);
 
     //fscc_port_reset_timer(port);
 
@@ -102,7 +100,9 @@ void isr_alert_worker(WDFDPC Dpc)
     isr_value = port->last_isr_value;
 	
     port->last_isr_value = 0;
-	//DbgPrint("RXCNT: %d, RFCNT: %d, TXCNT: %d\n", fscc_port_get_RXCNT(port),fscc_port_get_RFCNT(port),fscc_port_get_TXCNT(port));
+    DbgPrint("--------ISR occurred: 0x%8.8x---------\n", isr_value);
+	if(isr_value & TDU) DbgPrint("!!!!!!!!!!TDU TDU TDU!!!!!!!!!!!\n");
+	if(isr_value & RDO) DbgPrint("!!!!!!!!!!RDO RDO RDO!!!!!!!!!!!\n");
 
     do {
         status = WdfIoQueueFindRequest(
@@ -226,17 +226,15 @@ void oframe_worker(WDFDPC Dpc)
     return_if_untrue(port);
 	if(fscc_port_uses_dma(port)) return;
 	
-    frames = fscc_fifo_write_has_data(port, &bytes_ready);
-	if(bytes_ready == 0) return;
+    //frames = fscc_fifo_write_has_data(port, &bytes_ready);
+	//if(bytes_ready == 0) return;
 	
-	DbgPrint("%s: frames: %d, bytes: %d\n", __FUNCTION__, frames, bytes_ready);
     fscc_port_transmit_frame(port);
 }
 
 void request_worker(WDFDPC Dpc)
 {
     struct fscc_port *port = 0;
-    struct fscc_frame *frame = 0;
     char *data_buffer = NULL;
 	size_t write_count = 0;
     NTSTATUS status = STATUS_SUCCESS;
@@ -279,16 +277,10 @@ void request_worker(WDFDPC Dpc)
 VOID timer_handler(WDFTIMER Timer)
 {
     struct fscc_port *port = 0;
-    unsigned streaming = 0;
 
     port = WdfObjectGet_FSCC_PORT(WdfTimerGetParentObject(Timer));
-
-    streaming = fscc_port_is_streaming(port);
-
-    if (streaming)
-        WdfDpcEnqueue(port->istream_dpc);
-    //else
-    //    WdfDpcEnqueue(port->iframe_dpc);
+	
+	//WdfDpcEnqueue(port->iframe_dpc);
 
     // Had to remove the condition check, otherwise there
     // was a chance that a request could be stuck in the 

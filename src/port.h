@@ -31,7 +31,6 @@ THE SOFTWARE.
 
 #include "card.h"
 #include "fscc.h"
-#include "flist.h"
 #include "descriptor.h"
 
 #define FIFO_OFFSET 0x00
@@ -126,26 +125,8 @@ typedef struct fscc_port {
     WDFSPINLOCK board_rx_spinlock; /* Anything that will alter the state of rx at a board level */
     WDFSPINLOCK board_tx_spinlock; /* Anything that will alter the state of rx at a board level */
 
-    WDFSPINLOCK queued_iframes_spinlock;
-    struct fscc_flist queued_iframes; /* Frames already retrieved from the FIFO */
-
-    WDFSPINLOCK queued_oframes_spinlock;
-    struct fscc_flist queued_oframes; /* Frames not yet in the FIFO yet */
-
-    WDFSPINLOCK istream_spinlock;
-    struct fscc_frame *istream; /* Transparent stream */
-
-    WDFSPINLOCK pending_iframe_spinlock;
-    struct fscc_frame *pending_iframe; /* Frame retrieving from the FIFO */
-
-    WDFSPINLOCK pending_oframe_spinlock;
-    struct fscc_frame *pending_oframe; /* Frame being put in the FIFO */
-
     WDFDPC oframe_dpc;
     WDFDPC iframe_dpc;
-    WDFDPC istream_dpc;
-    WDFDPC dma_iframe_dpc;
-    WDFDPC dma_istream_dpc;
     WDFDPC print_dpc;
     WDFDPC isr_alert_dpc;
     WDFDPC orequest_worker;

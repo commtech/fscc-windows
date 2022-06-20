@@ -26,7 +26,6 @@ THE SOFTWARE.
 #include "driver.h"
 #include "debug.h"
 #include "utils.h"
-#include "frame.h"
 
 #include <ntddser.h>
 #include <ntstrsafe.h>
@@ -387,7 +386,6 @@ unsigned fscc_user_next_read_size(struct fscc_port *port, size_t *bytes)
 {
     unsigned i, cur_desc;
     UINT32 control = 0;
-	int break_var = 0;
 	
 	*bytes = 0;
 	cur_desc = port->user_rx_desc;
@@ -395,25 +393,17 @@ unsigned fscc_user_next_read_size(struct fscc_port *port, size_t *bytes)
 		control = port->rx_descriptors[cur_desc]->desc->control;
 		
 		// If neither FE or CSTOP, desc is unfinished.
-		if(!(control&DESC_FE_BIT) && !(control&DESC_CSTOP_BIT) && break_var == 0) {
-			break_var = 1;
-			DbgPrint("%s: Broken on desc %d 0x%8.8x, iter: %d\n", __FUNCTION__, cur_desc, control, i);
-		}
+		if(!(control&DESC_FE_BIT) && !(control&DESC_CSTOP_BIT))
+			break;
 		
 		if((control&DESC_FE_BIT) && (control&DESC_CSTOP_BIT)) {
 			// CSTOP and FE means this is the final desc in a finished frame. Return
 			// CNT to get the total size of the frame.
-			if(break_var==0) {
-				*bytes = (control & DMA_MAX_LENGTH);
-				DbgPrint("%s: Successful on desc %d 0x%8.8x, iter: %d\n", __FUNCTION__, cur_desc, control, i);
-				return 1;
-			}
-			else {
-				DbgPrint("%s: AFTER BREAK desc: %d  0x%8.8x, iter: %d\n", __FUNCTION__, cur_desc, control, i);
-			}
+			*bytes = (control & DMA_MAX_LENGTH);
+			return 1;
 		}
-		if(break_var==0) 
-			*bytes += port->rx_descriptors[cur_desc]->desc->data_count;
+		
+		*bytes += port->rx_descriptors[cur_desc]->desc->data_count;
 
 		cur_desc++;
 		if(cur_desc == port->desc_rx_num) cur_desc = 0;
@@ -468,46 +458,51 @@ unsigned fscc_fifo_write_has_data(struct fscc_port *port, size_t *bytes)
 }
 
 // Call this on TDU, TDO, TFT, ALLS
-// Seems good?
+// TODO Underflows sometimes. Why?
 // TX desc consumer, FIFO only
 #define TX_FIFO_SIZE 4096
 int fscc_fifo_write_data(struct fscc_port *port)
 {
-	unsigned fifo_space, write_length, frame_size = 0;
-	size_t i;
+	unsigned fifo_space, write_length, frame_size = 0, size_in_fifo, data_size;
+	size_t i, frames_written = 0;
+	UINT32 txcnt = 0;
 
     WdfSpinLockAcquire(port->board_tx_spinlock);
-	fifo_space = TX_FIFO_SIZE - fscc_port_get_TXCNT(port) - 1;
+	txcnt = fscc_port_get_TXCNT(port);
+	fifo_space = TX_FIFO_SIZE - txcnt - 1;
     fifo_space -= fifo_space % 4;
-	DbgPrint("%s: fifo_space: %d... ", __FUNCTION__, fifo_space);
+	if(txcnt > 0) DbgPrint("%s: Second attempt at filling fifo, %d in FIFO.\n", __FUNCTION__, txcnt);
 	// fifo_space > TX_FIFO_SIZE is just in case the subtraction above breaks everything.
 	if(fifo_space < 4 || fifo_space > TX_FIFO_SIZE) {
 		WdfSpinLockRelease(port->board_tx_spinlock);
-		DbgPrint("\n");
 		return 0;
 	}
-	
 	for(i = 0; i < port->desc_tx_num; i++) {
-		if((port->tx_descriptors[port->fifo_tx_desc]->desc->control&DESC_CSTOP_BIT)==DESC_CSTOP_BIT) 
+		if((port->tx_descriptors[port->fifo_tx_desc]->desc->control&DESC_CSTOP_BIT)==DESC_CSTOP_BIT)
 			break;
 	
 		if((port->tx_descriptors[port->fifo_tx_desc]->desc->control&DESC_FE_BIT)==DESC_FE_BIT) {
-			if(fscc_port_get_TFCNT(port) > 255) 
+			if(fscc_port_get_TFCNT(port) > 255) {
 				break;
+			}
 			frame_size = port->tx_descriptors[port->fifo_tx_desc]->desc->control&DMA_MAX_LENGTH;
 		}
-	
-		write_length = min(port->tx_descriptors[port->fifo_tx_desc]->desc->data_count, fifo_space);
+		
+		data_size = port->tx_descriptors[port->fifo_tx_desc]->desc->data_count;
+		size_in_fifo = data_size + (4 - (data_size % 4));
+		write_length = (size_in_fifo > fifo_space) ? fifo_space : data_size;
+		
 		fscc_port_set_register_rep(port, 0, FIFO_OFFSET, port->tx_descriptors[port->fifo_tx_desc]->buffer, write_length);
-		fifo_space -= write_length;
+		fifo_space -= data_size;
 		
 		// This is strange, but I kept getting TDU if I wrote frame_size before I filled the FIFO.
 		// So I get the value, then I write data, then I write the value to prevent TDU.
 		if(frame_size) {
 			fscc_port_set_register(port, 0, BC_FIFO_L_OFFSET, frame_size);
+			DbgPrint("%s: Wrote a frame size of %d.\n", __FUNCTION__, frame_size);
+			frames_written++;
 			frame_size = 0;
 		}
-
 		
 		// The descriptor isn't empty, so that means the FIFO is full.
 		if(port->tx_descriptors[port->fifo_tx_desc]->desc->data_count > write_length) {
@@ -516,6 +511,7 @@ int fscc_fifo_write_data(struct fscc_port *port)
 				port->tx_descriptors[port->fifo_tx_desc]->buffer+write_length, 
 				remaining);
 			port->tx_descriptors[port->fifo_tx_desc]->desc->data_count = remaining;
+			DbgPrint("%s: Leaving descriptor %d unfinished with %d bytes..\n", __FUNCTION__, port->fifo_tx_desc, remaining);
 			break;
 		}
 		
@@ -525,59 +521,54 @@ int fscc_fifo_write_data(struct fscc_port *port)
 		port->fifo_tx_desc++;
 		if(port->fifo_tx_desc == port->desc_tx_num)
 			port->fifo_tx_desc = 0;
-		if(fifo_space == 0)
+		
+		if(fifo_space < 4)
 			break;
 	}
 	WdfSpinLockRelease(port->board_tx_spinlock);
-	DbgPrint("fifo space after: %d\n", fifo_space);
-	return 1;
+	DbgPrint("%s: Leaving with %d bytes of space left in the FIFO.\n", __FUNCTION__, fifo_space);
+	return frames_written;
 }
 
 int fscc_fifo_read_data(struct fscc_port *port)
 {
 	size_t i;
-	unsigned rfcnt, rxcnt, receive_length = 0, pending_frame_size = 0;
+	unsigned rxcnt, receive_length = 0, pending_frame_size = 0;
 	UINT32 new_control = 0;
 		
 	WdfSpinLockAcquire(port->board_rx_spinlock);
-	rxcnt = fscc_port_get_RXCNT(port);
-	rfcnt = fscc_port_get_RFCNT(port);
-	rxcnt -= (rxcnt % 4); // Only safe to move 4 bytes at a time.
-	DbgPrint("%s: rxcnt: %d, rfcnt: %d\n", __FUNCTION__, rxcnt, rfcnt);
 	for(i = 0; i < port->desc_rx_num; i++) {
-		// Out of space, done.
+		
 		new_control = port->rx_descriptors[port->fifo_rx_desc]->desc->control;
 		if((new_control&DESC_CSTOP_BIT)==DESC_CSTOP_BIT)
 			break;
-
-		// There's a frame ready, better get the size.
-		if (rfcnt > 0 && port->rx_frame_size == 0) {
-			port->rx_frame_size = fscc_port_get_register(port, 0, BC_FIFO_L_OFFSET);
-			rfcnt--;
+		
+		if (port->rx_frame_size == 0) {
+			if (fscc_port_get_RFCNT(port)) 
+				port->rx_frame_size = fscc_port_get_register(port, 0, BC_FIFO_L_OFFSET);
 		}
 		
-		// If there's a frame, I want either the remaining frame size or the descriptor size, whichever is smaller
-		// If not, I want either the remaining bytes or the descriptor size, whichever is smaller
 		if(port->rx_frame_size) {
-			pending_frame_size = port->rx_frame_size - port->rx_bytes_in_frame;
-			receive_length = min(port->desc_rx_size - (new_control&DMA_MAX_LENGTH), pending_frame_size);
+			receive_length = port->rx_frame_size - port->rx_bytes_in_frame;
 		}
 		else {
-			receive_length = min(port->desc_rx_size - (new_control&DMA_MAX_LENGTH), rxcnt);
+			rxcnt = fscc_port_get_RXCNT(port);
+			receive_length = rxcnt - (rxcnt % 4);
+		}
+		
+		receive_length = min(receive_length, port->desc_rx_size - (new_control&DMA_MAX_LENGTH));
+		
+		if(!receive_length) {
+			break;
 		}
 		
 		// Move data into the descriptor and update counters.
-		fscc_port_get_register_rep(port, 0, FIFO_OFFSET, port->rx_descriptors[port->fifo_rx_desc]->buffer, receive_length);
-		// At the end of a frame, receive_length can be larger than rxcnt.
-		if(rxcnt < receive_length) rxcnt = 0;
-		else rxcnt -= receive_length;
+		fscc_port_get_register_rep(port, 0, FIFO_OFFSET, port->rx_descriptors[port->fifo_rx_desc]->buffer+(new_control&DMA_MAX_LENGTH), receive_length);
 		new_control += receive_length;
 		port->rx_bytes_in_frame += receive_length;
 
 		// We've finished this descriptor, so we finalize it.
-		if((new_control&DMA_MAX_LENGTH) >= port->desc_rx_size) {
-			KeQuerySystemTime(&port->rx_descriptors[port->fifo_rx_desc]->timestamp);
-			port->rx_descriptors[port->fifo_rx_desc]->desc->data_count = port->desc_rx_size;
+		if((new_control&DMA_MAX_LENGTH) == port->desc_rx_size) {
 			new_control = port->desc_rx_size;
 			new_control |= DESC_CSTOP_BIT;
 		}
@@ -585,9 +576,6 @@ int fscc_fifo_read_data(struct fscc_port *port)
 		if(port->rx_frame_size > 0) {
 			// We've finished a frame, so we finalize it and clean up a bit.
 			if(port->rx_bytes_in_frame >= port->rx_frame_size) {
-				KeQuerySystemTime(&port->rx_descriptors[port->fifo_rx_desc]->timestamp);
-				port->rx_descriptors[port->fifo_rx_desc]->desc->data_count = port->desc_rx_size;
-				// This is intentional. The last desc CNT = full frame size.
 				new_control = port->rx_bytes_in_frame;
 				new_control |= DESC_CSTOP_BIT;
 				new_control |= DESC_FE_BIT;
@@ -596,18 +584,22 @@ int fscc_fifo_read_data(struct fscc_port *port)
 			}
 		}
 		
+		// Finalize the descriptor if it's finished.
+		if(new_control&DESC_CSTOP_BIT) {
+			KeQuerySystemTime(&port->rx_descriptors[port->fifo_rx_desc]->timestamp);
+			port->rx_descriptors[port->fifo_rx_desc]->desc->data_count = port->desc_rx_size;
+		}
+		
 		port->rx_descriptors[port->fifo_rx_desc]->desc->control = new_control;
+		
 		// Desc isn't finished, which means we're out of data.
-		if((port->rx_descriptors[port->fifo_rx_desc]->desc->control&DESC_CSTOP_BIT)!=DESC_CSTOP_BIT)
+		if((new_control&DESC_CSTOP_BIT)!=DESC_CSTOP_BIT) {
 			break;
+		}
 		
 		port->fifo_rx_desc++;
 		if(port->fifo_rx_desc == port->desc_rx_num) 
 			port->fifo_rx_desc = 0;
-		
-		// Desc full and out of data.
-		if(rxcnt == 0) 
-			break;
 	}
 	WdfSpinLockRelease(port->board_rx_spinlock);
 	
@@ -627,8 +619,6 @@ int fscc_user_write_frame(struct fscc_port *port, char *buf, size_t data_length,
 	for(i = 0; i < port->desc_tx_num; i++) {
 		if((port->tx_descriptors[port->user_tx_desc]->desc->control&DESC_CSTOP_BIT)!=DESC_CSTOP_BIT) {
 			status = STATUS_BUFFER_TOO_SMALL;
-			DbgPrint("%s: Somehow I hit a busy descriptor? %d    ", __FUNCTION__, port->user_tx_desc);
-			DbgPrint("desc: 0x%8.8x  ", port->tx_descriptors[port->user_tx_desc]->desc->control);
 			break;
 		}
 		if(start_desc==0)
@@ -660,7 +650,6 @@ int fscc_user_write_frame(struct fscc_port *port, char *buf, size_t data_length,
 		fscc_port_set_register(port, 2, DMA_TX_BASE_OFFSET, start_desc);
 		fscc_port_execute_transmit(port, 1);
 	}
-	DbgPrint("%s: %d total bytes written\n", __FUNCTION__, *out_length);
 	return status;
 }
 
@@ -697,7 +686,6 @@ int fscc_user_read_frame(struct fscc_port *port, char *buf, size_t buf_length, s
 		WdfSpinLockRelease(port->board_rx_spinlock);
 		return STATUS_BUFFER_TOO_SMALL;
 	}
-	DbgPrint("%s: Starting at descriptor %d..  ", __FUNCTION__, port->user_rx_desc);
     for(i = 0; i < port->desc_rx_num; i++) {		
 		control = port->rx_descriptors[port->user_rx_desc]->desc->control;
 		
@@ -751,7 +739,6 @@ int fscc_user_read_frame(struct fscc_port *port, char *buf, size_t buf_length, s
 		}
     }
     WdfSpinLockRelease(port->board_rx_spinlock);
-	DbgPrint("%s: %d total bytes read, consumed to descriptor: %d, consumed %d descs\n", __FUNCTION__, *out_length, port->user_rx_desc, i);
     return STATUS_SUCCESS;
 }
 
@@ -766,8 +753,7 @@ int fscc_user_read_stream(struct fscc_port *port, char *buf, size_t buf_length, 
 	
 	*out_length = 0;
     WdfSpinLockAcquire(port->board_rx_spinlock);
-    for(i = 0; i < port->desc_rx_num; i++) {
-		DbgPrint("%s: Attempting to read %d\n", __FUNCTION__, port->rx_descriptors[port->user_rx_desc]->desc->data_address);	
+    for(i = 0; i < port->desc_rx_num; i++) {	
 		control = port->rx_descriptors[port->user_rx_desc]->desc->control;
 		
 		// If not CSTOP && not FE, then break
@@ -799,7 +785,6 @@ int fscc_user_read_stream(struct fscc_port *port, char *buf, size_t buf_length, 
     }
     WdfSpinLockRelease(port->board_rx_spinlock);
 	
-    DbgPrint("%s: %d total bytes read\n", __FUNCTION__, *out_length);
     return STATUS_SUCCESS;
 }
 

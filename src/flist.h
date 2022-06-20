@@ -20,7 +20,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 */
 
-
+/*
 #ifndef FSCC_FLIST_H
 #define FSCC_FLIST_H
 
@@ -47,3 +47,4 @@ unsigned fscc_flist_calculate_memory_usage(struct fscc_flist *flist);
 struct fscc_frame *fscc_flist_peak_front(struct fscc_flist *flist);
 
 #endif
+*/

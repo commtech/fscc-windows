@@ -33,9 +33,6 @@ EVT_WDF_INTERRUPT_ISR fscc_isr;
 
 EVT_WDF_DPC oframe_worker;
 EVT_WDF_DPC iframe_worker;
-EVT_WDF_DPC istream_worker;
-EVT_WDF_DPC dma_iframe_worker;
-EVT_WDF_DPC dma_istream_worker;
 EVT_WDF_DPC isr_alert_worker;
 EVT_WDF_DPC request_worker;
 

@@ -20,9 +20,9 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 */
 
-
+/*
 #include "flist.h"
-#include "utils.h" /* return_{val_}if_true */
+#include "utils.h" // return_{val_}if_true 
 #include "frame.h"
 #include "debug.h"
 
@@ -135,3 +135,4 @@ unsigned fscc_flist_calculate_memory_usage(struct fscc_flist *flist)
 
     return memory;
 }
+*/

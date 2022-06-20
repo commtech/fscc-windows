@@ -20,10 +20,10 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 */
 
-
+/*
 #include "frame.h"
-#include "utils.h" /* return_{val_}if_true */
-#include "port.h" /* struct fscc_port */
+#include "utils.h" // return_{val_}if_true 
+#include "port.h" // struct fscc_port 
 
 #if defined(EVENT_TRACING)
 #include "frame.tmh"
@@ -91,7 +91,7 @@ int fscc_frame_add_data(struct fscc_frame *frame, const char *data,
     return_val_if_untrue(frame, FALSE);
     return_val_if_untrue(length > 0, FALSE);
 
-    /* Only update buffer size if there isn't enough space already */
+    // Only update buffer size if there isn't enough space already 
     if (frame->data_length + length > frame->buffer_size) {
         if (fscc_frame_update_buffer_size(frame, frame->data_length + length)
             == FALSE) {
@@ -99,7 +99,7 @@ int fscc_frame_add_data(struct fscc_frame *frame, const char *data,
         }
     }
 
-    /* Copy the new data to the end of the frame */
+    // Copy the new data to the end of the frame 
     memmove(frame->buffer + frame->data_length, data, length);
 
     frame->data_length += length;
@@ -113,7 +113,7 @@ int fscc_frame_add_data_from_port(struct fscc_frame *frame, struct fscc_port *po
     return_val_if_untrue(frame, FALSE);
     return_val_if_untrue(length > 0, FALSE);
 
-    /* Only update buffer size if there isn't enough space already */
+    // Only update buffer size if there isn't enough space already 
     if (frame->data_length + length > frame->buffer_size) {
         if (fscc_frame_update_buffer_size(frame, frame->data_length + length)
             == FALSE) {
@@ -121,7 +121,7 @@ int fscc_frame_add_data_from_port(struct fscc_frame *frame, struct fscc_port *po
         }
     }
 
-    /* Copy the new data to the end of the frame */
+    // Copy the new data to the end of the frame 
     fscc_port_get_register_rep(port, 0, FIFO_OFFSET, frame->buffer + frame->data_length, length);
 
     frame->data_length += length;
@@ -143,20 +143,20 @@ int fscc_frame_remove_data(struct fscc_frame *frame, char *destination,
         return TRUE;
     }
 
-    /* Make sure we don't remove more data than we have */
+    // Make sure we don't remove more data than we have 
     if (length > frame->data_length) {
         TraceEvents(TRACE_LEVEL_WARNING, TRACE_DEVICE,
                     "Attempting removal of more data than available");
         return FALSE;
     }
 
-    /* Copy the data into the outside buffer */
+    // Copy the data into the outside buffer 
     if (destination)
         memmove(destination, frame->buffer, length);
 
     frame->data_length -= length;
 
-    /* Move the data up in the buffer (essentially removing the old data) */
+    // Move the data up in the buffer (essentially removing the old data) 
     memmove(frame->buffer, frame->buffer + length, frame->data_length);
 
     return TRUE;
@@ -197,11 +197,10 @@ int fscc_frame_update_buffer_size(struct fscc_frame *frame, unsigned size)
 
     if (frame->buffer) {
         if (frame->data_length) {
-            /* Truncate data length if the new buffer size is less than the
-            data length */
-            frame->data_length = min(frame->data_length, size);
+            // Truncate data length if the new buffer size is less than the data length 
+			frame->data_length = min(frame->data_length, size);
 
-            /* Copy over the old buffer data to the new buffer */
+            // Copy over the old buffer data to the new buffer 
             memmove(new_buffer, frame->buffer, frame->data_length);
         }
 
@@ -225,3 +224,4 @@ unsigned fscc_frame_is_fifo(struct fscc_frame *frame)
 {
     return (frame->fifo_initialized);
 }
+*/

@@ -20,11 +20,11 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 */
 
-
+/*
 #ifndef FSCC_FRAME_H
 #define FSCC_FRAME_H
 
-//#include "descriptor.h" /* struct fscc_descriptor */
+//#include "descriptor.h" // struct fscc_descriptor 
 #include <ntddk.h>
 #include <wdf.h>
 
@@ -61,3 +61,4 @@ int fscc_frame_setup_descriptors(struct fscc_frame *frame);
 unsigned fscc_frame_is_fifo(struct fscc_frame *frame);
 
 #endif
+*/
