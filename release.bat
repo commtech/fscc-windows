@@ -1,4 +1,4 @@
-set NAME=fscc-windows-2.8.0
+set NAME=fscc-windows-2.8.1
 set TOP=bin\%NAME%
 set PYFSCC=..\pyfscc\dist
 set QFSCC=..\qfscc\build\exe.win32-3.3
@@ -29,12 +29,12 @@ echo Generating .cab files for Windows 10..
 makecab /f fscc_32.ddf
 makecab /f fscc_64.ddf
 
-signtool sign /fd SHA512 /ac "DigiCert High Assurance EV Root CA.crt" /n "Commtech, Inc." /t http://timestamp.digicert.com/ /sha1 A55F5C61CE305CD8F45E6C46AD704C452FBF630E bin\10\64\fscc.cab
+:signtool sign /fd SHA512 /ac "DigiCert High Assurance EV Root CA.crt" /n "Commtech, Inc." /t http://timestamp.digicert.com/ /sha1 A55F5C61CE305CD8F45E6C46AD704C452FBF630E bin\10\64\fscc.cab
 :signtool sign /fd SHA512 /t http://timestamp.digicert.com/ /sha1 A55F5C61CE305CD8F45E6C46AD704C452FBF630E bin\10\64\fscc.cab
-if %errorlevel% neq 0 exit /b %errorlevel%
-signtool sign /fd SHA512 /ac "DigiCert High Assurance EV Root CA.crt" /n "Commtech, Inc." /t http://timestamp.digicert.com/ /sha1 A55F5C61CE305CD8F45E6C46AD704C452FBF630E bin\10\32\fscc.cab
+:if %errorlevel% neq 0 exit /b %errorlevel%
+:signtool sign /fd SHA512 /ac "DigiCert High Assurance EV Root CA.crt" /n "Commtech, Inc." /t http://timestamp.digicert.com/ /sha1 A55F5C61CE305CD8F45E6C46AD704C452FBF630E bin\10\32\fscc.cab
 :signtool sign /fd SHA512 /t http://timestamp.digicert.com/ /sha1 A55F5C61CE305CD8F45E6C46AD704C452FBF630E bin\10\32\fscc.cab
-if %errorlevel% neq 0 exit /b %errorlevel%
+:if %errorlevel% neq 0 exit /b %errorlevel%
 
 :build_libs
 echo Building Libraries...

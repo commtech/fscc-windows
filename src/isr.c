@@ -46,8 +46,6 @@ BOOLEAN fscc_isr(WDFINTERRUPT Interrupt, ULONG MessageID)
 
     port = WdfObjectGet_FSCC_PORT(WdfInterruptGetDevice(Interrupt));
 
-    //WdfTimerStop(port->timer, FALSE);
-
     isr_value = fscc_port_get_register(port, 0, ISR_OFFSET);
 
     if (!isr_value)
@@ -70,15 +68,13 @@ BOOLEAN fscc_isr(WDFINTERRUPT Interrupt, ULONG MessageID)
 		if (isr_value & (TFT | TDU | ALLS))
 			WdfDpcEnqueue(port->oframe_dpc);
     }
-	
+
 	// TODO error handling for RDO, RFO, TDU, etc?
     //if (isr_value & ALLS)
     //    WdfDpcEnqueue(port->clear_oframe_dpc);
 	//if (isr_value & ALLS)
 	//	wait on write?
     WdfDpcEnqueue(port->isr_alert_dpc);
-
-    //fscc_port_reset_timer(port);
 
     return handled;
 }
@@ -100,9 +96,6 @@ void isr_alert_worker(WDFDPC Dpc)
     isr_value = port->last_isr_value;
 	
     port->last_isr_value = 0;
-    DbgPrint("--------ISR occurred: 0x%8.8x---------\n", isr_value);
-	if(isr_value & TDU) DbgPrint("!!!!!!!!!!TDU TDU TDU!!!!!!!!!!!\n");
-	if(isr_value & RDO) DbgPrint("!!!!!!!!!!RDO RDO RDO!!!!!!!!!!!\n");
 
     do {
         status = WdfIoQueueFindRequest(
@@ -207,28 +200,19 @@ void iframe_worker(WDFDPC Dpc)
     port = WdfObjectGet_FSCC_PORT(WdfDpcGetParentObject(Dpc));
 
     return_if_untrue(port);
-	
 	if(fscc_port_uses_dma(port)) return;
-	
 	fscc_fifo_read_data(port);
-
 	WdfDpcEnqueue(port->process_read_dpc);
-
 }
 
 void oframe_worker(WDFDPC Dpc)
 {
     struct fscc_port *port = 0;
-	size_t bytes_ready = 0, frames = 0;
 
     port = WdfObjectGet_FSCC_PORT(WdfDpcGetParentObject(Dpc));
 
     return_if_untrue(port);
 	if(fscc_port_uses_dma(port)) return;
-	
-    //frames = fscc_fifo_write_has_data(port, &bytes_ready);
-	//if(bytes_ready == 0) return;
-	
     fscc_port_transmit_frame(port);
 }
 
@@ -280,10 +264,6 @@ VOID timer_handler(WDFTIMER Timer)
 
     port = WdfObjectGet_FSCC_PORT(WdfTimerGetParentObject(Timer));
 	
-	//WdfDpcEnqueue(port->iframe_dpc);
-
-    // Had to remove the condition check, otherwise there
-    // was a chance that a request could be stuck in the 
-    // queue forever if the condition changed.
+	WdfDpcEnqueue(port->iframe_dpc);
     WdfDpcEnqueue(port->orequest_worker);
 }

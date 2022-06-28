@@ -210,13 +210,13 @@ void fscc_card_get_register_rep(struct fscc_card *card, unsigned bar,
 
         value = io_read(card, bar, (ULONG *)((char *)address + offset));
 
-        memcpy(&buf[i * 4], &value, sizeof(value));
+        RtlCopyMemory(&buf[i * 4], &value, sizeof(value));
     }
 
     if (leftover_count) {
         incoming_data = io_read(card, bar, (ULONG *)((char *)address + offset));
 
-        memmove(buf + (byte_count - leftover_count),
+        RtlCopyMemory(buf + (byte_count - leftover_count),
                 (char *)(&incoming_data), leftover_count);
     }
 

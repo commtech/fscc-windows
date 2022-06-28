@@ -517,8 +517,14 @@ NTSTATUS FsccEvtDevicePrepareHardware(WDFDEVICE Device,
 
     port->memory_cap.input = DEFAULT_INPUT_MEMORY_CAP_VALUE;
     port->memory_cap.output = DEFAULT_OUTPUT_MEMORY_CAP_VALUE;
+	
+	WdfSpinLockAcquire(port->board_rx_spinlock);
     fscc_io_build_rx(port, DEFAULT_DESC_RX_NUM, DEFAULT_DESC_RX_SIZE);
+	WdfSpinLockRelease(port->board_rx_spinlock);
+	
+	WdfSpinLockAcquire(port->board_tx_spinlock);
     fscc_io_build_tx(port, DEFAULT_DESC_TX_NUM, DEFAULT_DESC_TX_SIZE);
+	WdfSpinLockRelease(port->board_tx_spinlock);
 
     port->last_isr_value = 0;
 
@@ -546,7 +552,8 @@ NTSTATUS FsccEvtDevicePrepareHardware(WDFDEVICE Device,
 
     fscc_port_set_clock_bits(port, clock_bits);
     
-    if(fscc_port_uses_dma(port)) fscc_dma_port_enable(port);
+    if(fscc_port_uses_dma(port)) 
+		fscc_dma_port_enable(port);
         
     fscc_port_purge_rx(port);
     fscc_port_purge_tx(port);
@@ -586,8 +593,6 @@ NTSTATUS FsccEvtDeviceReleaseHardware(WDFDEVICE Device,
     WdfSpinLockAcquire(port->board_rx_spinlock);
     fscc_io_destroy_rx(port);
     WdfSpinLockRelease(port->board_rx_spinlock);
-    
-    //WdfTimerStop(port->timer, FALSE);
 
     status = fscc_card_delete(&port->card, ResourcesTranslated);
 
@@ -691,7 +696,7 @@ VOID FsccEvtIoDeviceControl(IN WDFQUEUE Queue, IN WDFREQUEST Request,
                 break;
             }
 
-            memcpy(output_regs, input_regs, sizeof(struct fscc_registers));
+            RtlCopyMemory(output_regs, input_regs, sizeof(struct fscc_registers));
 
             WdfSpinLockAcquire(port->board_settings_spinlock);
             fscc_port_get_registers(port, output_regs);
@@ -1873,7 +1878,6 @@ void fscc_port_execute_transmit(struct fscc_port *port, unsigned dma)
 
     return_if_untrue(port);
 	
-    WdfSpinLockAcquire(port->board_tx_spinlock);
     if (dma) {
         command_bar = 2;
         command_register = DMACCR_OFFSET;
@@ -1906,7 +1910,6 @@ void fscc_port_execute_transmit(struct fscc_port *port, unsigned dma)
 		
 		fscc_port_set_register(port, command_bar, command_register, command_value);
     }
-    WdfSpinLockRelease(port->board_tx_spinlock);
 }
 
 unsigned fscc_port_get_RFCNT(struct fscc_port *port)
@@ -2047,7 +2050,6 @@ NTSTATUS fscc_port_set_force_fifo(struct fscc_port *port, BOOLEAN value)
     {
         TraceEvents(TRACE_LEVEL_INFORMATION, TRACE_DEVICE, "Force FIFO %i => %i", port->force_fifo, value);
         port->force_fifo = (value) ? TRUE : FALSE;
-        DbgPrint("***********FORCE FIFO: %d\n", port->force_fifo);
         if(port->force_fifo) fscc_dma_port_disable(port);
         else fscc_dma_port_enable(port);
     }

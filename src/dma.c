@@ -34,75 +34,6 @@ THE SOFTWARE.
 #include "dma.tmh"
 #endif
 
-void fscc_io_destroy_data(struct fscc_port *port, struct dma_frame *frame);
-void fscc_io_destroy_desc(struct fscc_port *port, struct dma_frame *frame);
-NTSTATUS fscc_io_create_rx_desc(struct fscc_port *port, size_t number_of_desc);
-NTSTATUS fscc_io_create_tx_desc(struct fscc_port *port, size_t number_of_desc);
-NTSTATUS fscc_io_create_rx_buffers(struct fscc_port *port, size_t number_of_desc, size_t size_of_desc);
-NTSTATUS fscc_io_create_tx_buffers(struct fscc_port *port, size_t number_of_desc, size_t size_of_desc);
-BOOLEAN fscc_dma_is_rx_running(struct fscc_port *port);
-BOOLEAN fscc_dma_is_tx_running(struct fscc_port *port);
-
-NTSTATUS fscc_io_initialize(struct fscc_port *port)
-{
-    NTSTATUS status;
-    WDF_OBJECT_ATTRIBUTES attributes;
-    WDF_DMA_ENABLER_CONFIG dma_config;
-
-    PAGED_CODE();
-    // The registers are 4 bytes.
-    WdfDeviceSetAlignmentRequirement(port->device, FILE_LONG_ALIGNMENT);
-    // Technically the descriptors allowed for 536870911 (0x1FFFFFFF) but rounding might be best.
-    WDF_DMA_ENABLER_CONFIG_INIT(&dma_config, WdfDmaProfilePacket, 536870000);
-    status = WdfDmaEnablerCreate(port->device, &dma_config, WDF_NO_OBJECT_ATTRIBUTES, &port->dma_enabler);
-    if(!NT_SUCCESS(status)) {
-        port->has_dma = 0;
-        TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE, "WdfDmaEnablerCreate failed: %!STATUS!", status);
-        return status;
-    }
-    return status;
-}
-
-NTSTATUS fscc_io_build_rx(struct fscc_port *port, size_t number_of_desc, size_t size_of_desc)
-{
-    NTSTATUS status;
-    
-    // Rebuild the RX DMA stuff.
-    status = fscc_io_create_rx_desc(port, number_of_desc);
-    if(status != STATUS_SUCCESS)
-		return status;
-	
-    status = fscc_io_create_rx_buffers(port, number_of_desc, size_of_desc);
-    if(status != STATUS_SUCCESS)
-        return status;
-	
-    port->desc_rx_num = number_of_desc;
-	port->desc_rx_size = size_of_desc;
-    
-    fscc_io_reset_rx(port);
-    return STATUS_SUCCESS;
-}
-
-NTSTATUS fscc_io_build_tx(struct fscc_port *port, size_t number_of_desc, size_t size_of_desc)
-{
-    NTSTATUS status;
-    
-    // Rebuild the TX DMA stuff.
-    status = fscc_io_create_tx_desc(port, number_of_desc);
-    if(status != STATUS_SUCCESS)
-        return status;
-
-    status = fscc_io_create_tx_buffers(port, number_of_desc, size_of_desc);
-    if(status != STATUS_SUCCESS)
-        return status;
-	
-    port->desc_tx_num = number_of_desc;
-	port->desc_tx_size = size_of_desc;
-	
-	fscc_io_reset_tx(port);
-    return STATUS_SUCCESS;
-}
-
 NTSTATUS fscc_io_create_rx_desc(struct fscc_port *port, size_t number_of_desc)
 {
     NTSTATUS status;
@@ -217,6 +148,101 @@ NTSTATUS fscc_io_create_tx_buffers(struct fscc_port *port, size_t number_of_desc
     return STATUS_SUCCESS;
 }
 
+void fscc_io_destroy_data(struct fscc_port *port, struct dma_frame *frame)
+{
+    frame->desc->data_address = 0;
+    frame->buffer = 0;
+    if(frame->data_buffer) WdfObjectDelete(frame->data_buffer);
+    frame->data_buffer = 0;
+}
+
+void fscc_io_destroy_desc(struct fscc_port *port, struct dma_frame *frame)
+{
+    fscc_io_destroy_data(port, frame);
+    RtlZeroMemory(frame->desc, sizeof(struct fscc_descriptor));
+    frame->desc_physical_address = 0;
+    if(frame->desc_buffer) WdfObjectDelete(frame->desc_buffer);
+    frame->desc_buffer = 0;
+}
+
+NTSTATUS fscc_io_rebuild_rx(struct fscc_port *port)
+{
+    if(!port) return STATUS_UNSUCCESSFUL;
+    
+    fscc_io_destroy_rx(port);
+    
+    return fscc_io_build_rx(port, port->desc_rx_num, port->desc_rx_size);
+}
+
+NTSTATUS fscc_io_rebuild_tx(struct fscc_port *port)
+{
+    if(!port) return STATUS_UNSUCCESSFUL;
+    
+    fscc_io_destroy_tx(port);
+    
+    return fscc_io_build_tx(port, port->desc_tx_num, port->desc_tx_size);
+}
+
+NTSTATUS fscc_io_initialize(struct fscc_port *port)
+{
+    NTSTATUS status;
+    WDF_OBJECT_ATTRIBUTES attributes;
+    WDF_DMA_ENABLER_CONFIG dma_config;
+
+    PAGED_CODE();
+    // The registers are 4 bytes.
+    WdfDeviceSetAlignmentRequirement(port->device, FILE_LONG_ALIGNMENT);
+    // Technically the descriptors allowed for 536870911 (0x1FFFFFFF) but rounding might be best.
+    WDF_DMA_ENABLER_CONFIG_INIT(&dma_config, WdfDmaProfilePacket, 536870000);
+    status = WdfDmaEnablerCreate(port->device, &dma_config, WDF_NO_OBJECT_ATTRIBUTES, &port->dma_enabler);
+    if(!NT_SUCCESS(status)) {
+        port->has_dma = 0;
+        TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE, "WdfDmaEnablerCreate failed: %!STATUS!", status);
+        return status;
+    }
+    return status;
+}
+
+NTSTATUS fscc_io_build_rx(struct fscc_port *port, size_t number_of_desc, size_t size_of_desc)
+{
+    NTSTATUS status;
+    
+    // Rebuild the RX DMA stuff.
+    status = fscc_io_create_rx_desc(port, number_of_desc);
+    if(status != STATUS_SUCCESS)
+		return status;
+	
+    status = fscc_io_create_rx_buffers(port, number_of_desc, size_of_desc);
+    if(status != STATUS_SUCCESS)
+        return status;
+	
+    port->desc_rx_num = number_of_desc;
+	port->desc_rx_size = size_of_desc;
+    
+    fscc_io_reset_rx(port);
+    return STATUS_SUCCESS;
+}
+
+NTSTATUS fscc_io_build_tx(struct fscc_port *port, size_t number_of_desc, size_t size_of_desc)
+{
+    NTSTATUS status;
+    
+    // Rebuild the TX DMA stuff.
+    status = fscc_io_create_tx_desc(port, number_of_desc);
+    if(status != STATUS_SUCCESS)
+        return status;
+
+    status = fscc_io_create_tx_buffers(port, number_of_desc, size_of_desc);
+    if(status != STATUS_SUCCESS)
+        return status;
+	
+    port->desc_tx_num = number_of_desc;
+	port->desc_tx_size = size_of_desc;
+	
+	fscc_io_reset_tx(port);
+    return STATUS_SUCCESS;
+}
+
 void fscc_io_reset_rx(struct fscc_port *port)
 {
     size_t i;
@@ -285,41 +311,6 @@ void fscc_io_destroy_tx(struct fscc_port *port)
     
     ExFreePoolWithTag(port->tx_descriptors, 'CSED');
     port->tx_descriptors = 0;
-}
-
-void fscc_io_destroy_data(struct fscc_port *port, struct dma_frame *frame)
-{
-    frame->desc->data_address = 0;
-    frame->buffer = 0;
-    if(frame->data_buffer) WdfObjectDelete(frame->data_buffer);
-    frame->data_buffer = 0;
-}
-
-void fscc_io_destroy_desc(struct fscc_port *port, struct dma_frame *frame)
-{
-    fscc_io_destroy_data(port, frame);
-    RtlZeroMemory(frame->desc, sizeof(struct fscc_descriptor));
-    frame->desc_physical_address = 0;
-    if(frame->desc_buffer) WdfObjectDelete(frame->desc_buffer);
-    frame->desc_buffer = 0;
-}
-
-NTSTATUS fscc_io_rebuild_rx(struct fscc_port *port)
-{
-    if(!port) return STATUS_UNSUCCESSFUL;
-    
-    fscc_io_destroy_rx(port);
-    
-    return fscc_io_build_rx(port, port->desc_rx_num, port->desc_rx_size);
-}
-
-NTSTATUS fscc_io_rebuild_tx(struct fscc_port *port)
-{
-    if(!port) return STATUS_UNSUCCESSFUL;
-    
-    fscc_io_destroy_tx(port);
-    
-    return fscc_io_build_tx(port, port->desc_tx_num, port->desc_tx_size);
 }
 
 BOOLEAN fscc_dma_is_rx_running(struct fscc_port *port)
@@ -433,55 +424,31 @@ size_t fscc_user_get_tx_space(struct fscc_port *port)
     return space;
 }
 
-// TODO Verify, probably won't use the frames but still.
-// Currently used in fscc_fifo_write_data()
-unsigned fscc_fifo_write_has_data(struct fscc_port *port, size_t *bytes)
-{
-	unsigned i, cur_desc, frames = 0;
-	
-	*bytes=0;
-	cur_desc = port->fifo_tx_desc;
-	for(i = 0; i < port->desc_tx_num; i++) {
-        if((port->tx_descriptors[cur_desc]->desc->control&DESC_CSTOP_BIT)==DESC_CSTOP_BIT) 
-			break;
-		
-		if((port->tx_descriptors[cur_desc]->desc->control&DESC_FE_BIT)==DESC_FE_BIT)
-			frames++;
-		
-		*bytes += port->tx_descriptors[cur_desc]->desc->data_count;
-		
-		cur_desc++;
-		if(cur_desc == port->desc_tx_num) cur_desc = 0;
-	}
-	
-	return frames;
-}
-
-// Call this on TDU, TDO, TFT, ALLS
-// TODO Underflows sometimes. Why?
-// TX desc consumer, FIFO only
 #define TX_FIFO_SIZE 4096
 int fscc_fifo_write_data(struct fscc_port *port)
 {
 	unsigned fifo_space, write_length, frame_size = 0, size_in_fifo, data_size;
-	size_t i, frames_written = 0;
+	size_t i, data_written = 0;
 	UINT32 txcnt = 0;
+	static size_t count = 0, frame = 0;
 
     WdfSpinLockAcquire(port->board_tx_spinlock);
-	txcnt = fscc_port_get_TXCNT(port);
-	fifo_space = TX_FIFO_SIZE - txcnt - 1;
-    fifo_space -= fifo_space % 4;
-	if(txcnt > 0) DbgPrint("%s: Second attempt at filling fifo, %d in FIFO.\n", __FUNCTION__, txcnt);
-	// fifo_space > TX_FIFO_SIZE is just in case the subtraction above breaks everything.
-	if(fifo_space < 4 || fifo_space > TX_FIFO_SIZE) {
-		WdfSpinLockRelease(port->board_tx_spinlock);
-		return 0;
-	}
 	for(i = 0; i < port->desc_tx_num; i++) {
+				
 		if((port->tx_descriptors[port->fifo_tx_desc]->desc->control&DESC_CSTOP_BIT)==DESC_CSTOP_BIT)
 			break;
 	
+		txcnt = fscc_port_get_TXCNT(port);
+		fifo_space = TX_FIFO_SIZE - txcnt - 1;
+		fifo_space -= fifo_space % 4;
+		if(fifo_space < 8 || fifo_space > TX_FIFO_SIZE)
+			break;
+
 		if((port->tx_descriptors[port->fifo_tx_desc]->desc->control&DESC_FE_BIT)==DESC_FE_BIT) {
+			if(frame_size) {
+				fscc_port_set_register(port, 0, BC_FIFO_L_OFFSET, frame_size);
+				frame_size = 0;
+			}
 			if(fscc_port_get_TFCNT(port) > 255) {
 				break;
 			}
@@ -489,45 +456,34 @@ int fscc_fifo_write_data(struct fscc_port *port)
 		}
 		
 		data_size = port->tx_descriptors[port->fifo_tx_desc]->desc->data_count;
-		size_in_fifo = data_size + (4 - (data_size % 4));
-		write_length = (size_in_fifo > fifo_space) ? fifo_space : data_size;
+		write_length = min(fifo_space, data_size);
 		
 		fscc_port_set_register_rep(port, 0, FIFO_OFFSET, port->tx_descriptors[port->fifo_tx_desc]->buffer, write_length);
-		fifo_space -= data_size;
-		
-		// This is strange, but I kept getting TDU if I wrote frame_size before I filled the FIFO.
-		// So I get the value, then I write data, then I write the value to prevent TDU.
-		if(frame_size) {
-			fscc_port_set_register(port, 0, BC_FIFO_L_OFFSET, frame_size);
-			DbgPrint("%s: Wrote a frame size of %d.\n", __FUNCTION__, frame_size);
-			frames_written++;
-			frame_size = 0;
-		}
+		data_written = 1;
 		
 		// The descriptor isn't empty, so that means the FIFO is full.
 		if(port->tx_descriptors[port->fifo_tx_desc]->desc->data_count > write_length) {
 			int remaining = port->tx_descriptors[port->fifo_tx_desc]->desc->data_count - write_length;
-			memmove(port->tx_descriptors[port->fifo_tx_desc]->buffer, 
+			RtlMoveMemory(port->tx_descriptors[port->fifo_tx_desc]->buffer, 
 				port->tx_descriptors[port->fifo_tx_desc]->buffer+write_length, 
 				remaining);
 			port->tx_descriptors[port->fifo_tx_desc]->desc->data_count = remaining;
-			DbgPrint("%s: Leaving descriptor %d unfinished with %d bytes..\n", __FUNCTION__, port->fifo_tx_desc, remaining);
 			break;
 		}
 		
 		// Descriptor is empty, time to reset it.
+		port->tx_descriptors[port->fifo_tx_desc]->desc->data_count = 0;
 		port->tx_descriptors[port->fifo_tx_desc]->desc->control = DESC_CSTOP_BIT;
 		
 		port->fifo_tx_desc++;
 		if(port->fifo_tx_desc == port->desc_tx_num)
 			port->fifo_tx_desc = 0;
-		
-		if(fifo_space < 4)
-			break;
 	}
+	if(frame_size)
+		fscc_port_set_register(port, 0, BC_FIFO_L_OFFSET, frame_size);
+	
 	WdfSpinLockRelease(port->board_tx_spinlock);
-	DbgPrint("%s: Leaving with %d bytes of space left in the FIFO.\n", __FUNCTION__, fifo_space);
-	return frames_written;
+	return data_written;
 }
 
 int fscc_fifo_read_data(struct fscc_port *port)
@@ -544,12 +500,16 @@ int fscc_fifo_read_data(struct fscc_port *port)
 			break;
 		
 		if (port->rx_frame_size == 0) {
-			if (fscc_port_get_RFCNT(port)) 
+			if (fscc_port_get_RFCNT(port)) {
 				port->rx_frame_size = fscc_port_get_register(port, 0, BC_FIFO_L_OFFSET);
+			}
 		}
 		
 		if(port->rx_frame_size) {
-			receive_length = port->rx_frame_size - port->rx_bytes_in_frame;
+			if (port->rx_frame_size > port->rx_bytes_in_frame)
+				receive_length = port->rx_frame_size - port->rx_bytes_in_frame;
+			else
+				receive_length = 0;
 		}
 		else {
 			rxcnt = fscc_port_get_RXCNT(port);
@@ -557,13 +517,10 @@ int fscc_fifo_read_data(struct fscc_port *port)
 		}
 		
 		receive_length = min(receive_length, port->desc_rx_size - (new_control&DMA_MAX_LENGTH));
+		// Instead of breaking out if this is 0, we move on to allow the FE/CSTOP processing.
 		
-		if(!receive_length) {
-			break;
-		}
-		
-		// Move data into the descriptor and update counters.
-		fscc_port_get_register_rep(port, 0, FIFO_OFFSET, port->rx_descriptors[port->fifo_rx_desc]->buffer+(new_control&DMA_MAX_LENGTH), receive_length);
+		if(receive_length)
+			fscc_port_get_register_rep(port, 0, FIFO_OFFSET, port->rx_descriptors[port->fifo_rx_desc]->buffer+(new_control&DMA_MAX_LENGTH), receive_length);
 		new_control += receive_length;
 		port->rx_bytes_in_frame += receive_length;
 
@@ -576,7 +533,7 @@ int fscc_fifo_read_data(struct fscc_port *port)
 		if(port->rx_frame_size > 0) {
 			// We've finished a frame, so we finalize it and clean up a bit.
 			if(port->rx_bytes_in_frame >= port->rx_frame_size) {
-				new_control = port->rx_bytes_in_frame;
+				new_control = port->rx_frame_size;
 				new_control |= DESC_CSTOP_BIT;
 				new_control |= DESC_FE_BIT;
 				port->rx_frame_size = 0;
@@ -602,7 +559,6 @@ int fscc_fifo_read_data(struct fscc_port *port)
 			port->fifo_rx_desc = 0;
 	}
 	WdfSpinLockRelease(port->board_rx_spinlock);
-	
 	return STATUS_SUCCESS;
 }
 
@@ -625,7 +581,7 @@ int fscc_user_write_frame(struct fscc_port *port, char *buf, size_t data_length,
 			start_desc = port->tx_descriptors[port->user_tx_desc]->desc_physical_address;
 		transmit_length = min(data_length - *out_length, port->desc_tx_size);
 		
-		memmove(port->tx_descriptors[port->user_tx_desc]->buffer, buf + *out_length, transmit_length);
+		RtlCopyMemory(port->tx_descriptors[port->user_tx_desc]->buffer, buf + *out_length, transmit_length);
 		*out_length += transmit_length;
 		port->tx_descriptors[port->user_tx_desc]->desc->data_count = transmit_length;
 		new_control = DESC_HI_BIT;
@@ -699,7 +655,7 @@ int fscc_user_read_frame(struct fscc_port *port, char *buf, size_t buf_length, s
 		else real_move_size = planned_move_size;
 		
 		if(real_move_size)
-			memmove(buf + *out_length, port->rx_descriptors[port->user_rx_desc]->buffer, real_move_size);
+			RtlCopyMemory(buf + *out_length, port->rx_descriptors[port->user_rx_desc]->buffer, real_move_size);
 		
 		if(planned_move_size > bytes_in_descs) bytes_in_descs = 0;
 		else bytes_in_descs -= planned_move_size;
@@ -708,7 +664,7 @@ int fscc_user_read_frame(struct fscc_port *port, char *buf, size_t buf_length, s
         *out_length += real_move_size;
 		
 		if(bytes_in_descs == 0 && port->append_timestamp) {
-			memcpy(buf + *out_length, &port->rx_descriptors[port->user_rx_desc]->timestamp, sizeof(fscc_timestamp));
+			RtlCopyMemory(buf + *out_length, &port->rx_descriptors[port->user_rx_desc]->timestamp, sizeof(fscc_timestamp));
 			*out_length += sizeof(fscc_timestamp);
 		}
 
@@ -762,7 +718,7 @@ int fscc_user_read_stream(struct fscc_port *port, char *buf, size_t buf_length, 
 			
         receive_length = min(port->rx_descriptors[port->user_rx_desc]->desc->data_count, buf_length - *out_length);
 		
-        memmove(buf + *out_length, port->rx_descriptors[port->user_rx_desc]->buffer, receive_length);
+        RtlCopyMemory(buf + *out_length, port->rx_descriptors[port->user_rx_desc]->buffer, receive_length);
         *out_length += receive_length;
 		
 		if(receive_length == port->rx_descriptors[port->user_rx_desc]->desc->data_count) {
@@ -772,7 +728,7 @@ int fscc_user_read_stream(struct fscc_port *port, char *buf, size_t buf_length, 
         else {
 			int remaining = port->rx_descriptors[port->user_rx_desc]->desc->data_count - receive_length;
 			// Moving data to the front of the descriptor.
-			memmove(port->rx_descriptors[port->user_rx_desc]->buffer, 
+			RtlMoveMemory(port->rx_descriptors[port->user_rx_desc]->buffer, 
 				port->rx_descriptors[port->user_rx_desc]->buffer+receive_length, 
 				remaining);
 			port->rx_descriptors[port->user_rx_desc]->desc->data_count = remaining;
@@ -787,4 +743,3 @@ int fscc_user_read_stream(struct fscc_port *port, char *buf, size_t buf_length, 
 	
     return STATUS_SUCCESS;
 }
-

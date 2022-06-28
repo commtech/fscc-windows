@@ -127,7 +127,6 @@ typedef struct fscc_port {
 
     WDFDPC oframe_dpc;
     WDFDPC iframe_dpc;
-    WDFDPC print_dpc;
     WDFDPC isr_alert_dpc;
     WDFDPC orequest_worker;
     WDFDPC process_read_dpc;
