@@ -48,10 +48,11 @@ typedef struct dma_frame {
 } DMA_FRAME;
 
 NTSTATUS fscc_io_initialize(struct fscc_port *port);
-NTSTATUS fscc_io_rebuild_rx(struct fscc_port *port);
-NTSTATUS fscc_io_rebuild_tx(struct fscc_port *port);
+NTSTATUS fscc_io_rebuild_rx(struct fscc_port *port, size_t number_of_desc, size_t size_of_desc);
+NTSTATUS fscc_io_rebuild_tx(struct fscc_port *port, size_t number_of_desc, size_t size_of_desc);
 NTSTATUS fscc_io_build_rx(struct fscc_port *port, size_t number_of_desc, size_t size_of_desc);
 NTSTATUS fscc_io_build_tx(struct fscc_port *port, size_t number_of_desc, size_t size_of_desc);
+NTSTATUS fscc_io_calculate_desc_size(int total_max_size, int desc_size, size_t *num_frames);
 void fscc_io_reset_rx(struct fscc_port *port);
 void fscc_io_reset_tx(struct fscc_port *port);
 void fscc_io_destroy_rx(struct fscc_port *port);

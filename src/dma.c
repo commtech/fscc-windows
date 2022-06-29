@@ -165,22 +165,22 @@ void fscc_io_destroy_desc(struct fscc_port *port, struct dma_frame *frame)
     frame->desc_buffer = 0;
 }
 
-NTSTATUS fscc_io_rebuild_rx(struct fscc_port *port)
+NTSTATUS fscc_io_rebuild_rx(struct fscc_port *port, size_t number_of_desc, size_t size_of_desc)
 {
     if(!port) return STATUS_UNSUCCESSFUL;
     
     fscc_io_destroy_rx(port);
     
-    return fscc_io_build_rx(port, port->desc_rx_num, port->desc_rx_size);
+    return fscc_io_build_rx(port, number_of_desc, size_of_desc);
 }
 
-NTSTATUS fscc_io_rebuild_tx(struct fscc_port *port)
+NTSTATUS fscc_io_rebuild_tx(struct fscc_port *port, size_t number_of_desc, size_t size_of_desc)
 {
     if(!port) return STATUS_UNSUCCESSFUL;
     
     fscc_io_destroy_tx(port);
     
-    return fscc_io_build_tx(port, port->desc_tx_num, port->desc_tx_size);
+    return fscc_io_build_tx(port, number_of_desc, size_of_desc);
 }
 
 NTSTATUS fscc_io_initialize(struct fscc_port *port)
@@ -311,6 +311,14 @@ void fscc_io_destroy_tx(struct fscc_port *port)
     
     ExFreePoolWithTag(port->tx_descriptors, 'CSED');
     port->tx_descriptors = 0;
+}
+
+// You need at least 2 descriptors for a list.
+NTSTATUS fscc_io_calculate_desc_size(int total_max_size, int desc_size, size_t *num_frames)
+{
+	*num_frames = total_max_size / desc_size;
+	if(*num_frames < 2) return STATUS_UNSUCCESSFUL; 
+	return STATUS_SUCCESS;
 }
 
 BOOLEAN fscc_dma_is_rx_running(struct fscc_port *port)

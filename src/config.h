@@ -28,8 +28,9 @@ THE SOFTWARE.
 
 #define DEVICE_NAME "fscc"
 
-#define DEFAULT_INPUT_MEMORY_CAP_VALUE 1000000
-#define DEFAULT_OUTPUT_MEMORY_CAP_VALUE 1000000
+// Deprecated by DEFAULT_*X_SIZE and DEFAULT_*X_NUM
+//#define DEFAULT_INPUT_MEMORY_CAP_VALUE 1000000
+//#define DEFAULT_OUTPUT_MEMORY_CAP_VALUE 1000000
 
 #define DEFAULT_TIMEOUT_VALUE 20
 #define DEFAULT_HOT_PLUG_VALUE 0
@@ -41,11 +42,11 @@ THE SOFTWARE.
 #define DEFAULT_RX_MULTIPLE_VALUE 0
 #define DEFAULT_WAIT_ON_WRITE_VALUE 0
 #define DEFAULT_BLOCKING_WRITE_VALUE 0
-// NUM * SIZE = maximum frame size
-// This can be any positive number. 
-#define DEFAULT_DESC_RX_NUM 200
-#define DEFAULT_DESC_TX_NUM 200
-// The size should ALWAYS be in 4 byte increments.
+// NUM * SIZE = maximum frame size and new memory_cap
+// The NUM can be any positive number greater than 1. 
+#define DEFAULT_DESC_RX_NUM 244
+#define DEFAULT_DESC_TX_NUM 244
+// The SIZE should ALWAYS be in 4 byte increments.
 #define DEFAULT_DESC_RX_SIZE 4096
 #define DEFAULT_DESC_TX_SIZE 4096
 

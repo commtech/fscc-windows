@@ -515,8 +515,8 @@ NTSTATUS FsccEvtDevicePrepareHardware(WDFDEVICE Device,
     fscc_port_set_force_fifo(port, DEFAULT_FORCE_FIFO_VALUE);
     
 
-    port->memory_cap.input = DEFAULT_INPUT_MEMORY_CAP_VALUE;
-    port->memory_cap.output = DEFAULT_OUTPUT_MEMORY_CAP_VALUE;
+    port->memory_cap.input = DEFAULT_DESC_RX_NUM * DEFAULT_DESC_RX_SIZE;
+    port->memory_cap.output = DEFAULT_DESC_TX_NUM * DEFAULT_DESC_TX_SIZE;
 	
 	WdfSpinLockAcquire(port->board_rx_spinlock);
     fscc_io_build_rx(port, DEFAULT_DESC_RX_NUM, DEFAULT_DESC_RX_SIZE);
@@ -841,7 +841,7 @@ VOID FsccEvtIoDeviceControl(IN WDFQUEUE Queue, IN WDFREQUEST Request,
                 break;
             }
 
-            fscc_port_set_memory_cap(port, memcap);
+            status = fscc_port_set_memory_cap(port, memcap);
         }
 
         break;
@@ -1659,17 +1659,30 @@ unsigned fscc_port_get_output_memory_cap(struct fscc_port *port)
     return port->memory_cap.output;
 }
 
-void fscc_port_set_memory_cap(struct fscc_port *port, struct fscc_memory_cap *value)
+NTSTATUS fscc_port_set_memory_cap(struct fscc_port *port, struct fscc_memory_cap *value)
 {
-    return_if_untrue(port);
-    return_if_untrue(value);
+	size_t num_desc = 0;
+	NTSTATUS status = STATUS_SUCCESS;
+	
+    return_val_if_untrue(port, STATUS_UNSUCCESSFUL);
+    return_val_if_untrue(value, STATUS_UNSUCCESSFUL);
 
     if (value->input >= 0) {
         if (port->memory_cap.input != value->input) {
-            TraceEvents(TRACE_LEVEL_INFORMATION, TRACE_DEVICE,
-                        "Memory cap (input) %i => %i",
-                        port->memory_cap.input, value->input);
-            port->memory_cap.input = value->input;
+			if(fscc_io_calculate_desc_size(value->input, port->desc_rx_size, &num_desc) == STATUS_SUCCESS) {
+				fscc_port_purge_rx(port);
+				fscc_io_rebuild_rx(port, num_desc, port->desc_rx_size);
+				TraceEvents(TRACE_LEVEL_INFORMATION, TRACE_DEVICE,
+							"Memory cap (input) %i => %i",
+							port->memory_cap.input, value->input);
+				port->memory_cap.input = value->input;
+			}
+			else {
+				status = STATUS_UNSUCCESSFUL;
+				TraceEvents(TRACE_LEVEL_WARNING, TRACE_DEVICE,
+                        "Memory cap (input) passed in value too small for desc size: %i",
+                        value->input);
+			}
         }
         else {
             TraceEvents(TRACE_LEVEL_VERBOSE, TRACE_DEVICE,
@@ -1681,10 +1694,20 @@ void fscc_port_set_memory_cap(struct fscc_port *port, struct fscc_memory_cap *va
 
     if (value->output >= 0) {
         if (port->memory_cap.output != value->output) {
-            TraceEvents(TRACE_LEVEL_INFORMATION, TRACE_DEVICE,
-                        "Memory cap (output) %i => %i",
-                        port->memory_cap.output, value->output);
-            port->memory_cap.output = value->output;
+			if(fscc_io_calculate_desc_size(value->output, port->desc_tx_size, &num_desc) == STATUS_SUCCESS) {
+				fscc_port_purge_tx(port);
+				fscc_io_rebuild_tx(port, num_desc, port->desc_tx_size);
+				TraceEvents(TRACE_LEVEL_INFORMATION, TRACE_DEVICE,
+							"Memory cap (output) %i => %i",
+							port->memory_cap.output, value->output);
+				port->memory_cap.output = value->output;
+			}
+			else {
+				status = STATUS_UNSUCCESSFUL;
+				TraceEvents(TRACE_LEVEL_WARNING, TRACE_DEVICE,
+                        "Memory cap (output) passed in value too small for desc size: %i",
+                        value->output);
+			}
         }
         else {
             TraceEvents(TRACE_LEVEL_VERBOSE, TRACE_DEVICE,
@@ -1692,6 +1715,7 @@ void fscc_port_set_memory_cap(struct fscc_port *port, struct fscc_memory_cap *va
                         value->output);
         }
     }
+	return status;
 }
 
 #define STRB_BASE 0x00000008

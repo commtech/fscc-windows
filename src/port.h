@@ -208,7 +208,7 @@ BOOLEAN fscc_port_get_blocking_write(struct fscc_port *port);
 NTSTATUS fscc_port_set_tx_modifiers(struct fscc_port *port, int value);
 unsigned fscc_port_get_tx_modifiers(struct fscc_port *port);
 
-void fscc_port_set_memory_cap(struct fscc_port *port, struct fscc_memory_cap *memory_cap);
+NTSTATUS fscc_port_set_memory_cap(struct fscc_port *port, struct fscc_memory_cap *memory_cap);
 unsigned fscc_port_get_input_memory_cap(struct fscc_port *port);
 unsigned fscc_port_get_output_memory_cap(struct fscc_port *port);
 unsigned fscc_port_get_input_memory_usage(struct fscc_port *port);
@@ -220,9 +220,6 @@ NTSTATUS fscc_port_execute_RRES(struct fscc_port *port);
 NTSTATUS fscc_port_execute_TRES(struct fscc_port *port);
 
 unsigned fscc_port_using_async(struct fscc_port *port);
-
-BOOLEAN fscc_port_has_iframes(struct fscc_port *port, unsigned lock);
-BOOLEAN fscc_port_has_oframes(struct fscc_port *port, unsigned lock);
 
 BOOLEAN fscc_port_uses_dma(struct fscc_port *port);
 
