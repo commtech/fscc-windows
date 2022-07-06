@@ -16,12 +16,10 @@ TARGETLIBS= $(DDK_LIB_PATH)\ntstrsafe.lib $(DDK_LIB_PATH)\wdmsec.lib
 
 SOURCES=card.c \
         driver.c \
-        frame.c \
         isr.c \
         port.c \
         utils.c \
         debug.c \
-        flist.c \
         dma.c \
         fscc.rc
 
