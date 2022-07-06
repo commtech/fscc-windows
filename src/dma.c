@@ -189,7 +189,6 @@ NTSTATUS fscc_io_initialize(struct fscc_port *port)
     WDF_OBJECT_ATTRIBUTES attributes;
     WDF_DMA_ENABLER_CONFIG dma_config;
 
-    PAGED_CODE();
     // The registers are 4 bytes.
     WdfDeviceSetAlignmentRequirement(port->device, FILE_LONG_ALIGNMENT);
     // Technically the descriptors allowed for 536870911 (0x1FFFFFFF) but rounding might be best.
@@ -411,7 +410,6 @@ unsigned fscc_user_next_read_size(struct fscc_port *port, size_t *bytes)
     return 0;
 }
 
-// Check if there's space for data from the user to transmit.
 size_t fscc_user_get_tx_space(struct fscc_port *port)
 {
     unsigned i, cur_desc;
@@ -435,61 +433,53 @@ size_t fscc_user_get_tx_space(struct fscc_port *port)
 #define TX_FIFO_SIZE 4096
 int fscc_fifo_write_data(struct fscc_port *port)
 {
-	unsigned fifo_space, write_length, frame_size = 0, size_in_fifo, data_size;
+	unsigned fifo_space, write_length, frame_size = 0, size_in_fifo;
 	size_t i, data_written = 0;
-	UINT32 txcnt = 0;
-	static size_t count = 0, frame = 0;
+	UINT32 txcnt = 0, tfcnt = 0;
 
+	tfcnt = fscc_port_get_TFCNT(port);
+	if(tfcnt > 254)
+		return 0;
+	
+	txcnt = fscc_port_get_TXCNT(port);
+	fifo_space = TX_FIFO_SIZE - txcnt - 1;
+	fifo_space -= fifo_space % 4;
+	if(fifo_space > TX_FIFO_SIZE)
+		return 0;
+	
     WdfSpinLockAcquire(port->board_tx_spinlock);
 	for(i = 0; i < port->desc_tx_num; i++) {
-				
 		if((port->tx_descriptors[port->fifo_tx_desc]->desc->control&DESC_CSTOP_BIT)==DESC_CSTOP_BIT)
 			break;
-	
-		txcnt = fscc_port_get_TXCNT(port);
-		fifo_space = TX_FIFO_SIZE - txcnt - 1;
-		fifo_space -= fifo_space % 4;
-		if(fifo_space < 8 || fifo_space > TX_FIFO_SIZE)
+		
+		write_length = port->tx_descriptors[port->fifo_tx_desc]->desc->data_count;
+		size_in_fifo = write_length + (4 - write_length % 4);
+		if(fifo_space < size_in_fifo)
 			break;
-
+		
 		if((port->tx_descriptors[port->fifo_tx_desc]->desc->control&DESC_FE_BIT)==DESC_FE_BIT) {
-			if(frame_size) {
-				fscc_port_set_register(port, 0, BC_FIFO_L_OFFSET, frame_size);
-				frame_size = 0;
-			}
-			if(fscc_port_get_TFCNT(port) > 255) {
+			if(tfcnt > 255)
 				break;
-			}
+			if(frame_size)
+				break;
 			frame_size = port->tx_descriptors[port->fifo_tx_desc]->desc->control&DMA_MAX_LENGTH;
 		}
 		
-		data_size = port->tx_descriptors[port->fifo_tx_desc]->desc->data_count;
-		write_length = min(fifo_space, data_size);
-		
 		fscc_port_set_register_rep(port, 0, FIFO_OFFSET, port->tx_descriptors[port->fifo_tx_desc]->buffer, write_length);
 		data_written = 1;
-		
-		// The descriptor isn't empty, so that means the FIFO is full.
-		if(port->tx_descriptors[port->fifo_tx_desc]->desc->data_count > write_length) {
-			int remaining = port->tx_descriptors[port->fifo_tx_desc]->desc->data_count - write_length;
-			RtlMoveMemory(port->tx_descriptors[port->fifo_tx_desc]->buffer, 
-				port->tx_descriptors[port->fifo_tx_desc]->buffer+write_length, 
-				remaining);
-			port->tx_descriptors[port->fifo_tx_desc]->desc->data_count = remaining;
-			break;
-		}
+		fifo_space -= size_in_fifo;
 		
 		// Descriptor is empty, time to reset it.
 		port->tx_descriptors[port->fifo_tx_desc]->desc->data_count = 0;
 		port->tx_descriptors[port->fifo_tx_desc]->desc->control = DESC_CSTOP_BIT;
-		
+
 		port->fifo_tx_desc++;
 		if(port->fifo_tx_desc == port->desc_tx_num)
 			port->fifo_tx_desc = 0;
 	}
-	if(frame_size)
+	if(frame_size) 
 		fscc_port_set_register(port, 0, BC_FIFO_L_OFFSET, frame_size);
-	
+
 	WdfSpinLockRelease(port->board_tx_spinlock);
 	return data_written;
 }
@@ -508,9 +498,8 @@ int fscc_fifo_read_data(struct fscc_port *port)
 			break;
 		
 		if (port->rx_frame_size == 0) {
-			if (fscc_port_get_RFCNT(port)) {
+			if (fscc_port_get_RFCNT(port)) 
 				port->rx_frame_size = fscc_port_get_register(port, 0, BC_FIFO_L_OFFSET);
-			}
 		}
 		
 		if(port->rx_frame_size) {
@@ -533,8 +522,8 @@ int fscc_fifo_read_data(struct fscc_port *port)
 		port->rx_bytes_in_frame += receive_length;
 
 		// We've finished this descriptor, so we finalize it.
-		if((new_control&DMA_MAX_LENGTH) == port->desc_rx_size) {
-			new_control = port->desc_rx_size;
+		if((new_control&DMA_MAX_LENGTH) >= port->desc_rx_size) {
+			new_control &= ~DMA_MAX_LENGTH;
 			new_control |= DESC_CSTOP_BIT;
 		}
 		
@@ -558,9 +547,8 @@ int fscc_fifo_read_data(struct fscc_port *port)
 		port->rx_descriptors[port->fifo_rx_desc]->desc->control = new_control;
 		
 		// Desc isn't finished, which means we're out of data.
-		if((new_control&DESC_CSTOP_BIT)!=DESC_CSTOP_BIT) {
+		if((new_control&DESC_CSTOP_BIT)!=DESC_CSTOP_BIT)
 			break;
-		}
 		
 		port->fifo_rx_desc++;
 		if(port->fifo_rx_desc == port->desc_rx_num) 

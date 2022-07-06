@@ -32,6 +32,19 @@ THE SOFTWARE.
 //#define DEFAULT_INPUT_MEMORY_CAP_VALUE 1000000
 //#define DEFAULT_OUTPUT_MEMORY_CAP_VALUE 1000000
 
+// NUM * SIZE = new memory_cap
+// Default is 256k instead of 1m
+// Adjust these at your own risk, too large of values can cause
+// a BSOD, caused by the DPC watchdog.
+
+// The NUM can be any positive number greater than 1.
+#define DEFAULT_DESC_RX_NUM 1000
+#define DEFAULT_DESC_TX_NUM 1000
+// The SIZE should ALWAYS be in 4 byte increments.
+// The SIZE should be smaller than the FIFO, ideally a lot smaller.
+#define DEFAULT_DESC_RX_SIZE 256
+#define DEFAULT_DESC_TX_SIZE 256
+
 #define DEFAULT_TIMEOUT_VALUE 20
 #define DEFAULT_HOT_PLUG_VALUE 0
 #define DEFAULT_FORCE_FIFO_VALUE 0
@@ -42,13 +55,6 @@ THE SOFTWARE.
 #define DEFAULT_RX_MULTIPLE_VALUE 0
 #define DEFAULT_WAIT_ON_WRITE_VALUE 0
 #define DEFAULT_BLOCKING_WRITE_VALUE 0
-// NUM * SIZE = maximum frame size and new memory_cap
-// The NUM can be any positive number greater than 1. 
-#define DEFAULT_DESC_RX_NUM 244
-#define DEFAULT_DESC_TX_NUM 244
-// The SIZE should ALWAYS be in 4 byte increments.
-#define DEFAULT_DESC_RX_SIZE 4096
-#define DEFAULT_DESC_TX_SIZE 4096
 
 #define DEFAULT_FIFOT_VALUE 0x08001000
 #define DEFAULT_CCR0_VALUE 0x0011201c

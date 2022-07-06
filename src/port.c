@@ -442,7 +442,21 @@ struct fscc_port *fscc_port_new(WDFDRIVER Driver,
     WDF_OBJECT_ATTRIBUTES_INIT(&dpcAttributes);
     dpcAttributes.ParentObject = port->device;
 
-    status = WdfDpcCreate(&dpcConfig, &dpcAttributes, &port->orequest_worker);
+    status = WdfDpcCreate(&dpcConfig, &dpcAttributes, &port->request_dpc);
+    if (!NT_SUCCESS(status)) {
+        WdfObjectDelete(port->device);
+        TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE,
+            "WdfDpcCreate failed %!STATUS!", status);
+        return 0;
+    }
+
+    WDF_DPC_CONFIG_INIT(&dpcConfig, &alls_worker);
+    dpcConfig.AutomaticSerialization = TRUE;
+
+    WDF_OBJECT_ATTRIBUTES_INIT(&dpcAttributes);
+    dpcAttributes.ParentObject = port->device;
+
+    status = WdfDpcCreate(&dpcConfig, &dpcAttributes, &port->alls_dpc);
     if (!NT_SUCCESS(status)) {
         WdfObjectDelete(port->device);
         TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE,
@@ -1138,7 +1152,6 @@ void FsccProcessRead(WDFDPC Dpc)
     WdfRequestCompleteWithInformation(request, status, read_count);
 }
 
-// TODO Wait write??
 VOID FsccEvtIoWrite(IN WDFQUEUE Queue, IN WDFREQUEST Request, IN size_t Length)
 {
     NTSTATUS status;
@@ -1167,7 +1180,7 @@ VOID FsccEvtIoWrite(IN WDFQUEUE Queue, IN WDFREQUEST Request, IN size_t Length)
             WdfRequestComplete(Request, status);
             return;
         }
-        WdfDpcEnqueue(port->orequest_worker);
+        WdfDpcEnqueue(port->request_dpc);
         return;
     }
 		
@@ -1193,7 +1206,7 @@ VOID FsccEvtIoWrite(IN WDFQUEUE Queue, IN WDFREQUEST Request, IN size_t Length)
     }
 	
 	status = fscc_user_write_frame(port, data_buffer, Length, &write_count);
-/*
+
     if (port->wait_on_write) {
         status = WdfRequestForwardToIoQueue(Request, port->write_queue2);
         if (!NT_SUCCESS(status)) {
@@ -1204,9 +1217,8 @@ VOID FsccEvtIoWrite(IN WDFQUEUE Queue, IN WDFREQUEST Request, IN size_t Length)
         }
     }
     else {
-*/
         WdfRequestCompleteWithInformation(Request, status, write_count);
- //   }
+	}
 
     if(!fscc_port_uses_dma(port))
 		WdfDpcEnqueue(port->oframe_dpc);
@@ -1675,7 +1687,7 @@ NTSTATUS fscc_port_set_memory_cap(struct fscc_port *port, struct fscc_memory_cap
 				TraceEvents(TRACE_LEVEL_INFORMATION, TRACE_DEVICE,
 							"Memory cap (input) %i => %i",
 							port->memory_cap.input, value->input);
-				port->memory_cap.input = value->input;
+				port->memory_cap.input = port->desc_rx_size * num_desc;
 			}
 			else {
 				status = STATUS_UNSUCCESSFUL;
@@ -1700,7 +1712,7 @@ NTSTATUS fscc_port_set_memory_cap(struct fscc_port *port, struct fscc_memory_cap
 				TraceEvents(TRACE_LEVEL_INFORMATION, TRACE_DEVICE,
 							"Memory cap (output) %i => %i",
 							port->memory_cap.output, value->output);
-				port->memory_cap.output = value->output;
+				port->memory_cap.output = port->desc_tx_size * num_desc;
 			}
 			else {
 				status = STATUS_UNSUCCESSFUL;

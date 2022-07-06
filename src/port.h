@@ -87,13 +87,6 @@ THE SOFTWARE.
 
 #define CE_BIT 0x00040000
 
-
-#define NUM_TX_DESCRIPTORS 10
-#define TX_BUFFER_SIZE 4096
-
-#define NUM_RX_DESCRIPTORS 10
-#define RX_BUFFER_SIZE 8192
-
 typedef struct fscc_port {
     WDFDEVICE device;
 
@@ -128,8 +121,9 @@ typedef struct fscc_port {
     WDFDPC oframe_dpc;
     WDFDPC iframe_dpc;
     WDFDPC isr_alert_dpc;
-    WDFDPC orequest_worker;
+    WDFDPC request_dpc;
     WDFDPC process_read_dpc;
+	WDFDPC alls_dpc;
 
     WDFTIMER timer;
 
@@ -137,7 +131,6 @@ typedef struct fscc_port {
     
     BOOLEAN has_dma;
     WDFDMAENABLER dma_enabler;
-	
     struct dma_frame **rx_descriptors;
     unsigned desc_rx_num;  // Number of descriptors.
     unsigned desc_rx_size; // Size of each descriptor

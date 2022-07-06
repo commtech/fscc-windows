@@ -70,10 +70,10 @@ BOOLEAN fscc_isr(WDFINTERRUPT Interrupt, ULONG MessageID)
     }
 
 	// TODO error handling for RDO, RFO, TDU, etc?
-    //if (isr_value & ALLS)
-    //    WdfDpcEnqueue(port->clear_oframe_dpc);
-	//if (isr_value & ALLS)
-	//	wait on write?
+	
+	if (isr_value & ALLS)
+		WdfDpcEnqueue(port->alls_dpc);
+	
     WdfDpcEnqueue(port->isr_alert_dpc);
 
     return handled;
@@ -216,6 +216,28 @@ void oframe_worker(WDFDPC Dpc)
     fscc_port_transmit_frame(port);
 }
 
+void alls_worker(WDFDPC Dpc)
+{
+    struct fscc_port *port = 0;
+    NTSTATUS status = STATUS_SUCCESS;
+    WDFREQUEST request;
+    WDF_REQUEST_PARAMETERS params;
+    unsigned length = 0, clear_queue = 1;
+
+    port = WdfObjectGet_FSCC_PORT(WdfDpcGetParentObject(Dpc));
+    
+    if (port->wait_on_write) {
+        do {
+        status = WdfIoQueueRetrieveNextRequest(port->write_queue2, &request);
+        if (!NT_SUCCESS(status)) return;
+        WDF_REQUEST_PARAMETERS_INIT(&params);
+        WdfRequestGetParameters(request, &params);
+        length = (unsigned)params.Parameters.Write.Length;
+        WdfRequestCompleteWithInformation(request, status, length);
+        } while(clear_queue);
+    }
+}
+
 void request_worker(WDFDPC Dpc)
 {
     struct fscc_port *port = 0;
@@ -265,5 +287,5 @@ VOID timer_handler(WDFTIMER Timer)
     port = WdfObjectGet_FSCC_PORT(WdfTimerGetParentObject(Timer));
 	
 	WdfDpcEnqueue(port->iframe_dpc);
-    WdfDpcEnqueue(port->orequest_worker);
+    WdfDpcEnqueue(port->request_dpc);
 }
