@@ -44,59 +44,59 @@ DriverEntry(PDRIVER_OBJECT  DriverObject, PUNICODE_STRING RegistryPath)
 /*++
 
 Routine Description:
-    DriverEntry initializes the driver and is the first routine called by the
-    system after the driver is loaded. DriverEntry specifies the other entry
-    points in the function driver, such as EvtDevice and DriverUnload.
+	DriverEntry initializes the driver and is the first routine called by the
+	system after the driver is loaded. DriverEntry specifies the other entry
+	points in the function driver, such as EvtDevice and DriverUnload.
 
 Parameters Description:
 
-    DriverObject - represents the instance of the function driver that is loaded
-    into memory. DriverEntry must initialize members of DriverObject before it
-    returns to the caller. DriverObject is allocated by the system before the
-    driver is loaded, and it is released by the system after the system unloads
-    the function driver from memory.
+	DriverObject - represents the instance of the function driver that is loaded
+	into memory. DriverEntry must initialize members of DriverObject before it
+	returns to the caller. DriverObject is allocated by the system before the
+	driver is loaded, and it is released by the system after the system unloads
+	the function driver from memory.
 
-    RegistryPath - represents the driver specific path in the Registry.
-    The function driver can use the path to store driver related data between
-    reboots. The path does not store hardware instance specific data.
+	RegistryPath - represents the driver specific path in the Registry.
+	The function driver can use the path to store driver related data between
+	reboots. The path does not store hardware instance specific data.
 
 Return Value:
 
-    STATUS_SUCCESS if successful,
-    STATUS_UNSUCCESSFUL otherwise.
+	STATUS_SUCCESS if successful,
+	STATUS_UNSUCCESSFUL otherwise.
 
 --*/
 {
-    WDF_DRIVER_CONFIG config;
-    NTSTATUS status;
-    WDF_OBJECT_ATTRIBUTES attributes;
+	WDF_DRIVER_CONFIG config;
+	NTSTATUS status;
+	WDF_OBJECT_ATTRIBUTES attributes;
 
-    //
-    // Initialize WPP Tracing
-    //
-    WPP_INIT_TRACING(DriverObject, RegistryPath);
+	//
+	// Initialize WPP Tracing
+	//
+	WPP_INIT_TRACING(DriverObject, RegistryPath);
 
-    //
-    // Register a cleanup callback so that we can call WPP_CLEANUP when
-    // the framework driver object is deleted during driver unload.
-    //
-    WDF_OBJECT_ATTRIBUTES_INIT(&attributes);
-    attributes.EvtCleanupCallback = FSCCEvtDriverContextCleanup;
+	//
+	// Register a cleanup callback so that we can call WPP_CLEANUP when
+	// the framework driver object is deleted during driver unload.
+	//
+	WDF_OBJECT_ATTRIBUTES_INIT(&attributes);
+	attributes.EvtCleanupCallback = FSCCEvtDriverContextCleanup;
 
-    WDF_DRIVER_CONFIG_INIT(&config, FSCCEvtDeviceAdd);
+	WDF_DRIVER_CONFIG_INIT(&config, FSCCEvtDeviceAdd);
 
-    status = WdfDriverCreate(DriverObject, RegistryPath, &attributes, &config,
-                             WDF_NO_HANDLE);
+	status = WdfDriverCreate(DriverObject, RegistryPath, &attributes, &config,
+	WDF_NO_HANDLE);
 
-    if (!NT_SUCCESS(status)) {
-        TraceEvents(TRACE_LEVEL_ERROR, TRACE_DRIVER,
-                    "WdfDriverCreate failed %!STATUS!", status);
+	if (!NT_SUCCESS(status)) {
+		TraceEvents(TRACE_LEVEL_ERROR, TRACE_DRIVER,
+		"WdfDriverCreate failed %!STATUS!", status);
 
-        WPP_CLEANUP(DriverObject);
-        return status;
-    }
+		WPP_CLEANUP(DriverObject);
+		return status;
+	}
 
-    return status;
+	return status;
 }
 
 NTSTATUS
@@ -104,32 +104,32 @@ FSCCEvtDeviceAdd(WDFDRIVER Driver, PWDFDEVICE_INIT DeviceInit)
 /*++
 Routine Description:
 
-    EvtDeviceAdd is called by the framework in response to AddDevice
-    call from the PnP manager. We create and initialize a device object to
-    represent a new instance of the device.
+	EvtDeviceAdd is called by the framework in response to AddDevice
+	call from the PnP manager. We create and initialize a device object to
+	represent a new instance of the device.
 
 Arguments:
 
-    Driver - Handle to a framework driver object created in DriverEntry
+	Driver - Handle to a framework driver object created in DriverEntry
 
-    DeviceInit - Pointer to a framework-allocated WDFDEVICE_INIT structure.
+	DeviceInit - Pointer to a framework-allocated WDFDEVICE_INIT structure.
 
 Return Value:
 
-    NTSTATUS
+	NTSTATUS
 
 --*/
 {
-    struct fscc_port *port = 0;
+	struct fscc_port *port = 0;
 
-    PAGED_CODE();
+	PAGED_CODE();
 
-    port = fscc_port_new(Driver, DeviceInit);
+	port = fscc_port_new(Driver, DeviceInit);
 
-    if (!port)
-        return STATUS_INTERNAL_ERROR;
+	if (!port)
+	return STATUS_INTERNAL_ERROR;
 
-    return STATUS_SUCCESS;
+	return STATUS_SUCCESS;
 }
 
 VOID
@@ -137,83 +137,83 @@ FSCCEvtDriverContextCleanup(WDFOBJECT DriverObject)
 /*++
 Routine Description:
 
-    Free all the resources allocated in DriverEntry.
+	Free all the resources allocated in DriverEntry.
 
 Arguments:
 
-    DriverObject - handle to a WDF Driver object.
+	DriverObject - handle to a WDF Driver object.
 
 Return Value:
 
-    VOID.
+	VOID.
 
 --*/
 {
-    UNREFERENCED_PARAMETER(DriverObject);
+	UNREFERENCED_PARAMETER(DriverObject);
 
-    PAGED_CODE ();
+	PAGED_CODE ();
 
-    //
-    // Stop WPP Tracing
-    //
-    WPP_CLEANUP(WdfDriverWdmGetDriverObject(DriverObject));
+	//
+	// Stop WPP Tracing
+	//
+	WPP_CLEANUP(WdfDriverWdmGetDriverObject(DriverObject));
 }
 
 NTSTATUS fscc_driver_get_last_port_num(WDFDRIVER driver, int *port_num)
 {
-    NTSTATUS status;
-    WDFKEY driverkey;
-    UNICODE_STRING key_str;
-    ULONG port_num_long;
+	NTSTATUS status;
+	WDFKEY driverkey;
+	UNICODE_STRING key_str;
+	ULONG port_num_long;
 
-    RtlInitUnicodeString(&key_str, L"LastPortNumber");
+	RtlInitUnicodeString(&key_str, L"LastPortNumber");
 
-    status = WdfDriverOpenParametersRegistryKey(driver, STANDARD_RIGHTS_ALL,
-                                    WDF_NO_OBJECT_ATTRIBUTES, &driverkey);
-    if (!NT_SUCCESS(status)) {
-        TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE,
-            "WdfDeviceOpenRegistryKey failed %!STATUS!", status);
-        return status;
-    }
+	status = WdfDriverOpenParametersRegistryKey(driver, STANDARD_RIGHTS_ALL,
+	WDF_NO_OBJECT_ATTRIBUTES, &driverkey);
+	if (!NT_SUCCESS(status)) {
+		TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE,
+		"WdfDeviceOpenRegistryKey failed %!STATUS!", status);
+		return status;
+	}
 
-    status = WdfRegistryQueryULong(driverkey, &key_str, &port_num_long);
-    if (!NT_SUCCESS(status)) {
-        TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE,
-            "WdfRegistryQueryULong failed %!STATUS!", status);
-        return status;
-    }
+	status = WdfRegistryQueryULong(driverkey, &key_str, &port_num_long);
+	if (!NT_SUCCESS(status)) {
+		TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE,
+		"WdfRegistryQueryULong failed %!STATUS!", status);
+		return status;
+	}
 
-    *port_num = (int)port_num_long;
+	*port_num = (int)port_num_long;
 
-    WdfRegistryClose(driverkey);
+	WdfRegistryClose(driverkey);
 
-    return status;
+	return status;
 }
 
 NTSTATUS fscc_driver_set_last_port_num(WDFDRIVER driver, int value)
 {
-    NTSTATUS status;
-    WDFKEY driverkey;
-    UNICODE_STRING key_str;
+	NTSTATUS status;
+	WDFKEY driverkey;
+	UNICODE_STRING key_str;
 
-    RtlInitUnicodeString(&key_str, L"LastPortNumber");
+	RtlInitUnicodeString(&key_str, L"LastPortNumber");
 
-    status = WdfDriverOpenParametersRegistryKey(driver, STANDARD_RIGHTS_ALL,
-                                    WDF_NO_OBJECT_ATTRIBUTES, &driverkey);
-    if (!NT_SUCCESS(status)) {
-        TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE,
-            "WdfDeviceOpenRegistryKey failed %!STATUS!", status);
-        return status;
-    }
+	status = WdfDriverOpenParametersRegistryKey(driver, STANDARD_RIGHTS_ALL,
+	WDF_NO_OBJECT_ATTRIBUTES, &driverkey);
+	if (!NT_SUCCESS(status)) {
+		TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE,
+		"WdfDeviceOpenRegistryKey failed %!STATUS!", status);
+		return status;
+	}
 
-    status = WdfRegistryAssignULong(driverkey, &key_str, value);
-    if (!NT_SUCCESS(status)) {
-        TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE,
-            "WdfRegistryAssignULong failed %!STATUS!", status);
-        return status;
-    }
+	status = WdfRegistryAssignULong(driverkey, &key_str, value);
+	if (!NT_SUCCESS(status)) {
+		TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE,
+		"WdfRegistryAssignULong failed %!STATUS!", status);
+		return status;
+	}
 
-    WdfRegistryClose(driverkey);
+	WdfRegistryClose(driverkey);
 
-    return status;
+	return status;
 }

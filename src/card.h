@@ -33,36 +33,36 @@ THE SOFTWARE.
 #define DSTAR_OFFSET 0x30
 
 struct BAR {
-    void *address;
-    BOOLEAN memory_mapped;
+	void *address;
+	BOOLEAN memory_mapped;
 };
 
 
 typedef struct fscc_card {	
-    UINT32 device_id;
-    struct BAR bar[3];
+	UINT32 device_id;
+	struct BAR bar[3];
 } FSCC_CARD;
 
 NTSTATUS fscc_card_init(struct fscc_card *card,
-            WDFCMRESLIST ResourcesTranslated, WDFDEVICE port_device);
+WDFCMRESLIST ResourcesTranslated, WDFDEVICE port_device);
 NTSTATUS fscc_card_delete(struct fscc_card *card,
-            WDFCMRESLIST ResourcesTranslated);
+WDFCMRESLIST ResourcesTranslated);
 
 void *fscc_card_get_BAR(struct fscc_card *card, unsigned number);
 
 UINT32 fscc_card_get_register(struct fscc_card *card, unsigned bar,
-                              unsigned offset);
+unsigned offset);
 
 void fscc_card_set_register(struct fscc_card *card, unsigned bar,
-                            unsigned offset, UINT32 value);
+unsigned offset, UINT32 value);
 
 void fscc_card_get_register_rep(struct fscc_card *card, unsigned bar,
-                                unsigned offset, char *buf,
-                                unsigned byte_count);
+unsigned offset, char *buf,
+unsigned byte_count);
 
 void fscc_card_set_register_rep(struct fscc_card *card, unsigned bar,
-                                unsigned offset, const char *data,
-                                unsigned byte_count);
+unsigned offset, const char *data,
+unsigned byte_count);
 
 char *fscc_card_get_name(struct fscc_card *card);
 

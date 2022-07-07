@@ -30,18 +30,18 @@ THE SOFTWARE.
 #include "Trace.h"
 
 void display_register(unsigned bar, unsigned offset, UINT32 old_val,
-                      UINT32 new_val);
+UINT32 new_val);
 
 void print_interrupts(unsigned isr_value);
 
 #if !defined(EVENT_TRACING)
 VOID
 TraceEvents    (
-    IN TRACEHANDLE   TraceEventsLevel,
-    IN ULONG   TraceEventsFlag,
-    IN PCCHAR  DebugMessage,
-    ...
-    );
+IN TRACEHANDLE   TraceEventsLevel,
+IN ULONG   TraceEventsFlag,
+IN PCCHAR  DebugMessage,
+...
+);
 #endif
 
 #endif

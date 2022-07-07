@@ -32,18 +32,18 @@ THE SOFTWARE.
 typedef LARGE_INTEGER fscc_timestamp;
 
 struct fscc_descriptor {
-    volatile UINT32 control;
-    volatile UINT32 data_address;
-    volatile UINT32 data_count;
-    volatile UINT32 next_descriptor;
+	volatile UINT32 control;
+	volatile UINT32 data_address;
+	volatile UINT32 data_count;
+	volatile UINT32 next_descriptor;
 };
 
 typedef struct dma_frame {
-    WDFCOMMONBUFFER desc_buffer;
-    struct fscc_descriptor *desc;
-    UINT32 desc_physical_address;
-    WDFCOMMONBUFFER data_buffer;
-    unsigned char *buffer;
+	WDFCOMMONBUFFER desc_buffer;
+	struct fscc_descriptor *desc;
+	UINT32 desc_physical_address;
+	WDFCOMMONBUFFER data_buffer;
+	unsigned char *buffer;
 	fscc_timestamp timestamp;
 } DMA_FRAME;
 

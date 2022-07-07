@@ -98,41 +98,41 @@ EVT_WDF_IO_QUEUE_IO_DEVICE_CONTROL FsccIoDeviceControl;
 typedef INT64 fscc_register;
 
 struct fscc_registers {
-    /* BAR 0 */
-    fscc_register __reserved1[2];
+	/* BAR 0 */
+	fscc_register __reserved1[2];
 
-    fscc_register FIFOT;
+	fscc_register FIFOT;
 
-    fscc_register __reserved2[2];
+	fscc_register __reserved2[2];
 
-    fscc_register CMDR;
-    fscc_register STAR; /* Read-only */
-    fscc_register CCR0;
-    fscc_register CCR1;
-    fscc_register CCR2;
-    fscc_register BGR;
-    fscc_register SSR;
-    fscc_register SMR;
-    fscc_register TSR;
-    fscc_register TMR;
-    fscc_register RAR;
-    fscc_register RAMR;
-    fscc_register PPR;
-    fscc_register TCR;
-    fscc_register VSTR; /* Read-only */
+	fscc_register CMDR;
+	fscc_register STAR; /* Read-only */
+	fscc_register CCR0;
+	fscc_register CCR1;
+	fscc_register CCR2;
+	fscc_register BGR;
+	fscc_register SSR;
+	fscc_register SMR;
+	fscc_register TSR;
+	fscc_register TMR;
+	fscc_register RAR;
+	fscc_register RAMR;
+	fscc_register PPR;
+	fscc_register TCR;
+	fscc_register VSTR; /* Read-only */
 
-    fscc_register __reserved4[1];
+	fscc_register __reserved4[1];
 
-    fscc_register IMR;
-    fscc_register DPLLR;
+	fscc_register IMR;
+	fscc_register DPLLR;
 
-    /* BAR 2 */
-    fscc_register FCR;
+	/* BAR 2 */
+	fscc_register FCR;
 };
 
 struct fscc_memory_cap {
-    int input;
-    int output;
+	int input;
+	int output;
 };
 
 #define FSCC_REGISTERS_INIT(registers) memset(&registers, -1, sizeof(registers))

@@ -88,61 +88,61 @@ THE SOFTWARE.
 #define CE_BIT 0x00040000
 
 typedef struct fscc_port {
-    WDFDEVICE device;
+	WDFDEVICE device;
 
-    struct fscc_card card;    
+	struct fscc_card card;    
 
-    unsigned channel;
-    struct fscc_registers register_storage; /* Only valid on suspend/resume */
-    BOOLEAN append_status;
-    BOOLEAN append_timestamp;
-    BOOLEAN ignore_timeout;
-    BOOLEAN rx_multiple;
-    BOOLEAN wait_on_write;
-    BOOLEAN blocking_write;
-    BOOLEAN force_fifo;
-    int tx_modifiers;
-    unsigned last_isr_value;
-    unsigned open_counter;
-    struct fscc_memory_cap memory_cap;
+	unsigned channel;
+	struct fscc_registers register_storage; /* Only valid on suspend/resume */
+	BOOLEAN append_status;
+	BOOLEAN append_timestamp;
+	BOOLEAN ignore_timeout;
+	BOOLEAN rx_multiple;
+	BOOLEAN wait_on_write;
+	BOOLEAN blocking_write;
+	BOOLEAN force_fifo;
+	int tx_modifiers;
+	unsigned last_isr_value;
+	unsigned open_counter;
+	struct fscc_memory_cap memory_cap;
 
-    WDFQUEUE write_queue;
-    WDFQUEUE write_queue2; /* TODO: Change name to be more descriptive. */
-    WDFQUEUE read_queue;
-    WDFQUEUE read_queue2; /* TODO: Change name to be more descriptive. */
-    WDFQUEUE ioctl_queue;
-    WDFQUEUE isr_queue; /* List of user tracked interrupts */
-    WDFQUEUE blocking_request_queue; /* For blocking write requests */
+	WDFQUEUE write_queue;
+	WDFQUEUE write_queue2; /* TODO: Change name to be more descriptive. */
+	WDFQUEUE read_queue;
+	WDFQUEUE read_queue2; /* TODO: Change name to be more descriptive. */
+	WDFQUEUE ioctl_queue;
+	WDFQUEUE isr_queue; /* List of user tracked interrupts */
+	WDFQUEUE blocking_request_queue; /* For blocking write requests */
 
-    WDFSPINLOCK board_settings_spinlock; /* Anything that will alter the settings at a board level */
-    WDFSPINLOCK board_rx_spinlock; /* Anything that will alter the state of rx at a board level */
-    WDFSPINLOCK board_tx_spinlock; /* Anything that will alter the state of rx at a board level */
+	WDFSPINLOCK board_settings_spinlock; /* Anything that will alter the settings at a board level */
+	WDFSPINLOCK board_rx_spinlock; /* Anything that will alter the state of rx at a board level */
+	WDFSPINLOCK board_tx_spinlock; /* Anything that will alter the state of rx at a board level */
 
-    WDFDPC oframe_dpc;
-    WDFDPC iframe_dpc;
-    WDFDPC isr_alert_dpc;
-    WDFDPC request_dpc;
-    WDFDPC process_read_dpc;
+	WDFDPC oframe_dpc;
+	WDFDPC iframe_dpc;
+	WDFDPC isr_alert_dpc;
+	WDFDPC request_dpc;
+	WDFDPC process_read_dpc;
 	WDFDPC alls_dpc;
 
-    WDFTIMER timer;
+	WDFTIMER timer;
 
-    WDFINTERRUPT interrupt;
-    
-    BOOLEAN has_dma;
-    WDFDMAENABLER dma_enabler;
-    struct dma_frame **rx_descriptors;
-    unsigned desc_rx_num;  // Number of descriptors.
-    unsigned desc_rx_size; // Size of each descriptor
-    unsigned user_rx_desc; // DMA & FIFO, this is where the drivers are working.
+	WDFINTERRUPT interrupt;
+	
+	BOOLEAN has_dma;
+	WDFDMAENABLER dma_enabler;
+	struct dma_frame **rx_descriptors;
+	unsigned desc_rx_num;  // Number of descriptors.
+	unsigned desc_rx_size; // Size of each descriptor
+	unsigned user_rx_desc; // DMA & FIFO, this is where the drivers are working.
 	unsigned fifo_rx_desc; // For non-DMA use, this is where the FIFO is currently working.
 	int rx_bytes_in_frame; // FIFO, How many bytes are in the current RX frame
 	int rx_frame_size; // FIFO, The current RX frame size
 	
-    struct dma_frame **tx_descriptors;
-    unsigned desc_tx_num;  // Number of descriptors.
-    unsigned desc_tx_size; // Size of each descriptor.
-    unsigned user_tx_desc; // DMA & FIFO, this is where the drivers are working.
+	struct dma_frame **tx_descriptors;
+	unsigned desc_tx_num;  // Number of descriptors.
+	unsigned desc_tx_size; // Size of each descriptor.
+	unsigned user_tx_desc; // DMA & FIFO, this is where the drivers are working.
 	unsigned fifo_tx_desc; // For non-DMA use, this is where the FIFO is currently working.
 	int tx_bytes_in_frame; // FIFO, How many bytes are in the current TX frame
 	int tx_frame_size; // FIFO, The current TX frame size
@@ -153,18 +153,18 @@ WDF_DECLARE_CONTEXT_TYPE(FSCC_PORT);
 struct fscc_port *fscc_port_new(WDFDRIVER Driver, IN PWDFDEVICE_INIT DeviceInit);
 
 UINT32 fscc_port_get_register(struct fscc_port *port, unsigned bar,
-                              unsigned register_offset);
+unsigned register_offset);
 
 NTSTATUS fscc_port_set_register(struct fscc_port *port, unsigned bar,
-                           unsigned register_offset, UINT32 value);
+unsigned register_offset, UINT32 value);
 
 void fscc_port_get_register_rep(struct fscc_port *port, unsigned bar,
-                                unsigned register_offset, char *buf,
-                                unsigned byte_count);
+unsigned register_offset, char *buf,
+unsigned byte_count);
 
 void fscc_port_set_register_rep(struct fscc_port *port, unsigned bar,
-                                unsigned register_offset, const char *data,
-                                unsigned byte_count);
+unsigned register_offset, const char *data,
+unsigned byte_count);
 
 NTSTATUS fscc_port_set_registers(struct fscc_port *port, const struct fscc_registers *regs);
 

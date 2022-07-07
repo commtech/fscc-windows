@@ -57,1618 +57,1618 @@ NTSTATUS fscc_port_set_port_num(struct fscc_port *port, unsigned value);
 #pragma warning( disable: 4267 )
 
 struct fscc_port *fscc_port_new(WDFDRIVER Driver,
-                                IN PWDFDEVICE_INIT DeviceInit)
+IN PWDFDEVICE_INIT DeviceInit)
 {
-    NTSTATUS status = STATUS_SUCCESS;
-    struct fscc_port *port = 0;
-    WDF_OBJECT_ATTRIBUTES attributes;
-    WDFDEVICE device;
-    WDF_IO_QUEUE_CONFIG queue_config;
-
-    WCHAR device_name_buffer[20];
-    UNICODE_STRING device_name;
-
-    WCHAR dos_name_buffer[30];
-    UNICODE_STRING dos_name;
-
-    WDF_DEVICE_STATE    device_state;
-
-    WDF_PNPPOWER_EVENT_CALLBACKS  pnpPowerCallbacks;
-    WDF_DEVICE_PNP_CAPABILITIES pnpCaps;
-
-    WDF_INTERRUPT_CONFIG  interruptConfig;
-    WDF_OBJECT_ATTRIBUTES  interruptAttributes;
-
-    WDF_DPC_CONFIG dpcConfig;
-    WDF_OBJECT_ATTRIBUTES dpcAttributes;
-
-    WDF_FILEOBJECT_CONFIG deviceConfig;
-
-    static int instance = 0;
-    int last_port_num = -1;
-    unsigned port_num = 0;
-
-    status = fscc_driver_get_last_port_num(Driver, &last_port_num);
-    if (status == STATUS_OBJECT_NAME_NOT_FOUND) {
-        last_port_num = -1;
-
-        status = fscc_driver_set_last_port_num(Driver, last_port_num);
-        if (!NT_SUCCESS(status)) {
-            TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE,
-                "fscc_driver_set_last_port_num failed %!STATUS!", status);
-            return 0;
-        }
-    }
-    else if (!NT_SUCCESS(status)) {
-        TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE,
-            "fscc_driver_get_last_port_num failed %!STATUS!", status);
-        return 0;
-    }
-
-    WDF_FILEOBJECT_CONFIG_INIT(&deviceConfig,
-                               FsccDeviceFileCreate,
-                               FsccFileClose,
-                               WDF_NO_EVENT_CALLBACK // No cleanup callback
-                               );
-
-    WdfDeviceInitSetFileObjectConfig(DeviceInit,
-                                     &deviceConfig,
-                                     WDF_NO_OBJECT_ATTRIBUTES
-                                     );    
-
-    RtlInitEmptyUnicodeString(&device_name, device_name_buffer,
-                              sizeof(device_name_buffer));
-    status = RtlUnicodeStringPrintf(&device_name, L"\\Device\\FSCC%i",
-                                    instance++);
-    if (!NT_SUCCESS(status)) {
-        TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE,
-            "RtlUnicodeStringPrintf failed %!STATUS!", status);
-        return 0;
-    }
-
-
-    status = WdfDeviceInitAssignName(DeviceInit, &device_name);
-    if (!NT_SUCCESS(status)) {
-        WdfDeviceInitFree(DeviceInit);
-        TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE,
-            "WdfDeviceInitAssignName failed %!STATUS!", status);
-        return 0;
-    }
-
-    status = WdfDeviceInitAssignSDDLString(DeviceInit,
-                &SDDL_DEVOBJ_SYS_ALL_ADM_RWX_WORLD_RWX_RES_RWX);
-    if (!NT_SUCCESS(status)) {
-        WdfDeviceInitFree(DeviceInit);
-        TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE,
-            "WdfDeviceInitAssignSDDLString failed %!STATUS!", status);
-        return 0;
-    }
-
-    WdfDeviceInitSetDeviceType(DeviceInit, FILE_DEVICE_SERIAL_PORT);
-    WdfDeviceInitSetDeviceClass(DeviceInit, (LPGUID)&GUID_DEVCLASS_FSCC);
-
-    WDF_PNPPOWER_EVENT_CALLBACKS_INIT(&pnpPowerCallbacks);
-    pnpPowerCallbacks.EvtDevicePrepareHardware = FsccEvtDevicePrepareHardware;
-    pnpPowerCallbacks.EvtDeviceReleaseHardware = FsccEvtDeviceReleaseHardware;
-    WdfDeviceInitSetPnpPowerEventCallbacks(DeviceInit, &pnpPowerCallbacks);
-
-    WDF_OBJECT_ATTRIBUTES_INIT_CONTEXT_TYPE(&attributes, FSCC_PORT);
-
-    status = WdfDeviceCreate(&DeviceInit, &attributes, &device);
-    if(!NT_SUCCESS(status)) {
-        TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE,
-            "WdfDeviceCreate failed %!STATUS!", status);
-        return 0;
-    }
-
-    port = WdfObjectGet_FSCC_PORT(device);
-
-    port->device = device;
-    port->open_counter = 0;
-
-
-    WDF_INTERRUPT_CONFIG_INIT(&interruptConfig, fscc_isr, NULL);
-    interruptConfig.ShareVector = WdfTrue;
-    WDF_OBJECT_ATTRIBUTES_INIT_CONTEXT_TYPE(&interruptAttributes, FSCC_PORT);
-
-    status = WdfInterruptCreate(port->device, &interruptConfig,
-                &interruptAttributes, &port->interrupt);
-    if (!NT_SUCCESS(status)) {
-        TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE,
-            "WdfInterruptCreate failed %!STATUS!", status);
-        return 0;
-    }
-
-
-    WDF_IO_QUEUE_CONFIG_INIT(&queue_config, WdfIoQueueDispatchSequential);
-    queue_config.EvtIoDeviceControl = FsccEvtIoDeviceControl;
-
-    status = WdfIoQueueCreate(port->device, &queue_config,
-                              WDF_NO_OBJECT_ATTRIBUTES, &port->ioctl_queue);
-    if(!NT_SUCCESS(status)) {
-        TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE,
-            "WdfIoQueueCreate failed %!STATUS!", status);
-        return 0;
-    }
-    status = WdfDeviceConfigureRequestDispatching(port->device,
-                port->ioctl_queue, WdfRequestTypeDeviceControl);
-    if(!NT_SUCCESS(status)) {
-        TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE,
-            "WdfDeviceConfigureRequestDispatching failed %!STATUS!", status);
-        return 0;
-    }
-
-    WDF_IO_QUEUE_CONFIG_INIT(&queue_config, WdfIoQueueDispatchSequential);
-    queue_config.EvtIoWrite = FsccEvtIoWrite;
-
-    status = WdfIoQueueCreate(port->device, &queue_config,
-                              WDF_NO_OBJECT_ATTRIBUTES, &port->write_queue);
-    if(!NT_SUCCESS(status)) {
-        TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE,
-            "WdfIoQueueCreate failed %!STATUS!", status);
-        return 0;
-    }
-
-    status = WdfDeviceConfigureRequestDispatching(port->device,
-                port->write_queue, WdfRequestTypeWrite);
-    if(!NT_SUCCESS(status)) {
-        TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE,
-            "WdfDeviceConfigureRequestDispatching failed %!STATUS!", status);
-        return 0;
-    }
-
-
-    WDF_IO_QUEUE_CONFIG_INIT(&queue_config, WdfIoQueueDispatchManual);
-
-    status = WdfIoQueueCreate(port->device, &queue_config,
-                              WDF_NO_OBJECT_ATTRIBUTES, &port->write_queue2);
-    if(!NT_SUCCESS(status)) {
-        TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE,
-            "WdfIoQueueCreate failed %!STATUS!", status);
-        return 0;
-    }
-
-    WDF_IO_QUEUE_CONFIG_INIT(&queue_config, WdfIoQueueDispatchManual);
-
-    status = WdfIoQueueCreate(port->device, &queue_config,
-        WDF_NO_OBJECT_ATTRIBUTES, &port->blocking_request_queue);
-    if (!NT_SUCCESS(status)) {
-        TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE,
-            "WdfIoQueueCreate failed %!STATUS!", status);
-        return 0;
-    }
-
-
-    WDF_IO_QUEUE_CONFIG_INIT(&queue_config, WdfIoQueueDispatchSequential);
-    queue_config.EvtIoRead = FsccEvtIoRead;
-
-    status = WdfIoQueueCreate(port->device, &queue_config,
-                              WDF_NO_OBJECT_ATTRIBUTES, &port->read_queue);
-    if(!NT_SUCCESS(status)) {
-        TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE,
-            "WdfIoQueueCreate failed %!STATUS!", status);
-        return 0;
-    }
-
-    status = WdfDeviceConfigureRequestDispatching(port->device,
-                port->read_queue, WdfRequestTypeRead);
-    if(!NT_SUCCESS(status)) {
-        TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE,
-            "WdfDeviceConfigureRequestDispatching failed %!STATUS!", status);
-        return 0;
-    }
-
-
-    WDF_IO_QUEUE_CONFIG_INIT(&queue_config, WdfIoQueueDispatchManual);
-
-    status = WdfIoQueueCreate(port->device, &queue_config,
-                              WDF_NO_OBJECT_ATTRIBUTES, &port->read_queue2);
-    if(!NT_SUCCESS(status)) {
-        TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE,
-            "WdfIoQueueCreate failed %!STATUS!", status);
-        return 0;
-    }
-
-
-    WDF_IO_QUEUE_CONFIG_INIT(&queue_config, WdfIoQueueDispatchManual);
-
-    status = WdfIoQueueCreate(port->device, &queue_config,
-                              WDF_NO_OBJECT_ATTRIBUTES, &port->isr_queue);
-    if(!NT_SUCCESS(status)) {
-        TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE,
-            "WdfIoQueueCreate failed %!STATUS!", status);
-        return 0;
-    }
-
-    //
-    // In addition to setting NoDisplayInUI in DeviceCaps, we
-    // have to do the following to hide the device. Following call
-    // tells the framework to report the device state in
-    // IRP_MN_QUERY_DEVICE_STATE request.
-    //
-    WDF_DEVICE_STATE_INIT(&device_state);
-    device_state.DontDisplayInUI = WdfFalse;
-    WdfDeviceSetDeviceState(port->device, &device_state);
-
-    status = WdfDeviceCreateDeviceInterface(port->device,
-                (LPGUID)&GUID_DEVINTERFACE_FSCC, NULL);
-    if (!NT_SUCCESS(status)) {
-        WdfObjectDelete(port->device);
-        TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE,
-            "WdfDeviceCreateDeviceInterface failed %!STATUS!", status);
-        return 0;
-    }
-
-    status = fscc_port_get_port_num(port, &port_num);
-    if (status == STATUS_OBJECT_NAME_NOT_FOUND) {
-        port_num = last_port_num + 1;
-
-        status = fscc_port_set_port_num(port, port_num);
-        if (!NT_SUCCESS(status)) {
-            WdfObjectDelete(port->device);
-            TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE,
-                "fscc_port_set_port_num failed %!STATUS!", status);
-            return 0;
-        }
-    }
-    else if (!NT_SUCCESS(status)) {
-        WdfObjectDelete(port->device);
-        TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE,
-            "fscc_port_get_port_num failed %!STATUS!", status);
-        return 0;
-    }
-
-    last_port_num = port_num;
-
-    WDF_DEVICE_PNP_CAPABILITIES_INIT(&pnpCaps);
-    pnpCaps.Removable = WdfFalse;
-    pnpCaps.UniqueID = WdfTrue;
-    pnpCaps.UINumber = port_num;
-    WdfDeviceSetPnpCapabilities(port->device, &pnpCaps);
-
-    status = fscc_driver_set_last_port_num(Driver, last_port_num);
-    if (!NT_SUCCESS(status)) {
-        WdfObjectDelete(port->device);
-        TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE,
-            "fscc_driver_set_last_port_num failed %!STATUS!", status);
-        return 0;
-    }
-
-    RtlInitEmptyUnicodeString(&dos_name, dos_name_buffer,
-                              sizeof(dos_name_buffer));
-    status = RtlUnicodeStringPrintf(&dos_name, L"\\DosDevices\\FSCC%i",
-                                    port_num);
-    if (!NT_SUCCESS(status)) {
-        WdfObjectDelete(port->device);
-        TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE,
-            "RtlUnicodeStringPrintf failed %!STATUS!", status);
-        return 0;
-    }
-
-    status = WdfDeviceCreateSymbolicLink(port->device, &dos_name);
-    if (!NT_SUCCESS(status)) {
-        WdfObjectDelete(port->device);
-        TraceEvents(TRACE_LEVEL_WARNING, TRACE_DEVICE,
-            "WdfDeviceCreateSymbolicLink failed %!STATUS!", status);
-        return 0;
-    }
-
-    WDF_OBJECT_ATTRIBUTES_INIT(&attributes);
-    attributes.ParentObject = port->device;
-
-    status = WdfSpinLockCreate(&attributes, &port->board_settings_spinlock);
-    if (!NT_SUCCESS(status)) {
-        WdfObjectDelete(port->device);
-        TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE,
-            "WdfSpinLockCreate failed %!STATUS!", status);
-        return 0;
-    }
-
-    status = WdfSpinLockCreate(&attributes, &port->board_rx_spinlock);
-    if (!NT_SUCCESS(status)) {
-        WdfObjectDelete(port->device);
-        TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE,
-            "WdfSpinLockCreate failed %!STATUS!", status);
-        return 0;
-    }
-
-    status = WdfSpinLockCreate(&attributes, &port->board_tx_spinlock);
-    if (!NT_SUCCESS(status)) {
-        WdfObjectDelete(port->device);
-        TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE,
-            "WdfSpinLockCreate failed %!STATUS!", status);
-        return 0;
-    }
-
-    WDF_DPC_CONFIG_INIT(&dpcConfig, &oframe_worker);
-    dpcConfig.AutomaticSerialization = TRUE;
-
-    WDF_OBJECT_ATTRIBUTES_INIT(&dpcAttributes);
-    dpcAttributes.ParentObject = port->device;
-
-    status = WdfDpcCreate(&dpcConfig, &dpcAttributes, &port->oframe_dpc);
-    if (!NT_SUCCESS(status)) {
-        WdfObjectDelete(port->device);
-        TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE,
-            "WdfDpcCreate failed %!STATUS!", status);
-        return 0;
-    }
-
-    WDF_DPC_CONFIG_INIT(&dpcConfig, &iframe_worker);
-    dpcConfig.AutomaticSerialization = TRUE;
-
-    WDF_OBJECT_ATTRIBUTES_INIT(&dpcAttributes);
-    dpcAttributes.ParentObject = port->device;
-
-    status = WdfDpcCreate(&dpcConfig, &dpcAttributes, &port->iframe_dpc);
-    if (!NT_SUCCESS(status)) {
-        WdfObjectDelete(port->device);
-        TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE,
-            "WdfDpcCreate failed %!STATUS!", status);
-        return 0;
-    }
-
-    WDF_DPC_CONFIG_INIT(&dpcConfig, &FsccProcessRead);
-    dpcConfig.AutomaticSerialization = TRUE;
-
-    WDF_OBJECT_ATTRIBUTES_INIT(&dpcAttributes);
-    dpcAttributes.ParentObject = port->device;
-
-    status = WdfDpcCreate(&dpcConfig, &dpcAttributes, &port->process_read_dpc);
-    if (!NT_SUCCESS(status)) {
-        WdfObjectDelete(port->device);
-        TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE,
-            "WdfDpcCreate failed %!STATUS!", status);
-        return 0;
-    }    
-
-    WDF_DPC_CONFIG_INIT(&dpcConfig, &isr_alert_worker);
-    dpcConfig.AutomaticSerialization = TRUE;
-
-    WDF_OBJECT_ATTRIBUTES_INIT(&dpcAttributes);
-    dpcAttributes.ParentObject = port->device;
-
-    status = WdfDpcCreate(&dpcConfig, &dpcAttributes, &port->isr_alert_dpc);
-    if (!NT_SUCCESS(status)) {
-        WdfObjectDelete(port->device);
-        TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE,
-            "WdfDpcCreate failed %!STATUS!", status);
-        return 0;
-    }    
-
-    WDF_DPC_CONFIG_INIT(&dpcConfig, &request_worker);
-    dpcConfig.AutomaticSerialization = TRUE;
-
-    WDF_OBJECT_ATTRIBUTES_INIT(&dpcAttributes);
-    dpcAttributes.ParentObject = port->device;
-
-    status = WdfDpcCreate(&dpcConfig, &dpcAttributes, &port->request_dpc);
-    if (!NT_SUCCESS(status)) {
-        WdfObjectDelete(port->device);
-        TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE,
-            "WdfDpcCreate failed %!STATUS!", status);
-        return 0;
-    }
-
-    WDF_DPC_CONFIG_INIT(&dpcConfig, &alls_worker);
-    dpcConfig.AutomaticSerialization = TRUE;
-
-    WDF_OBJECT_ATTRIBUTES_INIT(&dpcAttributes);
-    dpcAttributes.ParentObject = port->device;
-
-    status = WdfDpcCreate(&dpcConfig, &dpcAttributes, &port->alls_dpc);
-    if (!NT_SUCCESS(status)) {
-        WdfObjectDelete(port->device);
-        TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE,
-            "WdfDpcCreate failed %!STATUS!", status);
-        return 0;
-    }
-
-
-    return port;
+	NTSTATUS status = STATUS_SUCCESS;
+	struct fscc_port *port = 0;
+	WDF_OBJECT_ATTRIBUTES attributes;
+	WDFDEVICE device;
+	WDF_IO_QUEUE_CONFIG queue_config;
+
+	WCHAR device_name_buffer[20];
+	UNICODE_STRING device_name;
+
+	WCHAR dos_name_buffer[30];
+	UNICODE_STRING dos_name;
+
+	WDF_DEVICE_STATE    device_state;
+
+	WDF_PNPPOWER_EVENT_CALLBACKS  pnpPowerCallbacks;
+	WDF_DEVICE_PNP_CAPABILITIES pnpCaps;
+
+	WDF_INTERRUPT_CONFIG  interruptConfig;
+	WDF_OBJECT_ATTRIBUTES  interruptAttributes;
+
+	WDF_DPC_CONFIG dpcConfig;
+	WDF_OBJECT_ATTRIBUTES dpcAttributes;
+
+	WDF_FILEOBJECT_CONFIG deviceConfig;
+
+	static int instance = 0;
+	int last_port_num = -1;
+	unsigned port_num = 0;
+
+	status = fscc_driver_get_last_port_num(Driver, &last_port_num);
+	if (status == STATUS_OBJECT_NAME_NOT_FOUND) {
+		last_port_num = -1;
+
+		status = fscc_driver_set_last_port_num(Driver, last_port_num);
+		if (!NT_SUCCESS(status)) {
+			TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE,
+			"fscc_driver_set_last_port_num failed %!STATUS!", status);
+			return 0;
+		}
+	}
+	else if (!NT_SUCCESS(status)) {
+		TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE,
+		"fscc_driver_get_last_port_num failed %!STATUS!", status);
+		return 0;
+	}
+
+	WDF_FILEOBJECT_CONFIG_INIT(&deviceConfig,
+	FsccDeviceFileCreate,
+	FsccFileClose,
+	WDF_NO_EVENT_CALLBACK // No cleanup callback
+	);
+
+	WdfDeviceInitSetFileObjectConfig(DeviceInit,
+	&deviceConfig,
+	WDF_NO_OBJECT_ATTRIBUTES
+	);    
+
+	RtlInitEmptyUnicodeString(&device_name, device_name_buffer,
+	sizeof(device_name_buffer));
+	status = RtlUnicodeStringPrintf(&device_name, L"\\Device\\FSCC%i",
+	instance++);
+	if (!NT_SUCCESS(status)) {
+		TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE,
+		"RtlUnicodeStringPrintf failed %!STATUS!", status);
+		return 0;
+	}
+
+
+	status = WdfDeviceInitAssignName(DeviceInit, &device_name);
+	if (!NT_SUCCESS(status)) {
+		WdfDeviceInitFree(DeviceInit);
+		TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE,
+		"WdfDeviceInitAssignName failed %!STATUS!", status);
+		return 0;
+	}
+
+	status = WdfDeviceInitAssignSDDLString(DeviceInit,
+	&SDDL_DEVOBJ_SYS_ALL_ADM_RWX_WORLD_RWX_RES_RWX);
+	if (!NT_SUCCESS(status)) {
+		WdfDeviceInitFree(DeviceInit);
+		TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE,
+		"WdfDeviceInitAssignSDDLString failed %!STATUS!", status);
+		return 0;
+	}
+
+	WdfDeviceInitSetDeviceType(DeviceInit, FILE_DEVICE_SERIAL_PORT);
+	WdfDeviceInitSetDeviceClass(DeviceInit, (LPGUID)&GUID_DEVCLASS_FSCC);
+
+	WDF_PNPPOWER_EVENT_CALLBACKS_INIT(&pnpPowerCallbacks);
+	pnpPowerCallbacks.EvtDevicePrepareHardware = FsccEvtDevicePrepareHardware;
+	pnpPowerCallbacks.EvtDeviceReleaseHardware = FsccEvtDeviceReleaseHardware;
+	WdfDeviceInitSetPnpPowerEventCallbacks(DeviceInit, &pnpPowerCallbacks);
+
+	WDF_OBJECT_ATTRIBUTES_INIT_CONTEXT_TYPE(&attributes, FSCC_PORT);
+
+	status = WdfDeviceCreate(&DeviceInit, &attributes, &device);
+	if(!NT_SUCCESS(status)) {
+		TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE,
+		"WdfDeviceCreate failed %!STATUS!", status);
+		return 0;
+	}
+
+	port = WdfObjectGet_FSCC_PORT(device);
+
+	port->device = device;
+	port->open_counter = 0;
+
+
+	WDF_INTERRUPT_CONFIG_INIT(&interruptConfig, fscc_isr, NULL);
+	interruptConfig.ShareVector = WdfTrue;
+	WDF_OBJECT_ATTRIBUTES_INIT_CONTEXT_TYPE(&interruptAttributes, FSCC_PORT);
+
+	status = WdfInterruptCreate(port->device, &interruptConfig,
+	&interruptAttributes, &port->interrupt);
+	if (!NT_SUCCESS(status)) {
+		TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE,
+		"WdfInterruptCreate failed %!STATUS!", status);
+		return 0;
+	}
+
+
+	WDF_IO_QUEUE_CONFIG_INIT(&queue_config, WdfIoQueueDispatchSequential);
+	queue_config.EvtIoDeviceControl = FsccEvtIoDeviceControl;
+
+	status = WdfIoQueueCreate(port->device, &queue_config,
+	WDF_NO_OBJECT_ATTRIBUTES, &port->ioctl_queue);
+	if(!NT_SUCCESS(status)) {
+		TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE,
+		"WdfIoQueueCreate failed %!STATUS!", status);
+		return 0;
+	}
+	status = WdfDeviceConfigureRequestDispatching(port->device,
+	port->ioctl_queue, WdfRequestTypeDeviceControl);
+	if(!NT_SUCCESS(status)) {
+		TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE,
+		"WdfDeviceConfigureRequestDispatching failed %!STATUS!", status);
+		return 0;
+	}
+
+	WDF_IO_QUEUE_CONFIG_INIT(&queue_config, WdfIoQueueDispatchSequential);
+	queue_config.EvtIoWrite = FsccEvtIoWrite;
+
+	status = WdfIoQueueCreate(port->device, &queue_config,
+	WDF_NO_OBJECT_ATTRIBUTES, &port->write_queue);
+	if(!NT_SUCCESS(status)) {
+		TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE,
+		"WdfIoQueueCreate failed %!STATUS!", status);
+		return 0;
+	}
+
+	status = WdfDeviceConfigureRequestDispatching(port->device,
+	port->write_queue, WdfRequestTypeWrite);
+	if(!NT_SUCCESS(status)) {
+		TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE,
+		"WdfDeviceConfigureRequestDispatching failed %!STATUS!", status);
+		return 0;
+	}
+
+
+	WDF_IO_QUEUE_CONFIG_INIT(&queue_config, WdfIoQueueDispatchManual);
+
+	status = WdfIoQueueCreate(port->device, &queue_config,
+	WDF_NO_OBJECT_ATTRIBUTES, &port->write_queue2);
+	if(!NT_SUCCESS(status)) {
+		TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE,
+		"WdfIoQueueCreate failed %!STATUS!", status);
+		return 0;
+	}
+
+	WDF_IO_QUEUE_CONFIG_INIT(&queue_config, WdfIoQueueDispatchManual);
+
+	status = WdfIoQueueCreate(port->device, &queue_config,
+	WDF_NO_OBJECT_ATTRIBUTES, &port->blocking_request_queue);
+	if (!NT_SUCCESS(status)) {
+		TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE,
+		"WdfIoQueueCreate failed %!STATUS!", status);
+		return 0;
+	}
+
+
+	WDF_IO_QUEUE_CONFIG_INIT(&queue_config, WdfIoQueueDispatchSequential);
+	queue_config.EvtIoRead = FsccEvtIoRead;
+
+	status = WdfIoQueueCreate(port->device, &queue_config,
+	WDF_NO_OBJECT_ATTRIBUTES, &port->read_queue);
+	if(!NT_SUCCESS(status)) {
+		TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE,
+		"WdfIoQueueCreate failed %!STATUS!", status);
+		return 0;
+	}
+
+	status = WdfDeviceConfigureRequestDispatching(port->device,
+	port->read_queue, WdfRequestTypeRead);
+	if(!NT_SUCCESS(status)) {
+		TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE,
+		"WdfDeviceConfigureRequestDispatching failed %!STATUS!", status);
+		return 0;
+	}
+
+
+	WDF_IO_QUEUE_CONFIG_INIT(&queue_config, WdfIoQueueDispatchManual);
+
+	status = WdfIoQueueCreate(port->device, &queue_config,
+	WDF_NO_OBJECT_ATTRIBUTES, &port->read_queue2);
+	if(!NT_SUCCESS(status)) {
+		TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE,
+		"WdfIoQueueCreate failed %!STATUS!", status);
+		return 0;
+	}
+
+
+	WDF_IO_QUEUE_CONFIG_INIT(&queue_config, WdfIoQueueDispatchManual);
+
+	status = WdfIoQueueCreate(port->device, &queue_config,
+	WDF_NO_OBJECT_ATTRIBUTES, &port->isr_queue);
+	if(!NT_SUCCESS(status)) {
+		TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE,
+		"WdfIoQueueCreate failed %!STATUS!", status);
+		return 0;
+	}
+
+	//
+	// In addition to setting NoDisplayInUI in DeviceCaps, we
+	// have to do the following to hide the device. Following call
+	// tells the framework to report the device state in
+	// IRP_MN_QUERY_DEVICE_STATE request.
+	//
+	WDF_DEVICE_STATE_INIT(&device_state);
+	device_state.DontDisplayInUI = WdfFalse;
+	WdfDeviceSetDeviceState(port->device, &device_state);
+
+	status = WdfDeviceCreateDeviceInterface(port->device,
+	(LPGUID)&GUID_DEVINTERFACE_FSCC, NULL);
+	if (!NT_SUCCESS(status)) {
+		WdfObjectDelete(port->device);
+		TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE,
+		"WdfDeviceCreateDeviceInterface failed %!STATUS!", status);
+		return 0;
+	}
+
+	status = fscc_port_get_port_num(port, &port_num);
+	if (status == STATUS_OBJECT_NAME_NOT_FOUND) {
+		port_num = last_port_num + 1;
+
+		status = fscc_port_set_port_num(port, port_num);
+		if (!NT_SUCCESS(status)) {
+			WdfObjectDelete(port->device);
+			TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE,
+			"fscc_port_set_port_num failed %!STATUS!", status);
+			return 0;
+		}
+	}
+	else if (!NT_SUCCESS(status)) {
+		WdfObjectDelete(port->device);
+		TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE,
+		"fscc_port_get_port_num failed %!STATUS!", status);
+		return 0;
+	}
+
+	last_port_num = port_num;
+
+	WDF_DEVICE_PNP_CAPABILITIES_INIT(&pnpCaps);
+	pnpCaps.Removable = WdfFalse;
+	pnpCaps.UniqueID = WdfTrue;
+	pnpCaps.UINumber = port_num;
+	WdfDeviceSetPnpCapabilities(port->device, &pnpCaps);
+
+	status = fscc_driver_set_last_port_num(Driver, last_port_num);
+	if (!NT_SUCCESS(status)) {
+		WdfObjectDelete(port->device);
+		TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE,
+		"fscc_driver_set_last_port_num failed %!STATUS!", status);
+		return 0;
+	}
+
+	RtlInitEmptyUnicodeString(&dos_name, dos_name_buffer,
+	sizeof(dos_name_buffer));
+	status = RtlUnicodeStringPrintf(&dos_name, L"\\DosDevices\\FSCC%i",
+	port_num);
+	if (!NT_SUCCESS(status)) {
+		WdfObjectDelete(port->device);
+		TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE,
+		"RtlUnicodeStringPrintf failed %!STATUS!", status);
+		return 0;
+	}
+
+	status = WdfDeviceCreateSymbolicLink(port->device, &dos_name);
+	if (!NT_SUCCESS(status)) {
+		WdfObjectDelete(port->device);
+		TraceEvents(TRACE_LEVEL_WARNING, TRACE_DEVICE,
+		"WdfDeviceCreateSymbolicLink failed %!STATUS!", status);
+		return 0;
+	}
+
+	WDF_OBJECT_ATTRIBUTES_INIT(&attributes);
+	attributes.ParentObject = port->device;
+
+	status = WdfSpinLockCreate(&attributes, &port->board_settings_spinlock);
+	if (!NT_SUCCESS(status)) {
+		WdfObjectDelete(port->device);
+		TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE,
+		"WdfSpinLockCreate failed %!STATUS!", status);
+		return 0;
+	}
+
+	status = WdfSpinLockCreate(&attributes, &port->board_rx_spinlock);
+	if (!NT_SUCCESS(status)) {
+		WdfObjectDelete(port->device);
+		TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE,
+		"WdfSpinLockCreate failed %!STATUS!", status);
+		return 0;
+	}
+
+	status = WdfSpinLockCreate(&attributes, &port->board_tx_spinlock);
+	if (!NT_SUCCESS(status)) {
+		WdfObjectDelete(port->device);
+		TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE,
+		"WdfSpinLockCreate failed %!STATUS!", status);
+		return 0;
+	}
+
+	WDF_DPC_CONFIG_INIT(&dpcConfig, &oframe_worker);
+	dpcConfig.AutomaticSerialization = TRUE;
+
+	WDF_OBJECT_ATTRIBUTES_INIT(&dpcAttributes);
+	dpcAttributes.ParentObject = port->device;
+
+	status = WdfDpcCreate(&dpcConfig, &dpcAttributes, &port->oframe_dpc);
+	if (!NT_SUCCESS(status)) {
+		WdfObjectDelete(port->device);
+		TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE,
+		"WdfDpcCreate failed %!STATUS!", status);
+		return 0;
+	}
+
+	WDF_DPC_CONFIG_INIT(&dpcConfig, &iframe_worker);
+	dpcConfig.AutomaticSerialization = TRUE;
+
+	WDF_OBJECT_ATTRIBUTES_INIT(&dpcAttributes);
+	dpcAttributes.ParentObject = port->device;
+
+	status = WdfDpcCreate(&dpcConfig, &dpcAttributes, &port->iframe_dpc);
+	if (!NT_SUCCESS(status)) {
+		WdfObjectDelete(port->device);
+		TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE,
+		"WdfDpcCreate failed %!STATUS!", status);
+		return 0;
+	}
+
+	WDF_DPC_CONFIG_INIT(&dpcConfig, &FsccProcessRead);
+	dpcConfig.AutomaticSerialization = TRUE;
+
+	WDF_OBJECT_ATTRIBUTES_INIT(&dpcAttributes);
+	dpcAttributes.ParentObject = port->device;
+
+	status = WdfDpcCreate(&dpcConfig, &dpcAttributes, &port->process_read_dpc);
+	if (!NT_SUCCESS(status)) {
+		WdfObjectDelete(port->device);
+		TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE,
+		"WdfDpcCreate failed %!STATUS!", status);
+		return 0;
+	}    
+
+	WDF_DPC_CONFIG_INIT(&dpcConfig, &isr_alert_worker);
+	dpcConfig.AutomaticSerialization = TRUE;
+
+	WDF_OBJECT_ATTRIBUTES_INIT(&dpcAttributes);
+	dpcAttributes.ParentObject = port->device;
+
+	status = WdfDpcCreate(&dpcConfig, &dpcAttributes, &port->isr_alert_dpc);
+	if (!NT_SUCCESS(status)) {
+		WdfObjectDelete(port->device);
+		TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE,
+		"WdfDpcCreate failed %!STATUS!", status);
+		return 0;
+	}    
+
+	WDF_DPC_CONFIG_INIT(&dpcConfig, &request_worker);
+	dpcConfig.AutomaticSerialization = TRUE;
+
+	WDF_OBJECT_ATTRIBUTES_INIT(&dpcAttributes);
+	dpcAttributes.ParentObject = port->device;
+
+	status = WdfDpcCreate(&dpcConfig, &dpcAttributes, &port->request_dpc);
+	if (!NT_SUCCESS(status)) {
+		WdfObjectDelete(port->device);
+		TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE,
+		"WdfDpcCreate failed %!STATUS!", status);
+		return 0;
+	}
+
+	WDF_DPC_CONFIG_INIT(&dpcConfig, &alls_worker);
+	dpcConfig.AutomaticSerialization = TRUE;
+
+	WDF_OBJECT_ATTRIBUTES_INIT(&dpcAttributes);
+	dpcAttributes.ParentObject = port->device;
+
+	status = WdfDpcCreate(&dpcConfig, &dpcAttributes, &port->alls_dpc);
+	if (!NT_SUCCESS(status)) {
+		WdfObjectDelete(port->device);
+		TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE,
+		"WdfDpcCreate failed %!STATUS!", status);
+		return 0;
+	}
+
+
+	return port;
 }
 
 NTSTATUS FsccEvtDevicePrepareHardware(WDFDEVICE Device,
-            WDFCMRESLIST ResourcesRaw, WDFCMRESLIST ResourcesTranslated)
+WDFCMRESLIST ResourcesRaw, WDFCMRESLIST ResourcesTranslated)
 {
-    unsigned char clock_bits[20] = DEFAULT_CLOCK_BITS;
-    struct fscc_memory_cap memory_cap;
+	unsigned char clock_bits[20] = DEFAULT_CLOCK_BITS;
+	struct fscc_memory_cap memory_cap;
 
-    WDF_TIMER_CONFIG  timerConfig;
-    WDF_OBJECT_ATTRIBUTES  timerAttributes;
-    NTSTATUS  status;
-    UINT32 vstr;
+	WDF_TIMER_CONFIG  timerConfig;
+	WDF_OBJECT_ATTRIBUTES  timerAttributes;
+	NTSTATUS  status;
+	UINT32 vstr;
 
-    struct fscc_port *port = 0;
+	struct fscc_port *port = 0;
 
-    UNREFERENCED_PARAMETER(ResourcesRaw);
+	UNREFERENCED_PARAMETER(ResourcesRaw);
 
-    port = WdfObjectGet_FSCC_PORT(Device);
+	port = WdfObjectGet_FSCC_PORT(Device);
 
-    status = fscc_card_init(&port->card, ResourcesTranslated, Device);
-    if (!NT_SUCCESS(status)) {
-        TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE,
-            "fscc_card_init failed %!STATUS!", status);
-        return status;
-    }
+	status = fscc_card_init(&port->card, ResourcesTranslated, Device);
+	if (!NT_SUCCESS(status)) {
+		TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE,
+		"fscc_card_init failed %!STATUS!", status);
+		return status;
+	}
 
-    TraceEvents(TRACE_LEVEL_INFORMATION, TRACE_DEVICE, "%s (%x.%02x)",
-                fscc_card_get_name(&port->card), fscc_port_get_PREV(port),
-                fscc_port_get_FREV(port));
+	TraceEvents(TRACE_LEVEL_INFORMATION, TRACE_DEVICE, "%s (%x.%02x)",
+	fscc_card_get_name(&port->card), fscc_port_get_PREV(port),
+	fscc_port_get_FREV(port));
 
-    switch (PtrToUlong(port->card.bar[0].address) & 0x000000FF) {
-    case 0x00:
-        port->channel = 0;
-        break;
+	switch (PtrToUlong(port->card.bar[0].address) & 0x000000FF) {
+	case 0x00:
+		port->channel = 0;
+		break;
 
-    case 0x80:
-        port->channel = 1;
-        break;
+	case 0x80:
+		port->channel = 1;
+		break;
 
-    default:
-        TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE, "Problem detecting channel.");
-        return STATUS_UNSUCCESSFUL;
-    }
+	default:
+		TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE, "Problem detecting channel.");
+		return STATUS_UNSUCCESSFUL;
+	}
 
-    TraceEvents(TRACE_LEVEL_VERBOSE, TRACE_DEVICE, "Channel = %i",
-                port->channel);
-                
-    vstr = fscc_port_get_PREV(port);
-    if(vstr & 0x04) port->has_dma = 1;
-    else port->has_dma = 0;
-    TraceEvents(TRACE_LEVEL_INFORMATION, TRACE_DEVICE, "Board has DMA: %d!", port->has_dma);
-    fscc_io_initialize(port);
+	TraceEvents(TRACE_LEVEL_VERBOSE, TRACE_DEVICE, "Channel = %i",
+	port->channel);
+	
+	vstr = fscc_port_get_PREV(port);
+	if(vstr & 0x04) port->has_dma = 1;
+	else port->has_dma = 0;
+	TraceEvents(TRACE_LEVEL_INFORMATION, TRACE_DEVICE, "Board has DMA: %d!", port->has_dma);
+	fscc_io_initialize(port);
 
-    fscc_port_set_append_status(port, DEFAULT_APPEND_STATUS_VALUE);
-    fscc_port_set_append_timestamp(port, DEFAULT_APPEND_TIMESTAMP_VALUE);
-    fscc_port_set_ignore_timeout(port, DEFAULT_IGNORE_TIMEOUT_VALUE);
-    fscc_port_set_tx_modifiers(port, DEFAULT_TX_MODIFIERS_VALUE);
-    fscc_port_set_rx_multiple(port, DEFAULT_RX_MULTIPLE_VALUE);
-    fscc_port_set_wait_on_write(port, DEFAULT_WAIT_ON_WRITE_VALUE);
-    fscc_port_set_blocking_write(port, DEFAULT_BLOCKING_WRITE_VALUE);
-    fscc_port_set_force_fifo(port, DEFAULT_FORCE_FIFO_VALUE);
-    
+	fscc_port_set_append_status(port, DEFAULT_APPEND_STATUS_VALUE);
+	fscc_port_set_append_timestamp(port, DEFAULT_APPEND_TIMESTAMP_VALUE);
+	fscc_port_set_ignore_timeout(port, DEFAULT_IGNORE_TIMEOUT_VALUE);
+	fscc_port_set_tx_modifiers(port, DEFAULT_TX_MODIFIERS_VALUE);
+	fscc_port_set_rx_multiple(port, DEFAULT_RX_MULTIPLE_VALUE);
+	fscc_port_set_wait_on_write(port, DEFAULT_WAIT_ON_WRITE_VALUE);
+	fscc_port_set_blocking_write(port, DEFAULT_BLOCKING_WRITE_VALUE);
+	fscc_port_set_force_fifo(port, DEFAULT_FORCE_FIFO_VALUE);
+	
 
-    port->memory_cap.input = DEFAULT_DESC_RX_NUM * DEFAULT_DESC_RX_SIZE;
-    port->memory_cap.output = DEFAULT_DESC_TX_NUM * DEFAULT_DESC_TX_SIZE;
+	port->memory_cap.input = DEFAULT_DESC_RX_NUM * DEFAULT_DESC_RX_SIZE;
+	port->memory_cap.output = DEFAULT_DESC_TX_NUM * DEFAULT_DESC_TX_SIZE;
 	
 	WdfSpinLockAcquire(port->board_rx_spinlock);
-    fscc_io_build_rx(port, DEFAULT_DESC_RX_NUM, DEFAULT_DESC_RX_SIZE);
+	fscc_io_build_rx(port, DEFAULT_DESC_RX_NUM, DEFAULT_DESC_RX_SIZE);
 	WdfSpinLockRelease(port->board_rx_spinlock);
 	
 	WdfSpinLockAcquire(port->board_tx_spinlock);
-    fscc_io_build_tx(port, DEFAULT_DESC_TX_NUM, DEFAULT_DESC_TX_SIZE);
+	fscc_io_build_tx(port, DEFAULT_DESC_TX_NUM, DEFAULT_DESC_TX_SIZE);
 	WdfSpinLockRelease(port->board_tx_spinlock);
 
-    port->last_isr_value = 0;
+	port->last_isr_value = 0;
 
-    FSCC_REGISTERS_INIT(port->register_storage);
+	FSCC_REGISTERS_INIT(port->register_storage);
 
-    port->register_storage.FIFOT = DEFAULT_FIFOT_VALUE;
-    port->register_storage.CCR0 = DEFAULT_CCR0_VALUE;
-    port->register_storage.CCR1 = DEFAULT_CCR1_VALUE;
-    port->register_storage.CCR2 = DEFAULT_CCR2_VALUE;
-    port->register_storage.BGR = DEFAULT_BGR_VALUE;
-    port->register_storage.SSR = DEFAULT_SSR_VALUE;
-    port->register_storage.SMR = DEFAULT_SMR_VALUE;
-    port->register_storage.TSR = DEFAULT_TSR_VALUE;
-    port->register_storage.TMR = DEFAULT_TMR_VALUE;
-    port->register_storage.RAR = DEFAULT_RAR_VALUE;
-    port->register_storage.RAMR = DEFAULT_RAMR_VALUE;
-    port->register_storage.PPR = DEFAULT_PPR_VALUE;
-    port->register_storage.TCR = DEFAULT_TCR_VALUE;
-    port->register_storage.IMR = DEFAULT_IMR_VALUE;
-    port->register_storage.DPLLR = DEFAULT_DPLLR_VALUE;
-    port->register_storage.FCR = DEFAULT_FCR_VALUE;
+	port->register_storage.FIFOT = DEFAULT_FIFOT_VALUE;
+	port->register_storage.CCR0 = DEFAULT_CCR0_VALUE;
+	port->register_storage.CCR1 = DEFAULT_CCR1_VALUE;
+	port->register_storage.CCR2 = DEFAULT_CCR2_VALUE;
+	port->register_storage.BGR = DEFAULT_BGR_VALUE;
+	port->register_storage.SSR = DEFAULT_SSR_VALUE;
+	port->register_storage.SMR = DEFAULT_SMR_VALUE;
+	port->register_storage.TSR = DEFAULT_TSR_VALUE;
+	port->register_storage.TMR = DEFAULT_TMR_VALUE;
+	port->register_storage.RAR = DEFAULT_RAR_VALUE;
+	port->register_storage.RAMR = DEFAULT_RAMR_VALUE;
+	port->register_storage.PPR = DEFAULT_PPR_VALUE;
+	port->register_storage.TCR = DEFAULT_TCR_VALUE;
+	port->register_storage.IMR = DEFAULT_IMR_VALUE;
+	port->register_storage.DPLLR = DEFAULT_DPLLR_VALUE;
+	port->register_storage.FCR = DEFAULT_FCR_VALUE;
 	port->rx_frame_size = 0;
 	
-    fscc_port_set_registers(port, &port->register_storage);
+	fscc_port_set_registers(port, &port->register_storage);
 
-    fscc_port_set_clock_bits(port, clock_bits);
-    
-    if(fscc_port_uses_dma(port)) 
-		fscc_dma_port_enable(port);
-        
-    fscc_port_purge_rx(port);
-    fscc_port_purge_tx(port);
-    
-    WDF_TIMER_CONFIG_INIT(&timerConfig, timer_handler);
+	fscc_port_set_clock_bits(port, clock_bits);
+	
+	if(fscc_port_uses_dma(port)) 
+	fscc_dma_port_enable(port);
+	
+	fscc_port_purge_rx(port);
+	fscc_port_purge_tx(port);
+	
+	WDF_TIMER_CONFIG_INIT(&timerConfig, timer_handler);
 
-    timerConfig.Period = TIMER_DELAY_MS;
-    timerConfig.TolerableDelay = TIMER_DELAY_MS;
+	timerConfig.Period = TIMER_DELAY_MS;
+	timerConfig.TolerableDelay = TIMER_DELAY_MS;
 
-    WDF_OBJECT_ATTRIBUTES_INIT(&timerAttributes);
-    timerAttributes.ParentObject = port->device;
+	WDF_OBJECT_ATTRIBUTES_INIT(&timerAttributes);
+	timerAttributes.ParentObject = port->device;
 
-    status = WdfTimerCreate(&timerConfig, &timerAttributes, &port->timer);
-    if (!NT_SUCCESS(status)) {
-        TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE,
-            "WdfTimerCreate failed %!STATUS!", status);
-        return status;
-    }
+	status = WdfTimerCreate(&timerConfig, &timerAttributes, &port->timer);
+	if (!NT_SUCCESS(status)) {
+		TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE,
+		"WdfTimerCreate failed %!STATUS!", status);
+		return status;
+	}
 
-    WdfTimerStart(port->timer, WDF_ABS_TIMEOUT_IN_MS(TIMER_DELAY_MS));
+	WdfTimerStart(port->timer, WDF_ABS_TIMEOUT_IN_MS(TIMER_DELAY_MS));
 
-    return STATUS_SUCCESS;
+	return STATUS_SUCCESS;
 }
 
 NTSTATUS FsccEvtDeviceReleaseHardware(WDFDEVICE Device,
-            WDFCMRESLIST ResourcesTranslated)
+WDFCMRESLIST ResourcesTranslated)
 {
-    NTSTATUS status = STATUS_SUCCESS;
-    struct fscc_port *port = 0;
+	NTSTATUS status = STATUS_SUCCESS;
+	struct fscc_port *port = 0;
 
-    port = WdfObjectGet_FSCC_PORT(Device);
+	port = WdfObjectGet_FSCC_PORT(Device);
 
-    WdfSpinLockAcquire(port->board_tx_spinlock);
-    fscc_io_destroy_tx(port);
-    WdfSpinLockRelease(port->board_tx_spinlock);
-    
-    WdfSpinLockAcquire(port->board_rx_spinlock);
-    fscc_io_destroy_rx(port);
-    WdfSpinLockRelease(port->board_rx_spinlock);
+	WdfSpinLockAcquire(port->board_tx_spinlock);
+	fscc_io_destroy_tx(port);
+	WdfSpinLockRelease(port->board_tx_spinlock);
+	
+	WdfSpinLockAcquire(port->board_rx_spinlock);
+	fscc_io_destroy_rx(port);
+	WdfSpinLockRelease(port->board_rx_spinlock);
 
-    status = fscc_card_delete(&port->card, ResourcesTranslated);
+	status = fscc_card_delete(&port->card, ResourcesTranslated);
 
-    return status;
+	return status;
 }
 
 VOID FsccDeviceFileCreate(
-  IN  WDFDEVICE Device,
-  IN  WDFREQUEST Request,
-  IN  WDFFILEOBJECT FileObject
+IN  WDFDEVICE Device,
+IN  WDFREQUEST Request,
+IN  WDFFILEOBJECT FileObject
 )
 {
-    struct fscc_port *port = 0;
+	struct fscc_port *port = 0;
 
-    UNREFERENCED_PARAMETER(FileObject);
+	UNREFERENCED_PARAMETER(FileObject);
 
-    port = WdfObjectGet_FSCC_PORT(Device);
+	port = WdfObjectGet_FSCC_PORT(Device);
 
-    WdfSpinLockAcquire(port->board_settings_spinlock);
+	WdfSpinLockAcquire(port->board_settings_spinlock);
 
-    if (fscc_port_using_async(port)) {
-        TraceEvents(TRACE_LEVEL_WARNING, TRACE_DEVICE,
-                    "use COMx nodes while in async mode");
-        WdfRequestComplete(Request, STATUS_NOT_SUPPORTED);
-        WdfSpinLockRelease(port->board_settings_spinlock);
-        return;
-    }
+	if (fscc_port_using_async(port)) {
+		TraceEvents(TRACE_LEVEL_WARNING, TRACE_DEVICE,
+		"use COMx nodes while in async mode");
+		WdfRequestComplete(Request, STATUS_NOT_SUPPORTED);
+		WdfSpinLockRelease(port->board_settings_spinlock);
+		return;
+	}
 
-    port->open_counter++;
+	port->open_counter++;
 
-    /* Mark the port as open in synchronous mode (so async won't open) */
-    if (port->open_counter == 1) {
-        UINT32 orig_fcr, new_fcr;
+	/* Mark the port as open in synchronous mode (so async won't open) */
+	if (port->open_counter == 1) {
+		UINT32 orig_fcr, new_fcr;
 
-        orig_fcr = fscc_port_get_register(port, 2, FCR_OFFSET);
-        new_fcr = orig_fcr | (0x40000000 << port->channel);
+		orig_fcr = fscc_port_get_register(port, 2, FCR_OFFSET);
+		new_fcr = orig_fcr | (0x40000000 << port->channel);
 
-        fscc_port_set_register(port, 2, FCR_OFFSET, new_fcr);
-    }
+		fscc_port_set_register(port, 2, FCR_OFFSET, new_fcr);
+	}
 
-    WdfSpinLockRelease(port->board_settings_spinlock);
+	WdfSpinLockRelease(port->board_settings_spinlock);
 
-    WdfRequestComplete(Request, STATUS_SUCCESS);
+	WdfRequestComplete(Request, STATUS_SUCCESS);
 }
 
 VOID FsccFileClose(
-  IN  WDFFILEOBJECT FileObject
+IN  WDFFILEOBJECT FileObject
 )
 {
-    struct fscc_port *port = 0;
+	struct fscc_port *port = 0;
 
-    port = WdfObjectGet_FSCC_PORT(WdfFileObjectGetDevice(FileObject));
+	port = WdfObjectGet_FSCC_PORT(WdfFileObjectGetDevice(FileObject));
 
-    port->open_counter--;
+	port->open_counter--;
 
-    if (port->open_counter == 0) {
-        UINT32 orig_fcr, new_fcr;
+	if (port->open_counter == 0) {
+		UINT32 orig_fcr, new_fcr;
 
-        WdfSpinLockAcquire(port->board_settings_spinlock);
+		WdfSpinLockAcquire(port->board_settings_spinlock);
 
-        orig_fcr = fscc_port_get_register(port, 2, FCR_OFFSET);
-        new_fcr = orig_fcr & ~(0x40000000 << port->channel);
+		orig_fcr = fscc_port_get_register(port, 2, FCR_OFFSET);
+		new_fcr = orig_fcr & ~(0x40000000 << port->channel);
 
-        fscc_port_set_register(port, 2, FCR_OFFSET, new_fcr);
+		fscc_port_set_register(port, 2, FCR_OFFSET, new_fcr);
 
-        WdfSpinLockRelease(port->board_settings_spinlock);
-    }
+		WdfSpinLockRelease(port->board_settings_spinlock);
+	}
 }
 
 VOID FsccEvtIoDeviceControl(IN WDFQUEUE Queue, IN WDFREQUEST Request,
-    IN size_t OutputBufferLength, IN size_t InputBufferLength,
-    IN ULONG IoControlCode)
+IN size_t OutputBufferLength, IN size_t InputBufferLength,
+IN ULONG IoControlCode)
 {
-    NTSTATUS status = STATUS_SUCCESS;
-    struct fscc_port *port = 0;
-    size_t bytes_returned = 0;
-
-    UNUSED(InputBufferLength);
-    UNUSED(OutputBufferLength);
-
-    port = WdfObjectGet_FSCC_PORT(WdfIoQueueGetDevice(Queue));
-
-    switch(IoControlCode) {
-    case FSCC_GET_REGISTERS: {
-            struct fscc_registers *input_regs = 0;
-            struct fscc_registers *output_regs = 0;
-
-            status = WdfRequestRetrieveInputBuffer(Request, sizeof(*input_regs),
-                        (PVOID *)&input_regs, NULL);
-            if (!NT_SUCCESS(status)) {
-                TraceEvents(TRACE_LEVEL_WARNING, TRACE_DEVICE,
-                    "WdfRequestRetrieveInputBuffer failed %!STATUS!", status);
-                break;
-            }
-
-            status = WdfRequestRetrieveOutputBuffer(Request,
-                        sizeof(*output_regs), (PVOID *)&output_regs, NULL);
-            if (!NT_SUCCESS(status)) {
-                TraceEvents(TRACE_LEVEL_WARNING, TRACE_DEVICE,
-                    "WdfRequestRetrieveOutputBuffer failed %!STATUS!", status);
-                break;
-            }
-
-            RtlCopyMemory(output_regs, input_regs, sizeof(struct fscc_registers));
-
-            WdfSpinLockAcquire(port->board_settings_spinlock);
-            fscc_port_get_registers(port, output_regs);
-            WdfSpinLockRelease(port->board_settings_spinlock);
-
-            bytes_returned = sizeof(*output_regs);
-        }
-
-        break;
-
-    case FSCC_SET_REGISTERS: {
-            struct fscc_registers *input_regs = 0;
-
-            status = WdfRequestRetrieveInputBuffer(Request,
-                        sizeof(*input_regs), (PVOID *)&input_regs, NULL);
-            if (!NT_SUCCESS(status)) {
-                TraceEvents(TRACE_LEVEL_WARNING, TRACE_DEVICE,
-                    "WdfRequestRetrieveInputBuffer failed %!STATUS!", status);
-                break;
-            }
-
-
-            WdfSpinLockAcquire(port->board_settings_spinlock);
-            status = fscc_port_set_registers(port, input_regs);
-            WdfSpinLockRelease(port->board_settings_spinlock);
-
-            if (!NT_SUCCESS(status)) {
-                TraceEvents(TRACE_LEVEL_WARNING, TRACE_DEVICE,
-                    "fscc_port_set_registers failed %!STATUS!", status);
-                break;
-            }
-        }
-
-        break;
-
-    case FSCC_PURGE_TX:
-        status = fscc_port_purge_tx(port);
-        if (!NT_SUCCESS(status)) {
-            TraceEvents(TRACE_LEVEL_WARNING, TRACE_DEVICE,
-                "fscc_port_purge_tx failed %!STATUS!", status);
-            break;
-        }
-
-        break;
-
-    case FSCC_PURGE_RX:
-        status = fscc_port_purge_rx(port);
-        if (!NT_SUCCESS(status)) {
-            TraceEvents(TRACE_LEVEL_WARNING, TRACE_DEVICE,
-                "fscc_port_purge_rx failed %!STATUS!", status);
-            break;
-        }
+	NTSTATUS status = STATUS_SUCCESS;
+	struct fscc_port *port = 0;
+	size_t bytes_returned = 0;
+
+	UNUSED(InputBufferLength);
+	UNUSED(OutputBufferLength);
+
+	port = WdfObjectGet_FSCC_PORT(WdfIoQueueGetDevice(Queue));
+
+	switch(IoControlCode) {
+	case FSCC_GET_REGISTERS: {
+			struct fscc_registers *input_regs = 0;
+			struct fscc_registers *output_regs = 0;
+
+			status = WdfRequestRetrieveInputBuffer(Request, sizeof(*input_regs),
+			(PVOID *)&input_regs, NULL);
+			if (!NT_SUCCESS(status)) {
+				TraceEvents(TRACE_LEVEL_WARNING, TRACE_DEVICE,
+				"WdfRequestRetrieveInputBuffer failed %!STATUS!", status);
+				break;
+			}
+
+			status = WdfRequestRetrieveOutputBuffer(Request,
+			sizeof(*output_regs), (PVOID *)&output_regs, NULL);
+			if (!NT_SUCCESS(status)) {
+				TraceEvents(TRACE_LEVEL_WARNING, TRACE_DEVICE,
+				"WdfRequestRetrieveOutputBuffer failed %!STATUS!", status);
+				break;
+			}
+
+			RtlCopyMemory(output_regs, input_regs, sizeof(struct fscc_registers));
+
+			WdfSpinLockAcquire(port->board_settings_spinlock);
+			fscc_port_get_registers(port, output_regs);
+			WdfSpinLockRelease(port->board_settings_spinlock);
+
+			bytes_returned = sizeof(*output_regs);
+		}
+
+		break;
+
+	case FSCC_SET_REGISTERS: {
+			struct fscc_registers *input_regs = 0;
+
+			status = WdfRequestRetrieveInputBuffer(Request,
+			sizeof(*input_regs), (PVOID *)&input_regs, NULL);
+			if (!NT_SUCCESS(status)) {
+				TraceEvents(TRACE_LEVEL_WARNING, TRACE_DEVICE,
+				"WdfRequestRetrieveInputBuffer failed %!STATUS!", status);
+				break;
+			}
+
+
+			WdfSpinLockAcquire(port->board_settings_spinlock);
+			status = fscc_port_set_registers(port, input_regs);
+			WdfSpinLockRelease(port->board_settings_spinlock);
+
+			if (!NT_SUCCESS(status)) {
+				TraceEvents(TRACE_LEVEL_WARNING, TRACE_DEVICE,
+				"fscc_port_set_registers failed %!STATUS!", status);
+				break;
+			}
+		}
+
+		break;
+
+	case FSCC_PURGE_TX:
+		status = fscc_port_purge_tx(port);
+		if (!NT_SUCCESS(status)) {
+			TraceEvents(TRACE_LEVEL_WARNING, TRACE_DEVICE,
+			"fscc_port_purge_tx failed %!STATUS!", status);
+			break;
+		}
+
+		break;
+
+	case FSCC_PURGE_RX:
+		status = fscc_port_purge_rx(port);
+		if (!NT_SUCCESS(status)) {
+			TraceEvents(TRACE_LEVEL_WARNING, TRACE_DEVICE,
+			"fscc_port_purge_rx failed %!STATUS!", status);
+			break;
+		}
 
-        break;
-
-    case FSCC_ENABLE_APPEND_STATUS:
-        fscc_port_set_append_status(port, TRUE);
-        break;
-
-    case FSCC_DISABLE_APPEND_STATUS:
-        fscc_port_set_append_status(port, FALSE);
-        break;
-
-    case FSCC_GET_APPEND_STATUS: {
-            BOOLEAN *append_status = 0;
-
-            status = WdfRequestRetrieveOutputBuffer(Request,
-                        sizeof(*append_status), (PVOID *)&append_status, NULL);
-            if (!NT_SUCCESS(status)) {
-                TraceEvents(TRACE_LEVEL_WARNING, TRACE_DEVICE,
-                    "WdfRequestRetrieveOutputBuffer failed %!STATUS!", status);
-                break;
-            }
+		break;
+
+	case FSCC_ENABLE_APPEND_STATUS:
+		fscc_port_set_append_status(port, TRUE);
+		break;
+
+	case FSCC_DISABLE_APPEND_STATUS:
+		fscc_port_set_append_status(port, FALSE);
+		break;
+
+	case FSCC_GET_APPEND_STATUS: {
+			BOOLEAN *append_status = 0;
+
+			status = WdfRequestRetrieveOutputBuffer(Request,
+			sizeof(*append_status), (PVOID *)&append_status, NULL);
+			if (!NT_SUCCESS(status)) {
+				TraceEvents(TRACE_LEVEL_WARNING, TRACE_DEVICE,
+				"WdfRequestRetrieveOutputBuffer failed %!STATUS!", status);
+				break;
+			}
 
-            *append_status = fscc_port_get_append_status(port);
+			*append_status = fscc_port_get_append_status(port);
 
-            bytes_returned = sizeof(*append_status);
-        }
+			bytes_returned = sizeof(*append_status);
+		}
 
-        break;
+		break;
 
-    case FSCC_ENABLE_APPEND_TIMESTAMP:
-        fscc_port_set_append_timestamp(port, TRUE);
-        break;
+	case FSCC_ENABLE_APPEND_TIMESTAMP:
+		fscc_port_set_append_timestamp(port, TRUE);
+		break;
 
-    case FSCC_DISABLE_APPEND_TIMESTAMP:
-        fscc_port_set_append_timestamp(port, FALSE);
-        break;
+	case FSCC_DISABLE_APPEND_TIMESTAMP:
+		fscc_port_set_append_timestamp(port, FALSE);
+		break;
 
-    case FSCC_GET_APPEND_TIMESTAMP: {
-            BOOLEAN *append_timestamp = 0;
+	case FSCC_GET_APPEND_TIMESTAMP: {
+			BOOLEAN *append_timestamp = 0;
 
-            status = WdfRequestRetrieveOutputBuffer(Request,
-                        sizeof(*append_timestamp), (PVOID *)&append_timestamp, NULL);
-            if (!NT_SUCCESS(status)) {
-                TraceEvents(TRACE_LEVEL_WARNING, TRACE_DEVICE,
-                    "WdfRequestRetrieveOutputBuffer failed %!STATUS!", status);
-                break;
-            }
+			status = WdfRequestRetrieveOutputBuffer(Request,
+			sizeof(*append_timestamp), (PVOID *)&append_timestamp, NULL);
+			if (!NT_SUCCESS(status)) {
+				TraceEvents(TRACE_LEVEL_WARNING, TRACE_DEVICE,
+				"WdfRequestRetrieveOutputBuffer failed %!STATUS!", status);
+				break;
+			}
 
-            *append_timestamp = fscc_port_get_append_timestamp(port);
+			*append_timestamp = fscc_port_get_append_timestamp(port);
 
-            bytes_returned = sizeof(*append_timestamp);
-        }
+			bytes_returned = sizeof(*append_timestamp);
+		}
 
-        break;
+		break;
 
-    case FSCC_ENABLE_RX_MULTIPLE:
-        fscc_port_set_rx_multiple(port, TRUE);
-        break;
+	case FSCC_ENABLE_RX_MULTIPLE:
+		fscc_port_set_rx_multiple(port, TRUE);
+		break;
 
-    case FSCC_DISABLE_RX_MULTIPLE:
-        fscc_port_set_rx_multiple(port, FALSE);
-        break;
+	case FSCC_DISABLE_RX_MULTIPLE:
+		fscc_port_set_rx_multiple(port, FALSE);
+		break;
 
-    case FSCC_GET_RX_MULTIPLE: {
-            BOOLEAN *rx_multiple = 0;
+	case FSCC_GET_RX_MULTIPLE: {
+			BOOLEAN *rx_multiple = 0;
 
-            status = WdfRequestRetrieveOutputBuffer(Request,
-                        sizeof(*rx_multiple), (PVOID *)&rx_multiple, NULL);
-            if (!NT_SUCCESS(status)) {
-                TraceEvents(TRACE_LEVEL_WARNING, TRACE_DEVICE,
-                    "WdfRequestRetrieveOutputBuffer failed %!STATUS!", status);
-                break;
-            }
+			status = WdfRequestRetrieveOutputBuffer(Request,
+			sizeof(*rx_multiple), (PVOID *)&rx_multiple, NULL);
+			if (!NT_SUCCESS(status)) {
+				TraceEvents(TRACE_LEVEL_WARNING, TRACE_DEVICE,
+				"WdfRequestRetrieveOutputBuffer failed %!STATUS!", status);
+				break;
+			}
 
-            *rx_multiple = fscc_port_get_rx_multiple(port);
+			*rx_multiple = fscc_port_get_rx_multiple(port);
 
-            bytes_returned = sizeof(*rx_multiple);
-        }
+			bytes_returned = sizeof(*rx_multiple);
+		}
 
-        break;
+		break;
 
-    case FSCC_SET_MEMORY_CAP: {
-            struct fscc_memory_cap *memcap = 0;
+	case FSCC_SET_MEMORY_CAP: {
+			struct fscc_memory_cap *memcap = 0;
 
-            status = WdfRequestRetrieveInputBuffer(Request, sizeof(*memcap),
-                        (PVOID *)&memcap, NULL);
-            if (!NT_SUCCESS(status)) {
-                TraceEvents(TRACE_LEVEL_WARNING, TRACE_DEVICE,
-                    "WdfRequestRetrieveInputBuffer failed %!STATUS!", status);
-                break;
-            }
+			status = WdfRequestRetrieveInputBuffer(Request, sizeof(*memcap),
+			(PVOID *)&memcap, NULL);
+			if (!NT_SUCCESS(status)) {
+				TraceEvents(TRACE_LEVEL_WARNING, TRACE_DEVICE,
+				"WdfRequestRetrieveInputBuffer failed %!STATUS!", status);
+				break;
+			}
 
-            status = fscc_port_set_memory_cap(port, memcap);
-        }
+			status = fscc_port_set_memory_cap(port, memcap);
+		}
 
-        break;
+		break;
 
-    case FSCC_GET_MEMORY_CAP: {
-            struct fscc_memory_cap *memcap = 0;
+	case FSCC_GET_MEMORY_CAP: {
+			struct fscc_memory_cap *memcap = 0;
 
-            status = WdfRequestRetrieveOutputBuffer(Request, sizeof(*memcap),
-                        (PVOID *)&memcap, NULL);
-            if (!NT_SUCCESS(status)) {
-                TraceEvents(TRACE_LEVEL_WARNING, TRACE_DEVICE,
-                    "WdfRequestRetrieveInputBuffer failed %!STATUS!", status);
-                break;
-            }
+			status = WdfRequestRetrieveOutputBuffer(Request, sizeof(*memcap),
+			(PVOID *)&memcap, NULL);
+			if (!NT_SUCCESS(status)) {
+				TraceEvents(TRACE_LEVEL_WARNING, TRACE_DEVICE,
+				"WdfRequestRetrieveInputBuffer failed %!STATUS!", status);
+				break;
+			}
 
-            memcap->input = fscc_port_get_input_memory_cap(port);
-            memcap->output = fscc_port_get_output_memory_cap(port);
+			memcap->input = fscc_port_get_input_memory_cap(port);
+			memcap->output = fscc_port_get_output_memory_cap(port);
 
-            bytes_returned = sizeof(*memcap);
-        }
+			bytes_returned = sizeof(*memcap);
+		}
 
-        break;
+		break;
 
-    case FSCC_SET_CLOCK_BITS: {
-            unsigned char *clock_bits = 0;
+	case FSCC_SET_CLOCK_BITS: {
+			unsigned char *clock_bits = 0;
 
-            status = WdfRequestRetrieveInputBuffer(Request, NUM_CLOCK_BYTES,
-                        (PVOID *)&clock_bits, NULL);
-            if (!NT_SUCCESS(status)) {
-                TraceEvents(TRACE_LEVEL_WARNING, TRACE_DEVICE,
-                    "WdfRequestRetrieveInputBuffer failed %!STATUS!", status);
-                break;
-            }
+			status = WdfRequestRetrieveInputBuffer(Request, NUM_CLOCK_BYTES,
+			(PVOID *)&clock_bits, NULL);
+			if (!NT_SUCCESS(status)) {
+				TraceEvents(TRACE_LEVEL_WARNING, TRACE_DEVICE,
+				"WdfRequestRetrieveInputBuffer failed %!STATUS!", status);
+				break;
+			}
 
-            fscc_port_set_clock_bits(port, clock_bits);
-        }
+			fscc_port_set_clock_bits(port, clock_bits);
+		}
 
-        break;
+		break;
 
-    case FSCC_ENABLE_IGNORE_TIMEOUT:
-        fscc_port_set_ignore_timeout(port, TRUE);
-        break;
+	case FSCC_ENABLE_IGNORE_TIMEOUT:
+		fscc_port_set_ignore_timeout(port, TRUE);
+		break;
 
-    case FSCC_DISABLE_IGNORE_TIMEOUT:
-        fscc_port_set_ignore_timeout(port, FALSE);
-        break;
+	case FSCC_DISABLE_IGNORE_TIMEOUT:
+		fscc_port_set_ignore_timeout(port, FALSE);
+		break;
 
-    case FSCC_GET_IGNORE_TIMEOUT: {
-            BOOLEAN *ignore_timeout = 0;
-
-            status = WdfRequestRetrieveOutputBuffer(Request,
-                        sizeof(*ignore_timeout), (PVOID *)&ignore_timeout,
-                        NULL);
-            if (!NT_SUCCESS(status)) {
-                TraceEvents(TRACE_LEVEL_WARNING, TRACE_DEVICE,
-                    "WdfRequestRetrieveOutputBuffer failed %!STATUS!", status);
-                break;
-            }
-
-            *ignore_timeout = fscc_port_get_ignore_timeout(port);
+	case FSCC_GET_IGNORE_TIMEOUT: {
+			BOOLEAN *ignore_timeout = 0;
+
+			status = WdfRequestRetrieveOutputBuffer(Request,
+			sizeof(*ignore_timeout), (PVOID *)&ignore_timeout,
+			NULL);
+			if (!NT_SUCCESS(status)) {
+				TraceEvents(TRACE_LEVEL_WARNING, TRACE_DEVICE,
+				"WdfRequestRetrieveOutputBuffer failed %!STATUS!", status);
+				break;
+			}
+
+			*ignore_timeout = fscc_port_get_ignore_timeout(port);
 
-            bytes_returned = sizeof(*ignore_timeout);
-        }
-
-        break;
-
-    case FSCC_SET_TX_MODIFIERS: {
-            int *tx_modifiers = 0;
-
-            status = WdfRequestRetrieveInputBuffer(Request,
-                        sizeof(*tx_modifiers), (PVOID *)&tx_modifiers, NULL);
-            if (!NT_SUCCESS(status)) {
-                TraceEvents(TRACE_LEVEL_WARNING, TRACE_DEVICE,
-                    "WdfRequestRetrieveInputBuffer failed %!STATUS!", status);
-                break;
-            }
-
-            status = fscc_port_set_tx_modifiers(port, *tx_modifiers);
-            if (!NT_SUCCESS(status)) {
-                TraceEvents(TRACE_LEVEL_WARNING, TRACE_DEVICE,
-                    "fscc_port_set_tx_modifiers failed %!STATUS!", status);
-                break;
-            }
-        }
-
-        break;
-
-    case FSCC_GET_TX_MODIFIERS: {
-            unsigned *tx_modifiers = 0;
-
-            status = WdfRequestRetrieveOutputBuffer(Request,
-                        sizeof(*tx_modifiers), (PVOID *)&tx_modifiers, NULL);
-            if (!NT_SUCCESS(status)) {
-                TraceEvents(TRACE_LEVEL_WARNING, TRACE_DEVICE,
-                    "WdfRequestRetrieveOutputBuffer failed %!STATUS!", status);
-                break;
-            }
-
-            *tx_modifiers = fscc_port_get_tx_modifiers(port);
-
-            bytes_returned = sizeof(*tx_modifiers);
-        }
-
-        break;
-
-    case FSCC_GET_WAIT_ON_WRITE: {
-            BOOLEAN *wait_on_write = 0;
-
-            status = WdfRequestRetrieveOutputBuffer(Request,
-                        sizeof(*wait_on_write), (PVOID *)&wait_on_write, NULL);
-            if (!NT_SUCCESS(status)) {
-                TraceEvents(TRACE_LEVEL_WARNING, TRACE_DEVICE,
-                    "WdfRequestRetrieveOutputBuffer failed %!STATUS!", status);
-                break;
-            }
-
-            *wait_on_write = fscc_port_get_wait_on_write(port);
-
-            bytes_returned = sizeof(*wait_on_write);
-        }
-
-        break;
-
-    case FSCC_ENABLE_WAIT_ON_WRITE:
-        fscc_port_set_wait_on_write(port, TRUE);
-        break;
-
-    case FSCC_DISABLE_WAIT_ON_WRITE:
-        fscc_port_set_wait_on_write(port, FALSE);
-        break;
-
-    case FSCC_TRACK_INTERRUPTS:
-        status = WdfRequestForwardToIoQueue(Request, port->isr_queue);
-        if (!NT_SUCCESS(status)) {
-            TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE,
-                        "WdfRequestForwardToIoQueue failed %!STATUS!", status);
-            WdfRequestComplete(Request, status);
-        }
-        return;
-
-    case FSCC_GET_MEM_USAGE: {
-            struct fscc_memory_cap *memcap = 0;
-
-            status = WdfRequestRetrieveOutputBuffer(Request, sizeof(*memcap), (PVOID *)&memcap, NULL);
-            if (!NT_SUCCESS(status)) {
-                TraceEvents(TRACE_LEVEL_WARNING, TRACE_DEVICE,
-                    "WdfRequestRetrieveInputBuffer failed %!STATUS!", status);
-                break;
-            }
-            
-            memcap->input = fscc_port_get_input_memory_usage(port);
-            memcap->output = fscc_port_get_output_memory_usage(port);
-
-            bytes_returned = sizeof(*memcap);
-        }
-
-        break;
-    case FSCC_GET_BLOCKING_WRITE: {
-        BOOLEAN *blocking_write = 0;
-
-        status = WdfRequestRetrieveOutputBuffer(Request,
-            sizeof(*blocking_write), (PVOID *)&blocking_write, NULL);
-        if (!NT_SUCCESS(status)) {
-            TraceEvents(TRACE_LEVEL_WARNING, TRACE_DEVICE,
-                "WdfRequestRetrieveOutputBuffer failed %!STATUS!", status);
-            break;
-        }
-
-        *blocking_write = fscc_port_get_blocking_write(port);
-
-        bytes_returned = sizeof(*blocking_write);
-    }
-    break;
-
-    case FSCC_ENABLE_BLOCKING_WRITE:
-        fscc_port_set_blocking_write(port, TRUE);
-        break;
-
-    case FSCC_DISABLE_BLOCKING_WRITE:
-        fscc_port_set_blocking_write(port, FALSE);
-        break;
-    case FSCC_ENABLE_FORCE_FIFO:
-        status = fscc_port_set_force_fifo(port, TRUE);
-        break;
-
-    case FSCC_DISABLE_FORCE_FIFO:
-        status = fscc_port_set_force_fifo(port, FALSE);
-        break;
-
-    case FSCC_GET_FORCE_FIFO: {
-            BOOLEAN *force_fifo = 0;
-
-            status = WdfRequestRetrieveOutputBuffer(Request,
-                        sizeof(*force_fifo), (PVOID *)&force_fifo,
-                        NULL);
-            if (!NT_SUCCESS(status)) {
-                TraceEvents(TRACE_LEVEL_WARNING, TRACE_DEVICE,
-                    "WdfRequestRetrieveOutputBuffer failed %!STATUS!", status);
-                break;
-            }
-
-            *force_fifo = fscc_port_get_force_fifo(port);
-
-            bytes_returned = sizeof(*force_fifo);
-        }
-        break;
-    default:
-        TraceEvents(TRACE_LEVEL_WARNING, TRACE_DEVICE,
-            "Unknown DeviceIoControl 0x%x", IoControlCode);
-        break;
-    }
-
-    WdfRequestCompleteWithInformation(Request, status, bytes_returned);
+			bytes_returned = sizeof(*ignore_timeout);
+		}
+
+		break;
+
+	case FSCC_SET_TX_MODIFIERS: {
+			int *tx_modifiers = 0;
+
+			status = WdfRequestRetrieveInputBuffer(Request,
+			sizeof(*tx_modifiers), (PVOID *)&tx_modifiers, NULL);
+			if (!NT_SUCCESS(status)) {
+				TraceEvents(TRACE_LEVEL_WARNING, TRACE_DEVICE,
+				"WdfRequestRetrieveInputBuffer failed %!STATUS!", status);
+				break;
+			}
+
+			status = fscc_port_set_tx_modifiers(port, *tx_modifiers);
+			if (!NT_SUCCESS(status)) {
+				TraceEvents(TRACE_LEVEL_WARNING, TRACE_DEVICE,
+				"fscc_port_set_tx_modifiers failed %!STATUS!", status);
+				break;
+			}
+		}
+
+		break;
+
+	case FSCC_GET_TX_MODIFIERS: {
+			unsigned *tx_modifiers = 0;
+
+			status = WdfRequestRetrieveOutputBuffer(Request,
+			sizeof(*tx_modifiers), (PVOID *)&tx_modifiers, NULL);
+			if (!NT_SUCCESS(status)) {
+				TraceEvents(TRACE_LEVEL_WARNING, TRACE_DEVICE,
+				"WdfRequestRetrieveOutputBuffer failed %!STATUS!", status);
+				break;
+			}
+
+			*tx_modifiers = fscc_port_get_tx_modifiers(port);
+
+			bytes_returned = sizeof(*tx_modifiers);
+		}
+
+		break;
+
+	case FSCC_GET_WAIT_ON_WRITE: {
+			BOOLEAN *wait_on_write = 0;
+
+			status = WdfRequestRetrieveOutputBuffer(Request,
+			sizeof(*wait_on_write), (PVOID *)&wait_on_write, NULL);
+			if (!NT_SUCCESS(status)) {
+				TraceEvents(TRACE_LEVEL_WARNING, TRACE_DEVICE,
+				"WdfRequestRetrieveOutputBuffer failed %!STATUS!", status);
+				break;
+			}
+
+			*wait_on_write = fscc_port_get_wait_on_write(port);
+
+			bytes_returned = sizeof(*wait_on_write);
+		}
+
+		break;
+
+	case FSCC_ENABLE_WAIT_ON_WRITE:
+		fscc_port_set_wait_on_write(port, TRUE);
+		break;
+
+	case FSCC_DISABLE_WAIT_ON_WRITE:
+		fscc_port_set_wait_on_write(port, FALSE);
+		break;
+
+	case FSCC_TRACK_INTERRUPTS:
+		status = WdfRequestForwardToIoQueue(Request, port->isr_queue);
+		if (!NT_SUCCESS(status)) {
+			TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE,
+			"WdfRequestForwardToIoQueue failed %!STATUS!", status);
+			WdfRequestComplete(Request, status);
+		}
+		return;
+
+	case FSCC_GET_MEM_USAGE: {
+			struct fscc_memory_cap *memcap = 0;
+
+			status = WdfRequestRetrieveOutputBuffer(Request, sizeof(*memcap), (PVOID *)&memcap, NULL);
+			if (!NT_SUCCESS(status)) {
+				TraceEvents(TRACE_LEVEL_WARNING, TRACE_DEVICE,
+				"WdfRequestRetrieveInputBuffer failed %!STATUS!", status);
+				break;
+			}
+			
+			memcap->input = fscc_port_get_input_memory_usage(port);
+			memcap->output = fscc_port_get_output_memory_usage(port);
+
+			bytes_returned = sizeof(*memcap);
+		}
+
+		break;
+	case FSCC_GET_BLOCKING_WRITE: {
+			BOOLEAN *blocking_write = 0;
+
+			status = WdfRequestRetrieveOutputBuffer(Request,
+			sizeof(*blocking_write), (PVOID *)&blocking_write, NULL);
+			if (!NT_SUCCESS(status)) {
+				TraceEvents(TRACE_LEVEL_WARNING, TRACE_DEVICE,
+				"WdfRequestRetrieveOutputBuffer failed %!STATUS!", status);
+				break;
+			}
+
+			*blocking_write = fscc_port_get_blocking_write(port);
+
+			bytes_returned = sizeof(*blocking_write);
+		}
+		break;
+
+	case FSCC_ENABLE_BLOCKING_WRITE:
+		fscc_port_set_blocking_write(port, TRUE);
+		break;
+
+	case FSCC_DISABLE_BLOCKING_WRITE:
+		fscc_port_set_blocking_write(port, FALSE);
+		break;
+	case FSCC_ENABLE_FORCE_FIFO:
+		status = fscc_port_set_force_fifo(port, TRUE);
+		break;
+
+	case FSCC_DISABLE_FORCE_FIFO:
+		status = fscc_port_set_force_fifo(port, FALSE);
+		break;
+
+	case FSCC_GET_FORCE_FIFO: {
+			BOOLEAN *force_fifo = 0;
+
+			status = WdfRequestRetrieveOutputBuffer(Request,
+			sizeof(*force_fifo), (PVOID *)&force_fifo,
+			NULL);
+			if (!NT_SUCCESS(status)) {
+				TraceEvents(TRACE_LEVEL_WARNING, TRACE_DEVICE,
+				"WdfRequestRetrieveOutputBuffer failed %!STATUS!", status);
+				break;
+			}
+
+			*force_fifo = fscc_port_get_force_fifo(port);
+
+			bytes_returned = sizeof(*force_fifo);
+		}
+		break;
+	default:
+		TraceEvents(TRACE_LEVEL_WARNING, TRACE_DEVICE,
+		"Unknown DeviceIoControl 0x%x", IoControlCode);
+		break;
+	}
+
+	WdfRequestCompleteWithInformation(Request, status, bytes_returned);
 }
 
 VOID FsccEvtIoRead(IN WDFQUEUE Queue, IN WDFREQUEST Request, IN size_t Length)
 {
-    NTSTATUS status = STATUS_SUCCESS;
-    struct fscc_port *port = 0;
+	NTSTATUS status = STATUS_SUCCESS;
+	struct fscc_port *port = 0;
 
-    port = WdfObjectGet_FSCC_PORT(WdfIoQueueGetDevice(Queue));
-    
-    /* The user is requsting 0 bytes so return immediately */
-    if (Length == 0) {
-        WdfRequestCompleteWithInformation(Request, STATUS_SUCCESS, Length);
-        return;
-    }
+	port = WdfObjectGet_FSCC_PORT(WdfIoQueueGetDevice(Queue));
+	
+	/* The user is requsting 0 bytes so return immediately */
+	if (Length == 0) {
+		WdfRequestCompleteWithInformation(Request, STATUS_SUCCESS, Length);
+		return;
+	}
 
-    status = WdfRequestForwardToIoQueue(Request, port->read_queue2);
-    if (!NT_SUCCESS(status)) {
-        TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE,
-                    "WdfRequestForwardToIoQueue failed %!STATUS!", status);
-        WdfRequestComplete(Request, status);
-        return;
-    }
+	status = WdfRequestForwardToIoQueue(Request, port->read_queue2);
+	if (!NT_SUCCESS(status)) {
+		TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE,
+		"WdfRequestForwardToIoQueue failed %!STATUS!", status);
+		WdfRequestComplete(Request, status);
+		return;
+	}
 
-    WdfDpcEnqueue(port->process_read_dpc);
+	WdfDpcEnqueue(port->process_read_dpc);
 }
 
 void FsccProcessRead(WDFDPC Dpc)
 {
-    struct fscc_port *port = 0;
-    NTSTATUS status = STATUS_SUCCESS;
-    PCHAR data_buffer = NULL;
-    size_t read_count = 0;
-    WDFREQUEST request;
-    unsigned length = 0;
-    WDF_REQUEST_PARAMETERS params;
+	struct fscc_port *port = 0;
+	NTSTATUS status = STATUS_SUCCESS;
+	PCHAR data_buffer = NULL;
+	size_t read_count = 0;
+	WDFREQUEST request;
+	unsigned length = 0;
+	WDF_REQUEST_PARAMETERS params;
 	unsigned frame_ready, streaming;
 	size_t bytes_ready;
-    
-    port = WdfObjectGet_FSCC_PORT(WdfDpcGetParentObject(Dpc));
+	
+	port = WdfObjectGet_FSCC_PORT(WdfDpcGetParentObject(Dpc));
 	
 	streaming = fscc_port_is_streaming(port);
 	frame_ready = fscc_user_next_read_size(port, &bytes_ready);
-    if (bytes_ready == 0) return;
+	if (bytes_ready == 0) return;
 	if (!streaming && !frame_ready) return;
-    
-    status = WdfIoQueueRetrieveNextRequest(port->read_queue2, &request);
-    if (!NT_SUCCESS(status)) {
-        if (status != STATUS_NO_MORE_ENTRIES) {
-            TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE,
-                        "WdfIoQueueRetrieveNextRequest failed %!STATUS!",
-                        status);
-        }
+	
+	status = WdfIoQueueRetrieveNextRequest(port->read_queue2, &request);
+	if (!NT_SUCCESS(status)) {
+		if (status != STATUS_NO_MORE_ENTRIES) {
+			TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE,
+			"WdfIoQueueRetrieveNextRequest failed %!STATUS!",
+			status);
+		}
 
-        return;
-    }
+		return;
+	}
 
 
-    WDF_REQUEST_PARAMETERS_INIT(&params);
-    WdfRequestGetParameters(request, &params);
-    length = (unsigned)params.Parameters.Read.Length;
+	WDF_REQUEST_PARAMETERS_INIT(&params);
+	WdfRequestGetParameters(request, &params);
+	length = (unsigned)params.Parameters.Read.Length;
 
-    status = WdfRequestRetrieveOutputBuffer(request, length,
-                (PVOID*)&data_buffer, NULL);
-    if (!NT_SUCCESS(status)) {
-        TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE,
-                    "WdfRequestRetrieveOutputBuffer failed %!STATUS!", status);
-        WdfRequestComplete(request, status);
-        return;
-    }
-    
-    if (streaming) status = fscc_user_read_stream(port, data_buffer, length, &read_count);
-    else status = fscc_user_read_frame(port, data_buffer, length, &read_count);
+	status = WdfRequestRetrieveOutputBuffer(request, length,
+	(PVOID*)&data_buffer, NULL);
+	if (!NT_SUCCESS(status)) {
+		TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE,
+		"WdfRequestRetrieveOutputBuffer failed %!STATUS!", status);
+		WdfRequestComplete(request, status);
+		return;
+	}
+	
+	if (streaming) status = fscc_user_read_stream(port, data_buffer, length, &read_count);
+	else status = fscc_user_read_frame(port, data_buffer, length, &read_count);
 
-    if (!NT_SUCCESS(status)) {
-        TraceEvents(TRACE_LEVEL_WARNING, TRACE_DEVICE,
-                    "fscc_port_{frame,stream}_read failed %!STATUS!", status);
-        WdfRequestComplete(request, status);
-        return;
-    }
+	if (!NT_SUCCESS(status)) {
+		TraceEvents(TRACE_LEVEL_WARNING, TRACE_DEVICE,
+		"fscc_port_{frame,stream}_read failed %!STATUS!", status);
+		WdfRequestComplete(request, status);
+		return;
+	}
 
-    WdfRequestCompleteWithInformation(request, status, read_count);
+	WdfRequestCompleteWithInformation(request, status, read_count);
 }
 
 VOID FsccEvtIoWrite(IN WDFQUEUE Queue, IN WDFREQUEST Request, IN size_t Length)
 {
-    NTSTATUS status;
-    char *data_buffer = NULL;
-    struct fscc_port *port = 0;
+	NTSTATUS status;
+	char *data_buffer = NULL;
+	struct fscc_port *port = 0;
 	size_t write_count = 0;
-    int uses_dma;
+	int uses_dma;
 
-    port = WdfObjectGet_FSCC_PORT(WdfIoQueueGetDevice(Queue));
+	port = WdfObjectGet_FSCC_PORT(WdfIoQueueGetDevice(Queue));
 	
-    if (Length == 0) {
-        WdfRequestCompleteWithInformation(Request, STATUS_SUCCESS, Length);
-        return;
-    }
-    
+	if (Length == 0) {
+		WdfRequestCompleteWithInformation(Request, STATUS_SUCCESS, Length);
+		return;
+	}
+	
 	if(Length > (port->desc_tx_size * port->desc_tx_num)) {
 		WdfRequestComplete(Request, STATUS_BUFFER_TOO_SMALL);
 		return;
 	}
-    	
-    if (port->blocking_write) {
-        status = WdfRequestForwardToIoQueue(Request, port->blocking_request_queue);
-        if (!NT_SUCCESS(status)) {
-            TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE, 
-                "WdfRequestForwardToIoQueue failed %!STATUS!", status);
-            WdfRequestComplete(Request, status);
-            return;
-        }
-        WdfDpcEnqueue(port->request_dpc);
-        return;
-    }
-		
-    if(fscc_user_get_tx_space(port) < Length) {
-        WdfRequestComplete(Request, STATUS_BUFFER_TOO_SMALL);
-        return;
-    }
-    
-    /* Checks to make sure there is a clock present. */
-    if (port->ignore_timeout == FALSE && fscc_port_timed_out(port)) {
-        TraceEvents(TRACE_LEVEL_WARNING, TRACE_DEVICE,
-                    "device stalled (wrong clock mode?)");
-        WdfRequestComplete(Request, STATUS_IO_TIMEOUT);
-        return;
-    }
+	
+	if (port->blocking_write) {
+		status = WdfRequestForwardToIoQueue(Request, port->blocking_request_queue);
+		if (!NT_SUCCESS(status)) {
+			TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE, 
+			"WdfRequestForwardToIoQueue failed %!STATUS!", status);
+			WdfRequestComplete(Request, status);
+			return;
+		}
+		WdfDpcEnqueue(port->request_dpc);
+		return;
+	}
+	
+	if(fscc_user_get_tx_space(port) < Length) {
+		WdfRequestComplete(Request, STATUS_BUFFER_TOO_SMALL);
+		return;
+	}
+	
+	/* Checks to make sure there is a clock present. */
+	if (port->ignore_timeout == FALSE && fscc_port_timed_out(port)) {
+		TraceEvents(TRACE_LEVEL_WARNING, TRACE_DEVICE,
+		"device stalled (wrong clock mode?)");
+		WdfRequestComplete(Request, STATUS_IO_TIMEOUT);
+		return;
+	}
 
-    status = WdfRequestRetrieveInputBuffer(Request, Length, (PVOID *)&data_buffer, NULL);
-    if (!NT_SUCCESS(status)) {
-        TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE,
-            "WdfRequestRetrieveInputBuffer failed %!STATUS!", status);
-        WdfRequestComplete(Request, status);
-        return;
-    }
+	status = WdfRequestRetrieveInputBuffer(Request, Length, (PVOID *)&data_buffer, NULL);
+	if (!NT_SUCCESS(status)) {
+		TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE,
+		"WdfRequestRetrieveInputBuffer failed %!STATUS!", status);
+		WdfRequestComplete(Request, status);
+		return;
+	}
 	
 	status = fscc_user_write_frame(port, data_buffer, Length, &write_count);
 
-    if (port->wait_on_write) {
-        status = WdfRequestForwardToIoQueue(Request, port->write_queue2);
-        if (!NT_SUCCESS(status)) {
-            TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE,
-                        "WdfRequestForwardToIoQueue failed %!STATUS!", status);
-            WdfRequestComplete(Request, status);
-            return;
-        }
-    }
-    else {
-        WdfRequestCompleteWithInformation(Request, status, write_count);
+	if (port->wait_on_write) {
+		status = WdfRequestForwardToIoQueue(Request, port->write_queue2);
+		if (!NT_SUCCESS(status)) {
+			TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE,
+			"WdfRequestForwardToIoQueue failed %!STATUS!", status);
+			WdfRequestComplete(Request, status);
+			return;
+		}
+	}
+	else {
+		WdfRequestCompleteWithInformation(Request, status, write_count);
 	}
 
-    if(!fscc_port_uses_dma(port))
-		WdfDpcEnqueue(port->oframe_dpc);
+	if(!fscc_port_uses_dma(port))
+	WdfDpcEnqueue(port->oframe_dpc);
 }
 
 UINT32 fscc_port_get_register(struct fscc_port *port, unsigned bar,
-                              unsigned register_offset)
+unsigned register_offset)
 {
-    unsigned offset = 0;
-    UINT32 value = 0;
+	unsigned offset = 0;
+	UINT32 value = 0;
 
-    offset = port_offset(port, bar, register_offset);
-    value = fscc_card_get_register(&port->card, bar, offset);
+	offset = port_offset(port, bar, register_offset);
+	value = fscc_card_get_register(&port->card, bar, offset);
 
-    return value;
+	return value;
 }
 
 /* Basic check to see if the CE bit is set. */
 unsigned fscc_port_timed_out(struct fscc_port *port)
 {
-    UINT32 star_value = 0;
-    unsigned i = 0;
+	UINT32 star_value = 0;
+	unsigned i = 0;
 
-    return_val_if_untrue(port, 0);
+	return_val_if_untrue(port, 0);
 
-    for (i = 0; i < DEFAULT_TIMEOUT_VALUE; i++) {
-        star_value = fscc_port_get_register(port, 0, STAR_OFFSET);
+	for (i = 0; i < DEFAULT_TIMEOUT_VALUE; i++) {
+		star_value = fscc_port_get_register(port, 0, STAR_OFFSET);
 
-        if ((star_value & CE_BIT) == 0)
-            return 0;
-    }
+		if ((star_value & CE_BIT) == 0)
+		return 0;
+	}
 
-    return 1;
+	return 1;
 }
 
 NTSTATUS fscc_port_set_register(struct fscc_port *port, unsigned bar,
-                           unsigned register_offset, UINT32 value)
+unsigned register_offset, UINT32 value)
 {
-    unsigned offset = 0;
+	unsigned offset = 0;
 
-    offset = port_offset(port, bar, register_offset);
+	offset = port_offset(port, bar, register_offset);
 
-    /* Checks to make sure there is a clock present. */
-    if (register_offset == CMDR_OFFSET && port->ignore_timeout == FALSE
-        && fscc_port_timed_out(port)) {
-        return STATUS_IO_TIMEOUT;
-    }
-    // TODO Maybe remove this?
-    if((register_offset == DMACCR_OFFSET) && fscc_port_uses_dma(port) && bar == 2) value |= 0x03000000;
-    else if((register_offset == DMACCR_OFFSET) && !fscc_port_uses_dma(port) && bar == 2) value &= ~0x03000000;
-    fscc_card_set_register(&port->card, bar, offset, value);
+	/* Checks to make sure there is a clock present. */
+	if (register_offset == CMDR_OFFSET && port->ignore_timeout == FALSE
+			&& fscc_port_timed_out(port)) {
+		return STATUS_IO_TIMEOUT;
+	}
+	// TODO Maybe remove this?
+	if((register_offset == DMACCR_OFFSET) && fscc_port_uses_dma(port) && bar == 2) value |= 0x03000000;
+	else if((register_offset == DMACCR_OFFSET) && !fscc_port_uses_dma(port) && bar == 2) value &= ~0x03000000;
+	fscc_card_set_register(&port->card, bar, offset, value);
 
-    if (bar == 0) {
-        display_register(bar, register_offset,
-                         (UINT32)((fscc_register *)&port->register_storage)[register_offset / 4],
-                         value);
+	if (bar == 0) {
+		display_register(bar, register_offset,
+		(UINT32)((fscc_register *)&port->register_storage)[register_offset / 4],
+		value);
 
-        ((fscc_register *)&port->register_storage)[register_offset / 4] = value;
-    }
-    else if (register_offset == FCR_OFFSET) {
-        display_register(bar, register_offset,
-                         (UINT32)port->register_storage.FCR,
-                         value);
+		((fscc_register *)&port->register_storage)[register_offset / 4] = value;
+	}
+	else if (register_offset == FCR_OFFSET) {
+		display_register(bar, register_offset,
+		(UINT32)port->register_storage.FCR,
+		value);
 
-        port->register_storage.FCR = value;
-    }
+		port->register_storage.FCR = value;
+	}
 
-    return STATUS_SUCCESS;
+	return STATUS_SUCCESS;
 }
 
 /*
-    At the port level the offset will automatically be converted to the port
-    specific offset.
+	At the port level the offset will automatically be converted to the port
+	specific offset.
 */
 void fscc_port_get_register_rep(struct fscc_port *port, unsigned bar,
-                                unsigned register_offset, char *buf,
-                                unsigned byte_count)
+unsigned register_offset, char *buf,
+unsigned byte_count)
 {
-    unsigned offset = 0;
+	unsigned offset = 0;
 
-    return_if_untrue(port);
-    return_if_untrue(bar <= 2);
-    return_if_untrue(buf);
-    return_if_untrue(byte_count > 0);
+	return_if_untrue(port);
+	return_if_untrue(bar <= 2);
+	return_if_untrue(buf);
+	return_if_untrue(byte_count > 0);
 
-    offset = port_offset(port, bar, register_offset);
+	offset = port_offset(port, bar, register_offset);
 
-    fscc_card_get_register_rep(&port->card, bar, offset, buf, byte_count);
+	fscc_card_get_register_rep(&port->card, bar, offset, buf, byte_count);
 }
 
 /*
-    At the port level the offset will automatically be converted to the port
-    specific offset.
+	At the port level the offset will automatically be converted to the port
+	specific offset.
 */
 void fscc_port_set_register_rep(struct fscc_port *port, unsigned bar,
-                                unsigned register_offset, const char *data,
-                                unsigned byte_count)
+unsigned register_offset, const char *data,
+unsigned byte_count)
 {
-    unsigned offset = 0;
+	unsigned offset = 0;
 
-    return_if_untrue(port);
-    return_if_untrue(bar <= 2);
-    return_if_untrue(data);
-    return_if_untrue(byte_count > 0);
+	return_if_untrue(port);
+	return_if_untrue(bar <= 2);
+	return_if_untrue(data);
+	return_if_untrue(byte_count > 0);
 
-    offset = port_offset(port, bar, register_offset);
+	offset = port_offset(port, bar, register_offset);
 
-    fscc_card_set_register_rep(&port->card, bar, offset, data, byte_count);
+	fscc_card_set_register_rep(&port->card, bar, offset, data, byte_count);
 }
 
 /* Prevents the internal async bits from being set */
 NTSTATUS fscc_port_set_registers(struct fscc_port *port, const struct fscc_registers *regs)
 {
-    unsigned stalled = 0;
-    unsigned i = 0;
+	unsigned stalled = 0;
+	unsigned i = 0;
 
-    for (i = 0; i < sizeof(*regs) / sizeof(fscc_register); i++) {
-        unsigned register_offset = i * 4;
+	for (i = 0; i < sizeof(*regs) / sizeof(fscc_register); i++) {
+		unsigned register_offset = i * 4;
 
-        if (is_read_only_register(register_offset)
-            || ((fscc_register *)regs)[i] < 0) {
-            continue;
-        }
+		if (is_read_only_register(register_offset)
+				|| ((fscc_register *)regs)[i] < 0) {
+			continue;
+		}
 
-        if (register_offset <= DPLLR_OFFSET) {
-            if (fscc_port_set_register(port, 0, register_offset, (UINT32)(((fscc_register *)regs)[i])) == STATUS_IO_TIMEOUT)
-                stalled = 1;
-        }
-        else {
-            fscc_port_set_register(port, 2, FCR_OFFSET,
-                                   (UINT32)(((fscc_register *)regs)[i]) & 0x3fffffff);
-        }
-    }
+		if (register_offset <= DPLLR_OFFSET) {
+			if (fscc_port_set_register(port, 0, register_offset, (UINT32)(((fscc_register *)regs)[i])) == STATUS_IO_TIMEOUT)
+			stalled = 1;
+		}
+		else {
+			fscc_port_set_register(port, 2, FCR_OFFSET,
+			(UINT32)(((fscc_register *)regs)[i]) & 0x3fffffff);
+		}
+	}
 
-    return (stalled) ? STATUS_IO_TIMEOUT : STATUS_SUCCESS;
+	return (stalled) ? STATUS_IO_TIMEOUT : STATUS_SUCCESS;
 }
 
 void fscc_port_get_registers(struct fscc_port *port, struct fscc_registers *regs)
 {
-    unsigned i = 0;
+	unsigned i = 0;
 
-    for (i = 0; i < sizeof(*regs) / sizeof(fscc_register); i++) {        
-        if (((fscc_register *)regs)[i] != FSCC_UPDATE_VALUE)
-            continue;
+	for (i = 0; i < sizeof(*regs) / sizeof(fscc_register); i++) {        
+		if (((fscc_register *)regs)[i] != FSCC_UPDATE_VALUE)
+		continue;
 
-        if (i * 4 <= MAX_OFFSET) {
-            ((fscc_register *)regs)[i] = fscc_port_get_register(port, 0, i * 4);
-        }
-        else {
-            ((fscc_register *)regs)[i] = fscc_port_get_register(port, 2,
-                                                                FCR_OFFSET);
-        }
-    }
+		if (i * 4 <= MAX_OFFSET) {
+			((fscc_register *)regs)[i] = fscc_port_get_register(port, 0, i * 4);
+		}
+		else {
+			((fscc_register *)regs)[i] = fscc_port_get_register(port, 2,
+			FCR_OFFSET);
+		}
+	}
 }
 
 UCHAR fscc_port_get_FREV(struct fscc_port *port)
 {
-    UINT32 vstr_value = 0;
+	UINT32 vstr_value = 0;
 
-    vstr_value = fscc_port_get_register(port, 0, VSTR_OFFSET);
+	vstr_value = fscc_port_get_register(port, 0, VSTR_OFFSET);
 
-    return (UCHAR)((vstr_value & 0x000000FF));
+	return (UCHAR)((vstr_value & 0x000000FF));
 }
 
 UCHAR fscc_port_get_PREV(struct fscc_port *port)
 {
-    UINT32 vstr_value = 0;
+	UINT32 vstr_value = 0;
 
-    vstr_value = fscc_port_get_register(port, 0, VSTR_OFFSET);
+	vstr_value = fscc_port_get_register(port, 0, VSTR_OFFSET);
 
-    return (UCHAR)((vstr_value & 0x0000FF00) >> 8);
+	return (UCHAR)((vstr_value & 0x0000FF00) >> 8);
 }
 
 UINT16 fscc_port_get_PDEV(struct fscc_port *port)
 {
-    UINT32 vstr_value = 0;
+	UINT32 vstr_value = 0;
 
-    vstr_value = fscc_port_get_register(port, 0, VSTR_OFFSET);
+	vstr_value = fscc_port_get_register(port, 0, VSTR_OFFSET);
 
-    return (UINT16)((vstr_value & 0xFFFF0000) >> 16);
+	return (UINT16)((vstr_value & 0xFFFF0000) >> 16);
 }
 
 NTSTATUS fscc_port_execute_TRES(struct fscc_port *port)
 {
-    return_val_if_untrue(port, 0);
+	return_val_if_untrue(port, 0);
 
-    return fscc_port_set_register(port, 0, CMDR_OFFSET, 0x08000000);
+	return fscc_port_set_register(port, 0, CMDR_OFFSET, 0x08000000);
 }
 
 NTSTATUS fscc_port_execute_RRES(struct fscc_port *port)
 {
-    return_val_if_untrue(port, 0);
+	return_val_if_untrue(port, 0);
 
-    return fscc_port_set_register(port, 0, CMDR_OFFSET, 0x00020000);
+	return fscc_port_set_register(port, 0, CMDR_OFFSET, 0x00020000);
 }
 
 // TODO Apparently this should only done with CCR0:RECD=1
 NTSTATUS fscc_port_purge_rx(struct fscc_port *port)
 {
-    NTSTATUS status;
+	NTSTATUS status;
 
-    return_val_if_untrue(port, 0);
+	return_val_if_untrue(port, 0);
 
-    TraceEvents(TRACE_LEVEL_INFORMATION, TRACE_DEVICE,
-                "Purging receive data");
+	TraceEvents(TRACE_LEVEL_INFORMATION, TRACE_DEVICE,
+	"Purging receive data");
 
-    WdfSpinLockAcquire(port->board_rx_spinlock);
-    status = fscc_port_execute_RRES(port);
-    fscc_io_reset_rx(port);
-    WdfSpinLockRelease(port->board_rx_spinlock);
-    if (!NT_SUCCESS(status)) {
-        TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE,
-            "fscc_port_execute_RRES failed %!STATUS!", status);
-        return status;
-    }
+	WdfSpinLockAcquire(port->board_rx_spinlock);
+	status = fscc_port_execute_RRES(port);
+	fscc_io_reset_rx(port);
+	WdfSpinLockRelease(port->board_rx_spinlock);
+	if (!NT_SUCCESS(status)) {
+		TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE,
+		"fscc_port_execute_RRES failed %!STATUS!", status);
+		return status;
+	}
 
-    WdfIoQueuePurgeSynchronously(port->read_queue);
-    WdfIoQueuePurgeSynchronously(port->read_queue2);
-    WdfIoQueueStart(port->read_queue);
-    WdfIoQueueStart(port->read_queue2);
-    if(fscc_port_uses_dma(port)) fscc_dma_execute_GO_R(port);
-    return STATUS_SUCCESS;
+	WdfIoQueuePurgeSynchronously(port->read_queue);
+	WdfIoQueuePurgeSynchronously(port->read_queue2);
+	WdfIoQueueStart(port->read_queue);
+	WdfIoQueueStart(port->read_queue2);
+	if(fscc_port_uses_dma(port)) fscc_dma_execute_GO_R(port);
+	return STATUS_SUCCESS;
 }
 
 NTSTATUS fscc_port_purge_tx(struct fscc_port *port)
 {
-    NTSTATUS status;
+	NTSTATUS status;
 
-    return_val_if_untrue(port, 0);
+	return_val_if_untrue(port, 0);
 
-    TraceEvents(TRACE_LEVEL_INFORMATION, TRACE_DEVICE,
-                "Purging transmit data");
+	TraceEvents(TRACE_LEVEL_INFORMATION, TRACE_DEVICE,
+	"Purging transmit data");
 
-    WdfSpinLockAcquire(port->board_tx_spinlock);
-    status = fscc_port_execute_TRES(port);
-    fscc_io_reset_tx(port);
-    WdfSpinLockRelease(port->board_tx_spinlock);
-    if (!NT_SUCCESS(status)) {
-        TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE,
-            "fscc_port_execute_TRES failed %!STATUS!", status);
-        return status;
-    }
+	WdfSpinLockAcquire(port->board_tx_spinlock);
+	status = fscc_port_execute_TRES(port);
+	fscc_io_reset_tx(port);
+	WdfSpinLockRelease(port->board_tx_spinlock);
+	if (!NT_SUCCESS(status)) {
+		TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE,
+		"fscc_port_execute_TRES failed %!STATUS!", status);
+		return status;
+	}
 
-    WdfIoQueuePurgeSynchronously(port->write_queue);
-    WdfIoQueuePurgeSynchronously(port->write_queue2);
-    WdfIoQueueStart(port->write_queue);
-    WdfIoQueueStart(port->write_queue2);
+	WdfIoQueuePurgeSynchronously(port->write_queue);
+	WdfIoQueuePurgeSynchronously(port->write_queue2);
+	WdfIoQueueStart(port->write_queue);
+	WdfIoQueueStart(port->write_queue2);
 
-    return STATUS_SUCCESS;
+	return STATUS_SUCCESS;
 }
 
 void fscc_port_set_append_status(struct fscc_port *port, BOOLEAN value)
 {
-    return_if_untrue(port);
+	return_if_untrue(port);
 
-    if (port->append_status != value) {
-        TraceEvents(TRACE_LEVEL_INFORMATION, TRACE_DEVICE,
-                    "Append status %i => %i",
-                    port->append_status, value);
-    }
-    else {
-        TraceEvents(TRACE_LEVEL_VERBOSE, TRACE_DEVICE,
-                    "Append status = %i", value);
-    }
+	if (port->append_status != value) {
+		TraceEvents(TRACE_LEVEL_INFORMATION, TRACE_DEVICE,
+		"Append status %i => %i",
+		port->append_status, value);
+	}
+	else {
+		TraceEvents(TRACE_LEVEL_VERBOSE, TRACE_DEVICE,
+		"Append status = %i", value);
+	}
 
-    port->append_status = (value) ? 1 : 0;
+	port->append_status = (value) ? 1 : 0;
 }
 
 BOOLEAN fscc_port_get_append_status(struct fscc_port *port)
 {
-    return_val_if_untrue(port, 0);
+	return_val_if_untrue(port, 0);
 
-    return !fscc_port_is_streaming(port) && port->append_status;
+	return !fscc_port_is_streaming(port) && port->append_status;
 }
 
 void fscc_port_set_append_timestamp(struct fscc_port *port, BOOLEAN value)
 {
-    return_if_untrue(port);
+	return_if_untrue(port);
 
-    if (port->append_timestamp != value) {
-        TraceEvents(TRACE_LEVEL_INFORMATION, TRACE_DEVICE,
-                    "Append timestamp %i => %i",
-                    port->append_timestamp, value);
-    }
-    else {
-        TraceEvents(TRACE_LEVEL_VERBOSE, TRACE_DEVICE,
-                    "Append timestamp = %i", value);
-    }
+	if (port->append_timestamp != value) {
+		TraceEvents(TRACE_LEVEL_INFORMATION, TRACE_DEVICE,
+		"Append timestamp %i => %i",
+		port->append_timestamp, value);
+	}
+	else {
+		TraceEvents(TRACE_LEVEL_VERBOSE, TRACE_DEVICE,
+		"Append timestamp = %i", value);
+	}
 
-    port->append_timestamp = (value) ? 1 : 0;
+	port->append_timestamp = (value) ? 1 : 0;
 }
 
 BOOLEAN fscc_port_get_append_timestamp(struct fscc_port *port)
 {
-    return_val_if_untrue(port, 0);
+	return_val_if_untrue(port, 0);
 
-    return !fscc_port_is_streaming(port) && port->append_timestamp;
+	return !fscc_port_is_streaming(port) && port->append_timestamp;
 }
 
 void fscc_port_set_ignore_timeout(struct fscc_port *port, BOOLEAN value)
 {
-    return_if_untrue(port);
+	return_if_untrue(port);
 
-    if (port->ignore_timeout != value) {
-        TraceEvents(TRACE_LEVEL_INFORMATION, TRACE_DEVICE,
-                    "Ignore timeout %i => %i",
-                    port->ignore_timeout, value);
-    }
-    else {
-        TraceEvents(TRACE_LEVEL_VERBOSE, TRACE_DEVICE,
-                    "Ignore timeout = %i", value);
-    }
+	if (port->ignore_timeout != value) {
+		TraceEvents(TRACE_LEVEL_INFORMATION, TRACE_DEVICE,
+		"Ignore timeout %i => %i",
+		port->ignore_timeout, value);
+	}
+	else {
+		TraceEvents(TRACE_LEVEL_VERBOSE, TRACE_DEVICE,
+		"Ignore timeout = %i", value);
+	}
 
-    port->ignore_timeout = (value) ? TRUE : FALSE;
+	port->ignore_timeout = (value) ? TRUE : FALSE;
 }
 
 BOOLEAN fscc_port_get_ignore_timeout(struct fscc_port *port)
 {
-    return_val_if_untrue(port, 0);
+	return_val_if_untrue(port, 0);
 
-    return port->ignore_timeout;
+	return port->ignore_timeout;
 }
 
 void fscc_port_set_rx_multiple(struct fscc_port *port, BOOLEAN value)
 {
-    return_if_untrue(port);
+	return_if_untrue(port);
 
-    if (port->rx_multiple != value) {
-        TraceEvents(TRACE_LEVEL_INFORMATION, TRACE_DEVICE,
-                    "Receive multiple %i => %i",
-                    port->rx_multiple, value);
-    }
-    else {
-        TraceEvents(TRACE_LEVEL_VERBOSE, TRACE_DEVICE,
-                    "Receive multiple = %i", value);
-    }
+	if (port->rx_multiple != value) {
+		TraceEvents(TRACE_LEVEL_INFORMATION, TRACE_DEVICE,
+		"Receive multiple %i => %i",
+		port->rx_multiple, value);
+	}
+	else {
+		TraceEvents(TRACE_LEVEL_VERBOSE, TRACE_DEVICE,
+		"Receive multiple = %i", value);
+	}
 
-    port->rx_multiple = (value) ? 1 : 0;
+	port->rx_multiple = (value) ? 1 : 0;
 }
 
 BOOLEAN fscc_port_get_rx_multiple(struct fscc_port *port)
 {
-    return_val_if_untrue(port, 0);
+	return_val_if_untrue(port, 0);
 
-    return port->rx_multiple;
+	return port->rx_multiple;
 }
 
 void fscc_port_set_wait_on_write(struct fscc_port *port, BOOLEAN value)
 {
-    return_if_untrue(port);
+	return_if_untrue(port);
 
-    if (port->wait_on_write != value) {
-        TraceEvents(TRACE_LEVEL_INFORMATION, TRACE_DEVICE,
-                    "Wait on Write %i => %i",
-                    port->wait_on_write, value);
-    }
-    else {
-        TraceEvents(TRACE_LEVEL_VERBOSE, TRACE_DEVICE,
-                    "Wait on Write = %i", value);
-    }
+	if (port->wait_on_write != value) {
+		TraceEvents(TRACE_LEVEL_INFORMATION, TRACE_DEVICE,
+		"Wait on Write %i => %i",
+		port->wait_on_write, value);
+	}
+	else {
+		TraceEvents(TRACE_LEVEL_VERBOSE, TRACE_DEVICE,
+		"Wait on Write = %i", value);
+	}
 
-    port->wait_on_write = (value) ? 1 : 0;
+	port->wait_on_write = (value) ? 1 : 0;
 }
 
 BOOLEAN fscc_port_get_wait_on_write(struct fscc_port *port)
 {
-    return_val_if_untrue(port, 0);
+	return_val_if_untrue(port, 0);
 
-    return port->wait_on_write;
+	return port->wait_on_write;
 }
 
 void fscc_port_set_blocking_write(struct fscc_port *port, BOOLEAN value)
 {
-    return_if_untrue(port);
+	return_if_untrue(port);
 
-    if (port->blocking_write != value) {
-        TraceEvents(TRACE_LEVEL_INFORMATION, TRACE_DEVICE,
-            "Blocking Write %i => %i",
-            port->blocking_write, value);
-    }
-    else {
-        TraceEvents(TRACE_LEVEL_VERBOSE, TRACE_DEVICE,
-            "Blocking Write = %i", value);
-    }
+	if (port->blocking_write != value) {
+		TraceEvents(TRACE_LEVEL_INFORMATION, TRACE_DEVICE,
+		"Blocking Write %i => %i",
+		port->blocking_write, value);
+	}
+	else {
+		TraceEvents(TRACE_LEVEL_VERBOSE, TRACE_DEVICE,
+		"Blocking Write = %i", value);
+	}
 
-    port->blocking_write = (value) ? 1 : 0;
+	port->blocking_write = (value) ? 1 : 0;
 }
 
 BOOLEAN fscc_port_get_blocking_write(struct fscc_port *port)
 {
-    return_val_if_untrue(port, 0);
+	return_val_if_untrue(port, 0);
 
-    return port->blocking_write;
+	return port->blocking_write;
 }
 
 /* Returns -EINVAL if you set an incorrect transmit modifier */
 NTSTATUS fscc_port_set_tx_modifiers(struct fscc_port *port, int value)
 {
-    return_val_if_untrue(port, 0);
+	return_val_if_untrue(port, 0);
 
-    switch (value) {
-        case XF:
-        case XF|TXT:
-        case XF|TXEXT:
-        case XREP:
-        case XREP|TXT:
-        case XREP|TXEXT:
-            if (port->tx_modifiers != value) {
-                TraceEvents(TRACE_LEVEL_INFORMATION, TRACE_DEVICE,
-                            "Transmit modifiers 0x%x => 0x%x",
-                            port->tx_modifiers, value);
-            }
-            else {
-                TraceEvents(TRACE_LEVEL_VERBOSE, TRACE_DEVICE,
-                            "Transmit modifiers = 0x%x", value);
-            }
+	switch (value) {
+	case XF:
+	case XF|TXT:
+	case XF|TXEXT:
+	case XREP:
+	case XREP|TXT:
+	case XREP|TXEXT:
+		if (port->tx_modifiers != value) {
+			TraceEvents(TRACE_LEVEL_INFORMATION, TRACE_DEVICE,
+			"Transmit modifiers 0x%x => 0x%x",
+			port->tx_modifiers, value);
+		}
+		else {
+			TraceEvents(TRACE_LEVEL_VERBOSE, TRACE_DEVICE,
+			"Transmit modifiers = 0x%x", value);
+		}
 
-            port->tx_modifiers = value;
+		port->tx_modifiers = value;
 
-            break;
+		break;
 
-        default:
-            TraceEvents(TRACE_LEVEL_WARNING, TRACE_DEVICE,
-                        "Transmit modifiers (invalid value 0x%x)", value);
+	default:
+		TraceEvents(TRACE_LEVEL_WARNING, TRACE_DEVICE,
+		"Transmit modifiers (invalid value 0x%x)", value);
 
-            return STATUS_INVALID_PARAMETER;
-    }
+		return STATUS_INVALID_PARAMETER;
+	}
 
-    return STATUS_SUCCESS;
+	return STATUS_SUCCESS;
 }
 
 unsigned fscc_port_get_tx_modifiers(struct fscc_port *port)
 {
-    return_val_if_untrue(port, 0);
+	return_val_if_untrue(port, 0);
 
-    return port->tx_modifiers;
+	return port->tx_modifiers;
 }
 
 unsigned fscc_port_get_input_memory_cap(struct fscc_port *port)
 {
-    return_val_if_untrue(port, 0);
+	return_val_if_untrue(port, 0);
 
-    return port->memory_cap.input;
+	return port->memory_cap.input;
 }
 
 unsigned fscc_port_get_output_memory_cap(struct fscc_port *port)
 {
-    return_val_if_untrue(port, 0);
+	return_val_if_untrue(port, 0);
 
-    return port->memory_cap.output;
+	return port->memory_cap.output;
 }
 
 NTSTATUS fscc_port_set_memory_cap(struct fscc_port *port, struct fscc_memory_cap *value)
@@ -1676,57 +1676,57 @@ NTSTATUS fscc_port_set_memory_cap(struct fscc_port *port, struct fscc_memory_cap
 	size_t num_desc = 0;
 	NTSTATUS status = STATUS_SUCCESS;
 	
-    return_val_if_untrue(port, STATUS_UNSUCCESSFUL);
-    return_val_if_untrue(value, STATUS_UNSUCCESSFUL);
+	return_val_if_untrue(port, STATUS_UNSUCCESSFUL);
+	return_val_if_untrue(value, STATUS_UNSUCCESSFUL);
 
-    if (value->input >= 0) {
-        if (port->memory_cap.input != value->input) {
+	if (value->input >= 0) {
+		if (port->memory_cap.input != value->input) {
 			if(fscc_io_calculate_desc_size(value->input, port->desc_rx_size, &num_desc) == STATUS_SUCCESS) {
 				fscc_port_purge_rx(port);
 				fscc_io_rebuild_rx(port, num_desc, port->desc_rx_size);
 				TraceEvents(TRACE_LEVEL_INFORMATION, TRACE_DEVICE,
-							"Memory cap (input) %i => %i",
-							port->memory_cap.input, value->input);
+				"Memory cap (input) %i => %i",
+				port->memory_cap.input, value->input);
 				port->memory_cap.input = port->desc_rx_size * num_desc;
 			}
 			else {
 				status = STATUS_UNSUCCESSFUL;
 				TraceEvents(TRACE_LEVEL_WARNING, TRACE_DEVICE,
-                        "Memory cap (input) passed in value too small for desc size: %i",
-                        value->input);
+				"Memory cap (input) passed in value too small for desc size: %i",
+				value->input);
 			}
-        }
-        else {
-            TraceEvents(TRACE_LEVEL_VERBOSE, TRACE_DEVICE,
-                        "Memory cap (input) = %i",
-                        value->input);
-        }
+		}
+		else {
+			TraceEvents(TRACE_LEVEL_VERBOSE, TRACE_DEVICE,
+			"Memory cap (input) = %i",
+			value->input);
+		}
 
-    }
+	}
 
-    if (value->output >= 0) {
-        if (port->memory_cap.output != value->output) {
+	if (value->output >= 0) {
+		if (port->memory_cap.output != value->output) {
 			if(fscc_io_calculate_desc_size(value->output, port->desc_tx_size, &num_desc) == STATUS_SUCCESS) {
 				fscc_port_purge_tx(port);
 				fscc_io_rebuild_tx(port, num_desc, port->desc_tx_size);
 				TraceEvents(TRACE_LEVEL_INFORMATION, TRACE_DEVICE,
-							"Memory cap (output) %i => %i",
-							port->memory_cap.output, value->output);
+				"Memory cap (output) %i => %i",
+				port->memory_cap.output, value->output);
 				port->memory_cap.output = port->desc_tx_size * num_desc;
 			}
 			else {
 				status = STATUS_UNSUCCESSFUL;
 				TraceEvents(TRACE_LEVEL_WARNING, TRACE_DEVICE,
-                        "Memory cap (output) passed in value too small for desc size: %i",
-                        value->output);
+				"Memory cap (output) passed in value too small for desc size: %i",
+				value->output);
 			}
-        }
-        else {
-            TraceEvents(TRACE_LEVEL_VERBOSE, TRACE_DEVICE,
-                        "Memory cap (output) = %i",
-                        value->output);
-        }
-    }
+		}
+		else {
+			TraceEvents(TRACE_LEVEL_VERBOSE, TRACE_DEVICE,
+			"Memory cap (output) = %i",
+			value->output);
+		}
+	}
 	return status;
 }
 
@@ -1736,269 +1736,269 @@ NTSTATUS fscc_port_set_memory_cap(struct fscc_port *port, struct fscc_memory_cap
 
 void fscc_port_set_clock_bits(struct fscc_port *port, unsigned char *clock_data)
 {
-    UINT32 orig_fcr_value = 0;
-    UINT32 new_fcr_value = 0;
-    int j = 0; // Must be signed because we are going backwards through the array
-    int i = 0; // Must be signed because we are going backwards through the array
-    unsigned strb_value = STRB_BASE;
-    unsigned dta_value = DTA_BASE;
-    unsigned clk_value = CLK_BASE;
-    UINT32 *data = 0;
-    unsigned data_index = 0;
+	UINT32 orig_fcr_value = 0;
+	UINT32 new_fcr_value = 0;
+	int j = 0; // Must be signed because we are going backwards through the array
+	int i = 0; // Must be signed because we are going backwards through the array
+	unsigned strb_value = STRB_BASE;
+	unsigned dta_value = DTA_BASE;
+	unsigned clk_value = CLK_BASE;
+	UINT32 *data = 0;
+	unsigned data_index = 0;
 
-    return_if_untrue(port);
+	return_if_untrue(port);
 
 
 #ifdef DISABLE_XTAL
-    clock_data[15] &= 0xfb;
+	clock_data[15] &= 0xfb;
 #else
-    /* This enables XTAL on all cards except green FSCC cards with a revision
-       greater than 6 and 232 cards. Some old protoype SuperFSCC cards will 
-       need to manually disable XTAL as they are not supported in this driver 
-       by default. */
-    if ((fscc_port_get_PDEV(port) == 0x0f && fscc_port_get_PREV(port) <= 6) ||
-        fscc_port_get_PDEV(port) == 0x16) {
-        clock_data[15] &= 0xfb;
-    }
-    else {
-        clock_data[15] |= 0x04;
-    }
+	/* This enables XTAL on all cards except green FSCC cards with a revision
+	greater than 6 and 232 cards. Some old protoype SuperFSCC cards will 
+	need to manually disable XTAL as they are not supported in this driver 
+	by default. */
+	if ((fscc_port_get_PDEV(port) == 0x0f && fscc_port_get_PREV(port) <= 6) ||
+			fscc_port_get_PDEV(port) == 0x16) {
+		clock_data[15] &= 0xfb;
+	}
+	else {
+		clock_data[15] |= 0x04;
+	}
 #endif
 
 
-    data = (UINT32 *)ExAllocatePoolWithTag(NonPagedPool, sizeof(UINT32) * 323, 'stiB');
+	data = (UINT32 *)ExAllocatePoolWithTag(NonPagedPool, sizeof(UINT32) * 323, 'stiB');
 
-    if (data == NULL) {
-        TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE,
-            "ExAllocatePoolWithTag failed");
-        return;
-    }
+	if (data == NULL) {
+		TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE,
+		"ExAllocatePoolWithTag failed");
+		return;
+	}
 
-    if (port->channel == 1) {
-        strb_value <<= 0x08;
-        dta_value <<= 0x08;
-        clk_value <<= 0x08;
-    }
+	if (port->channel == 1) {
+		strb_value <<= 0x08;
+		dta_value <<= 0x08;
+		clk_value <<= 0x08;
+	}
 
-    WdfSpinLockAcquire(port->board_settings_spinlock);
+	WdfSpinLockAcquire(port->board_settings_spinlock);
 
-    orig_fcr_value = fscc_card_get_register(&port->card, 2, FCR_OFFSET);
+	orig_fcr_value = fscc_card_get_register(&port->card, 2, FCR_OFFSET);
 
-    data[data_index++] = new_fcr_value = orig_fcr_value & 0xfffff0f0;
+	data[data_index++] = new_fcr_value = orig_fcr_value & 0xfffff0f0;
 
-    for (i = 19; i >= 0; i--) {
-        for (j = 7; j >= 0; j--) {
-            int bit = ((clock_data[i] >> j) & 1);
+	for (i = 19; i >= 0; i--) {
+		for (j = 7; j >= 0; j--) {
+			int bit = ((clock_data[i] >> j) & 1);
 
-            if (bit)
-                new_fcr_value |= dta_value; /* Set data bit */
-            else
-                new_fcr_value &= ~dta_value; /* Clear clock bit */
+			if (bit)
+			new_fcr_value |= dta_value; /* Set data bit */
+			else
+			new_fcr_value &= ~dta_value; /* Clear clock bit */
 
-            data[data_index++] = new_fcr_value |= clk_value; /* Set clock bit */
-            data[data_index++] = new_fcr_value &= ~clk_value; /* Clear clock bit */
-        }
-    }
+			data[data_index++] = new_fcr_value |= clk_value; /* Set clock bit */
+			data[data_index++] = new_fcr_value &= ~clk_value; /* Clear clock bit */
+		}
+	}
 
-    new_fcr_value = orig_fcr_value & 0xfffff0f0;
+	new_fcr_value = orig_fcr_value & 0xfffff0f0;
 
-    new_fcr_value |= strb_value; /* Set strobe bit */
-    new_fcr_value &= ~clk_value; /* Clear clock bit */
+	new_fcr_value |= strb_value; /* Set strobe bit */
+	new_fcr_value &= ~clk_value; /* Clear clock bit */
 
-    data[data_index++] = new_fcr_value;
-    data[data_index++] = orig_fcr_value;
+	data[data_index++] = new_fcr_value;
+	data[data_index++] = orig_fcr_value;
 
-    fscc_port_set_register_rep(port, 2, FCR_OFFSET, (char *)data, data_index * 4);
+	fscc_port_set_register_rep(port, 2, FCR_OFFSET, (char *)data, data_index * 4);
 
-    WdfSpinLockRelease(port->board_settings_spinlock);
+	WdfSpinLockRelease(port->board_settings_spinlock);
 
-    ExFreePoolWithTag(data, 'stiB');
+	ExFreePoolWithTag(data, 'stiB');
 }
 
 unsigned fscc_port_using_async(struct fscc_port *port)
 {
-    return_val_if_untrue(port, 0);
+	return_val_if_untrue(port, 0);
 
-    /* We must refresh FCR because it is shared with serialfc */
-    port->register_storage.FCR = fscc_port_get_register(port, 2, FCR_OFFSET);
+	/* We must refresh FCR because it is shared with serialfc */
+	port->register_storage.FCR = fscc_port_get_register(port, 2, FCR_OFFSET);
 
-    switch (port->channel) {
-    case 0:
-        return port->register_storage.FCR & 0x01000000;
+	switch (port->channel) {
+	case 0:
+		return port->register_storage.FCR & 0x01000000;
 
-    case 1:
-        return port->register_storage.FCR & 0x02000000;
-    }
+	case 1:
+		return port->register_storage.FCR & 0x02000000;
+	}
 
-    return 0;
+	return 0;
 }
 
 unsigned fscc_port_get_output_memory_usage(struct fscc_port *port)
 {
-    unsigned value = 0;
+	unsigned value = 0;
 
-    return_val_if_untrue(port, 0);
+	return_val_if_untrue(port, 0);
 
 	// TODO implement this?
 
-    return value;
+	return value;
 }
 
 unsigned fscc_port_get_input_memory_usage(struct fscc_port *port)
 {
-    unsigned value = 0;
+	unsigned value = 0;
 
-    return_val_if_untrue(port, 0);
+	return_val_if_untrue(port, 0);
 	
 	// TODO implement this?
 
-    return value;
+	return value;
 }
 
 unsigned fscc_port_is_streaming(struct fscc_port *port)
 {
-    unsigned transparent_mode = 0;
-    unsigned xsync_mode = 0;
-    unsigned rlc_mode = 0;
-    unsigned fsc_mode = 0;
-    unsigned ntb = 0;
+	unsigned transparent_mode = 0;
+	unsigned xsync_mode = 0;
+	unsigned rlc_mode = 0;
+	unsigned fsc_mode = 0;
+	unsigned ntb = 0;
 
-    return_val_if_untrue(port, 0);
+	return_val_if_untrue(port, 0);
 
-    transparent_mode = ((port->register_storage.CCR0 & 0x3) == 0x2) ? 1 : 0;
-    xsync_mode = ((port->register_storage.CCR0 & 0x3) == 0x1) ? 1 : 0;
-    rlc_mode = (port->register_storage.CCR2 & 0xffff0000) ? 1 : 0;
-    fsc_mode = (port->register_storage.CCR0 & 0x700) ? 1 : 0;
-    ntb = (port->register_storage.CCR0 & 0x70000) >> 16;
+	transparent_mode = ((port->register_storage.CCR0 & 0x3) == 0x2) ? 1 : 0;
+	xsync_mode = ((port->register_storage.CCR0 & 0x3) == 0x1) ? 1 : 0;
+	rlc_mode = (port->register_storage.CCR2 & 0xffff0000) ? 1 : 0;
+	fsc_mode = (port->register_storage.CCR0 & 0x700) ? 1 : 0;
+	ntb = (port->register_storage.CCR0 & 0x70000) >> 16;
 
-    return ((transparent_mode || xsync_mode) && !(rlc_mode || fsc_mode || ntb)) ? 1 : 0;
+	return ((transparent_mode || xsync_mode) && !(rlc_mode || fsc_mode || ntb)) ? 1 : 0;
 }
 
 BOOLEAN fscc_port_uses_dma(struct fscc_port *port)
 {
-    return_val_if_untrue(port, 0);
+	return_val_if_untrue(port, 0);
 
-    if (port->force_fifo) return FALSE;
+	if (port->force_fifo) return FALSE;
 
-    return port->has_dma;
+	return port->has_dma;
 }
 
 UINT32 fscc_port_get_TXCNT(struct fscc_port *port)
 {
-    UINT32 fifo_bc_value = 0;
+	UINT32 fifo_bc_value = 0;
 
-    return_val_if_untrue(port, 0);
+	return_val_if_untrue(port, 0);
 
-    fifo_bc_value = fscc_port_get_register(port, 0, FIFO_BC_OFFSET);
+	fifo_bc_value = fscc_port_get_register(port, 0, FIFO_BC_OFFSET);
 
-    return (fifo_bc_value & 0x1FFF0000) >> 16;
+	return (fifo_bc_value & 0x1FFF0000) >> 16;
 }
 
 UINT32 fscc_port_get_DCTDB(struct fscc_port *port)
 {
-    return_val_if_untrue(port, 0);
-    return fscc_port_get_register(port, 2, DMA_CURRENT_TX_BASE_OFFSET);
+	return_val_if_untrue(port, 0);
+	return fscc_port_get_register(port, 2, DMA_CURRENT_TX_BASE_OFFSET);
 }
 
 UINT32 fscc_port_get_DCRDB(struct fscc_port *port)
 {
-    return_val_if_untrue(port, 0);
-    return fscc_port_get_register(port, 2, DMA_CURRENT_RX_BASE_OFFSET);
+	return_val_if_untrue(port, 0);
+	return fscc_port_get_register(port, 2, DMA_CURRENT_RX_BASE_OFFSET);
 }
 
 void fscc_port_execute_transmit(struct fscc_port *port, unsigned dma)
 {
-    unsigned command_register = 0;
-    unsigned command_value = 0;
-    unsigned command_bar = 0;
+	unsigned command_register = 0;
+	unsigned command_value = 0;
+	unsigned command_bar = 0;
 
-    return_if_untrue(port);
+	return_if_untrue(port);
 	
-    if (dma) {
-        command_bar = 2;
-        command_register = DMACCR_OFFSET;
-        command_value = 0x00000002;
+	if (dma) {
+		command_bar = 2;
+		command_register = DMACCR_OFFSET;
+		command_value = 0x00000002;
 		
-        if (port->tx_modifiers & XREP)
-            command_value |= 0x40000000;
+		if (port->tx_modifiers & XREP)
+		command_value |= 0x40000000;
 
-        if (port->tx_modifiers & TXT)
-            command_value |= 0x10000000;
+		if (port->tx_modifiers & TXT)
+		command_value |= 0x10000000;
 
-        if (port->tx_modifiers & TXEXT)
-            command_value |= 0x20000000;
+		if (port->tx_modifiers & TXEXT)
+		command_value |= 0x20000000;
 
 		fscc_port_set_register(port, command_bar, command_register, command_value);
-    }
-    else {
-        command_bar = 0;
-        command_register = CMDR_OFFSET;
-        command_value = 0x01000000;
+	}
+	else {
+		command_bar = 0;
+		command_register = CMDR_OFFSET;
+		command_value = 0x01000000;
 
-        if (port->tx_modifiers & XREP)
-            command_value |= 0x02000000;
+		if (port->tx_modifiers & XREP)
+		command_value |= 0x02000000;
 
-        if (port->tx_modifiers & TXT)
-            command_value |= 0x10000000;
+		if (port->tx_modifiers & TXT)
+		command_value |= 0x10000000;
 
-        if (port->tx_modifiers & TXEXT)
-            command_value |= 0x20000000;
+		if (port->tx_modifiers & TXEXT)
+		command_value |= 0x20000000;
 		
 		fscc_port_set_register(port, command_bar, command_register, command_value);
-    }
+	}
 }
 
 unsigned fscc_port_get_RFCNT(struct fscc_port *port)
 {
-    UINT32 fifo_fc_value = 0;
+	UINT32 fifo_fc_value = 0;
 
-    return_val_if_untrue(port, 0);
+	return_val_if_untrue(port, 0);
 
-    fifo_fc_value = fscc_port_get_register(port, 0, FIFO_FC_OFFSET);
+	fifo_fc_value = fscc_port_get_register(port, 0, FIFO_FC_OFFSET);
 
-    return (unsigned)(fifo_fc_value & 0x000003ff);
+	return (unsigned)(fifo_fc_value & 0x000003ff);
 }
 
 unsigned fscc_port_get_TFCNT(struct fscc_port *port)
 {
-    UINT32 fifo_fc_value = 0;
+	UINT32 fifo_fc_value = 0;
 
-    return_val_if_untrue(port, 0);
+	return_val_if_untrue(port, 0);
 
-    fifo_fc_value = fscc_port_get_register(port, 0, FIFO_FC_OFFSET);
+	fifo_fc_value = fscc_port_get_register(port, 0, FIFO_FC_OFFSET);
 
-    return (unsigned)((fifo_fc_value & 0x01ff0000) >> 16);
+	return (unsigned)((fifo_fc_value & 0x01ff0000) >> 16);
 }
 
 unsigned fscc_port_get_RXCNT(struct fscc_port *port)
 {
-    UINT32 fifo_bc_value = 0;
+	UINT32 fifo_bc_value = 0;
 
-    return_val_if_untrue(port, 0);
+	return_val_if_untrue(port, 0);
 
-    fifo_bc_value = fscc_port_get_register(port, 0, FIFO_BC_OFFSET);
+	fifo_bc_value = fscc_port_get_register(port, 0, FIFO_BC_OFFSET);
 
-    /* Not sure why, but this can be larger than 8192. We add
-       the 8192 check here so other code can count on the value
-       not being larger than 8192. */
-    fifo_bc_value = fifo_bc_value & 0x00003FFF;
-    return (fifo_bc_value > 8192) ? 0 : fifo_bc_value;
+	/* Not sure why, but this can be larger than 8192. We add
+	the 8192 check here so other code can count on the value
+	not being larger than 8192. */
+	fifo_bc_value = fifo_bc_value & 0x00003FFF;
+	return (fifo_bc_value > 8192) ? 0 : fifo_bc_value;
 }
 
 void fscc_port_reset_timer(struct fscc_port *port)
 {
-    WdfTimerStart(port->timer, WDF_ABS_TIMEOUT_IN_MS(TIMER_DELAY_MS));
+	WdfTimerStart(port->timer, WDF_ABS_TIMEOUT_IN_MS(TIMER_DELAY_MS));
 }
 
 /* Count is for streaming mode where we need to check there is enough
-   streaming data.
+streaming data.
 */
 unsigned fscc_port_has_incoming_data(struct fscc_port *port)
 {
 	int frame_waiting = 0;
 	size_t bytes_waiting = 0;
 	
-    return_val_if_untrue(port, 0);
+	return_val_if_untrue(port, 0);
 
 	frame_waiting = fscc_user_next_read_size(port, &bytes_waiting);
 	if(fscc_port_is_streaming(port)) return bytes_waiting;
@@ -2007,94 +2007,94 @@ unsigned fscc_port_has_incoming_data(struct fscc_port *port)
 
 NTSTATUS fscc_port_get_port_num(struct fscc_port *port, unsigned *port_num)
 {
-    NTSTATUS status;
-    WDFKEY devkey;
-    UNICODE_STRING key_str;
-    ULONG port_num_long;
+	NTSTATUS status;
+	WDFKEY devkey;
+	UNICODE_STRING key_str;
+	ULONG port_num_long;
 
-    RtlInitUnicodeString(&key_str, L"PortNumber");
+	RtlInitUnicodeString(&key_str, L"PortNumber");
 
-    status = WdfDeviceOpenRegistryKey(port->device, PLUGPLAY_REGKEY_DEVICE,
-                                      STANDARD_RIGHTS_ALL,
-                                      WDF_NO_OBJECT_ATTRIBUTES, &devkey);
-    if (!NT_SUCCESS(status)) {
-        TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE,
-            "WdfDeviceOpenRegistryKey failed %!STATUS!", status);
-        return status;
-    }
+	status = WdfDeviceOpenRegistryKey(port->device, PLUGPLAY_REGKEY_DEVICE,
+	STANDARD_RIGHTS_ALL,
+	WDF_NO_OBJECT_ATTRIBUTES, &devkey);
+	if (!NT_SUCCESS(status)) {
+		TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE,
+		"WdfDeviceOpenRegistryKey failed %!STATUS!", status);
+		return status;
+	}
 
-    status = WdfRegistryQueryULong(devkey, &key_str, &port_num_long);
-    if (!NT_SUCCESS(status)) {
-        TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE,
-            "WdfRegistryQueryULong failed %!STATUS!", status);
-        return status;
-    }
+	status = WdfRegistryQueryULong(devkey, &key_str, &port_num_long);
+	if (!NT_SUCCESS(status)) {
+		TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE,
+		"WdfRegistryQueryULong failed %!STATUS!", status);
+		return status;
+	}
 
-    *port_num = (unsigned)port_num_long;
+	*port_num = (unsigned)port_num_long;
 
-    WdfRegistryClose(devkey);
+	WdfRegistryClose(devkey);
 
-    return status;
+	return status;
 }
 
 NTSTATUS fscc_port_set_port_num(struct fscc_port *port, unsigned value)
 {
-    NTSTATUS status;
-    WDFKEY devkey;
-    UNICODE_STRING key_str;
+	NTSTATUS status;
+	WDFKEY devkey;
+	UNICODE_STRING key_str;
 
-    RtlInitUnicodeString(&key_str, L"PortNumber");
+	RtlInitUnicodeString(&key_str, L"PortNumber");
 
-    status = WdfDeviceOpenRegistryKey(port->device, PLUGPLAY_REGKEY_DEVICE,
-                                      STANDARD_RIGHTS_ALL,
-                                      WDF_NO_OBJECT_ATTRIBUTES, &devkey);
-    if (!NT_SUCCESS(status)) {
-        TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE,
-            "WdfDeviceOpenRegistryKey failed %!STATUS!", status);
-        return status;
-    }
+	status = WdfDeviceOpenRegistryKey(port->device, PLUGPLAY_REGKEY_DEVICE,
+	STANDARD_RIGHTS_ALL,
+	WDF_NO_OBJECT_ATTRIBUTES, &devkey);
+	if (!NT_SUCCESS(status)) {
+		TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE,
+		"WdfDeviceOpenRegistryKey failed %!STATUS!", status);
+		return status;
+	}
 
-    status = WdfRegistryAssignULong(devkey, &key_str, value);
-    if (!NT_SUCCESS(status)) {
-        TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE,
-            "WdfRegistryAssignULong failed %!STATUS!", status);
-        return status;
-    }
+	status = WdfRegistryAssignULong(devkey, &key_str, value);
+	if (!NT_SUCCESS(status)) {
+		TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE,
+		"WdfRegistryAssignULong failed %!STATUS!", status);
+		return status;
+	}
 
-    WdfRegistryClose(devkey);
+	WdfRegistryClose(devkey);
 
-    return status;
+	return status;
 }
 
 unsigned fscc_port_transmit_frame(struct fscc_port *port)
 {
-    int result;
+	int result;
 
-    result = fscc_fifo_write_data(port);
-    if(result) fscc_port_execute_transmit(port, 0);
+	result = fscc_fifo_write_data(port);
+	if(result) fscc_port_execute_transmit(port, 0);
 
-    return result;
+	return result;
 }
 
 NTSTATUS fscc_port_set_force_fifo(struct fscc_port *port, BOOLEAN value)
 {
-    return_val_if_untrue(port, STATUS_UNSUCCESSFUL);
-    if(!value && !port->has_dma) return STATUS_NOT_SUPPORTED;
-    
-    // We only care if it's changing, and if it can even do DMA.
-    if (port->force_fifo != value && port->has_dma) 
-    {
-        TraceEvents(TRACE_LEVEL_INFORMATION, TRACE_DEVICE, "Force FIFO %i => %i", port->force_fifo, value);
-        port->force_fifo = (value) ? TRUE : FALSE;
-        if(port->force_fifo) fscc_dma_port_disable(port);
-        else fscc_dma_port_enable(port);
-    }
-    return STATUS_SUCCESS;
+	return_val_if_untrue(port, STATUS_UNSUCCESSFUL);
+	if(!value && !port->has_dma) return STATUS_NOT_SUPPORTED;
+	
+	// We only care if it's changing, and if it can even do DMA.
+	if (port->force_fifo != value && port->has_dma) 
+	{
+		TraceEvents(TRACE_LEVEL_INFORMATION, TRACE_DEVICE, "Force FIFO %i => %i", port->force_fifo, value);
+		port->force_fifo = (value) ? TRUE : FALSE;
+		if(port->force_fifo) fscc_dma_port_disable(port);
+		else fscc_dma_port_enable(port);
+	}
+	return STATUS_SUCCESS;
 }
 
 BOOLEAN fscc_port_get_force_fifo(struct fscc_port *port)
 {
-    return_val_if_untrue(port, 0);
+	return_val_if_untrue(port, 0);
 
-    return port->force_fifo;
+	return port->force_fifo;
 }
