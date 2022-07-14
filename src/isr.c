@@ -56,23 +56,28 @@ BOOLEAN fscc_isr(WDFINTERRUPT Interrupt, ULONG MessageID)
 	port->last_isr_value |= isr_value;
 	
 	using_dma = fscc_port_uses_dma(port);
+	// TODO 
+	// DR_HI is not triggering at all. I've checked IMR, I've checked
+	// framing mode and transparent mode, no DR_HI.
+	// This creates a problem in transparent mode with DMA - there's no
+	// mechanism to alert the waiting read request that new data has arrived.
 	if (using_dma) {
-		if (isr_value & (DR_HI | DR_FE)) {
+		if (isr_value & (DR_HI | DR_FE | RFT | RFS | RFE | DR_STOP)) {
 			WdfDpcEnqueue(port->process_read_dpc);
 		}
 	}
 	else {
 		if (isr_value & (RFE | RFT | RFS | RFO | RDO ))
-		WdfDpcEnqueue(port->iframe_dpc);
+			WdfDpcEnqueue(port->iframe_dpc);
 		
 		if (isr_value & (TFT | TDU | ALLS))
-		WdfDpcEnqueue(port->oframe_dpc);
+			WdfDpcEnqueue(port->oframe_dpc);
 	}
 
 	// TODO error handling for RDO, RFO, TDU, etc?
 	
 	if (isr_value & ALLS)
-	WdfDpcEnqueue(port->alls_dpc);
+		WdfDpcEnqueue(port->alls_dpc);
 	
 	WdfDpcEnqueue(port->isr_alert_dpc);
 
@@ -95,6 +100,12 @@ void isr_alert_worker(WDFDPC Dpc)
 	
 	isr_value = port->last_isr_value;
 	
+	if(isr_value & DR_HI)
+		DbgPrint("---DR_HI!!!!!!!!\n");
+	if(isr_value & RDO)
+		DbgPrint("---RDO!!!!!!!!\n");
+	if(isr_value & RFL)
+		DbgPrint("---RFL!!!!!!!!\n");
 	port->last_isr_value = 0;
 
 	do {
@@ -286,6 +297,7 @@ VOID timer_handler(WDFTIMER Timer)
 
 	port = WdfObjectGet_FSCC_PORT(WdfTimerGetParentObject(Timer));
 	
-	WdfDpcEnqueue(port->iframe_dpc);
+	if(fscc_port_uses_dma(port)) WdfDpcEnqueue(port->process_read_dpc);
+	else WdfDpcEnqueue(port->iframe_dpc);
 	WdfDpcEnqueue(port->request_dpc);
 }
