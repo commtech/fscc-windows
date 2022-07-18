@@ -21,8 +21,8 @@ THE SOFTWARE.
 */
 
 
-#ifndef FSCC_DESCRIPTOR
-#define FSCC_DESCRIPTOR
+#ifndef FSCC_IO
+#define FSCC_IO
 
 #define DESC_FE_BIT 0x80000000
 #define DESC_CSTOP_BIT 0x40000000
@@ -46,6 +46,8 @@ typedef struct dma_frame {
 	unsigned char *buffer;
 	fscc_timestamp timestamp;
 } DMA_FRAME;
+
+EVT_WDF_DPC FsccProcessRead;
 
 NTSTATUS fscc_io_initialize(struct fscc_port *port);
 NTSTATUS fscc_io_rebuild_rx(struct fscc_port *port, size_t number_of_desc, size_t size_of_desc);

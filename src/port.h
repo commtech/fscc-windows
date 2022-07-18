@@ -31,7 +31,7 @@ THE SOFTWARE.
 
 #include "card.h"
 #include "fscc.h"
-#include "descriptor.h"
+#include "io.h"
 
 #define FIFO_OFFSET 0x00
 #define BC_FIFO_L_OFFSET 0x04

@@ -21,7 +21,7 @@ THE SOFTWARE.
 */
 
 #include "port.h"
-#include "descriptor.h"
+#include "io.h"
 #include "public.h"
 #include "driver.h"
 #include "debug.h"
@@ -31,8 +31,65 @@ THE SOFTWARE.
 #include <ntstrsafe.h>
 
 #if defined(EVENT_TRACING)
-#include "dma.tmh"
+#include "io.tmh"
 #endif
+
+void FsccProcessRead(WDFDPC Dpc)
+{
+	struct fscc_port *port = 0;
+	NTSTATUS status = STATUS_SUCCESS;
+	PCHAR data_buffer = NULL;
+	size_t read_count = 0;
+	WDFREQUEST request;
+	unsigned length = 0;
+	WDF_REQUEST_PARAMETERS params;
+	unsigned frame_ready, streaming;
+	size_t bytes_ready;
+	
+	port = WdfObjectGet_FSCC_PORT(WdfDpcGetParentObject(Dpc));
+	
+	streaming = fscc_port_is_streaming(port);
+	frame_ready = fscc_user_next_read_size(port, &bytes_ready);
+	if (bytes_ready == 0) return;
+	if (!streaming && !frame_ready) return;
+	
+	status = WdfIoQueueRetrieveNextRequest(port->read_queue2, &request);
+	if (!NT_SUCCESS(status)) {
+		if (status != STATUS_NO_MORE_ENTRIES) {
+			TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE,
+			"WdfIoQueueRetrieveNextRequest failed %!STATUS!",
+			status);
+		}
+
+		return;
+	}
+
+
+	WDF_REQUEST_PARAMETERS_INIT(&params);
+	WdfRequestGetParameters(request, &params);
+	length = (unsigned)params.Parameters.Read.Length;
+
+	status = WdfRequestRetrieveOutputBuffer(request, length,
+	(PVOID*)&data_buffer, NULL);
+	if (!NT_SUCCESS(status)) {
+		TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE,
+		"WdfRequestRetrieveOutputBuffer failed %!STATUS!", status);
+		WdfRequestComplete(request, status);
+		return;
+	}
+	
+	if (streaming) status = fscc_user_read_stream(port, data_buffer, length, &read_count);
+	else status = fscc_user_read_frame(port, data_buffer, length, &read_count);
+
+	if (!NT_SUCCESS(status)) {
+		TraceEvents(TRACE_LEVEL_WARNING, TRACE_DEVICE,
+		"fscc_port_{frame,stream}_read failed %!STATUS!", status);
+		WdfRequestComplete(request, status);
+		return;
+	}
+
+	WdfRequestCompleteWithInformation(request, status, read_count);
+}
 
 NTSTATUS fscc_io_create_rx_desc(struct fscc_port *port, size_t number_of_desc)
 {

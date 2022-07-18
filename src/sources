@@ -20,7 +20,7 @@ SOURCES=card.c \
         port.c \
         utils.c \
         debug.c \
-        dma.c \
+        io.c \
         fscc.rc
 
 #

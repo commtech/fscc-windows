@@ -100,12 +100,6 @@ void isr_alert_worker(WDFDPC Dpc)
 	
 	isr_value = port->last_isr_value;
 	
-	if(isr_value & DR_HI)
-		DbgPrint("---DR_HI!!!!!!!!\n");
-	if(isr_value & RDO)
-		DbgPrint("---RDO!!!!!!!!\n");
-	if(isr_value & RFL)
-		DbgPrint("---RFL!!!!!!!!\n");
 	port->last_isr_value = 0;
 
 	do {
