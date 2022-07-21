@@ -68,6 +68,7 @@ NTSTATUS fscc_dma_port_enable(struct fscc_port *port);
 NTSTATUS fscc_dma_port_disable(struct fscc_port *port);
 BOOLEAN fscc_dma_is_tx_running(struct fscc_port *port);
 BOOLEAN fscc_dma_is_rx_running(struct fscc_port *port);
+void fscc_dma_apply_timestamps(struct fscc_port *port);
 
 size_t fscc_user_get_tx_space(struct fscc_port *port);
 int fscc_fifo_read_data(struct fscc_port *port);

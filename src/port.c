@@ -462,6 +462,19 @@ IN PWDFDEVICE_INIT DeviceInit)
 		return 0;
 	}
 
+	WDF_DPC_CONFIG_INIT(&dpcConfig, &timestamp_worker);
+	dpcConfig.AutomaticSerialization = TRUE;
+
+	WDF_OBJECT_ATTRIBUTES_INIT(&dpcAttributes);
+	dpcAttributes.ParentObject = port->device;
+
+	status = WdfDpcCreate(&dpcConfig, &dpcAttributes, &port->timestamp_dpc);
+	if (!NT_SUCCESS(status)) {
+		WdfObjectDelete(port->device);
+		TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE,
+		"WdfDpcCreate failed %!STATUS!", status);
+		return 0;
+	}
 
 	return port;
 }

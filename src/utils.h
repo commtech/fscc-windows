@@ -53,6 +53,10 @@ UINT32 chars_to_u32(const char *data);
 unsigned is_read_only_register(unsigned offset);
 unsigned port_offset(struct fscc_port *port, unsigned bar, unsigned offset);
 
+#define set_timestamp(x) KeQuerySystemTime(x)
+void clear_timestamp(fscc_timestamp *timestamp);
+int timestamp_is_empty(fscc_timestamp *timestamp);
+
 NTSTATUS registry_create_key(WDFKEY parent_key, PUNICODE_STRING key_str, WDFKEY *key);
 /*
 NTSTATUS registry_get_ulong(WDFKEY key, PCUNICODE_STRING value_name, ULONG *value);

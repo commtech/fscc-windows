@@ -124,6 +124,7 @@ typedef struct fscc_port {
 	WDFDPC request_dpc;
 	WDFDPC process_read_dpc;
 	WDFDPC alls_dpc;
+	WDFDPC timestamp_dpc;
 
 	WDFTIMER timer;
 

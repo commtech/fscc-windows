@@ -34,6 +34,20 @@ UINT32 chars_to_u32(const char *data)
 	return *((UINT32*)data);
 }
 
+// See utils.h header file for set_timestamp() macro
+
+void clear_timestamp(fscc_timestamp *timestamp)
+{
+	timestamp->LowPart = 0;
+	timestamp->HighPart = 0;
+}
+
+int timestamp_is_empty(fscc_timestamp *timestamp){
+	if(timestamp->LowPart == 0 && timestamp->HighPart == 0)
+		return 1;
+	return 0;
+}
+
 unsigned port_offset(struct fscc_port *port, unsigned bar, unsigned offset)
 {
 	switch (bar) {

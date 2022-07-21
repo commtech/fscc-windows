@@ -115,6 +115,7 @@ NTSTATUS fscc_io_create_rx_desc(struct fscc_port *port, size_t number_of_desc)
 		temp_address = WdfCommonBufferGetAlignedLogicalAddress(port->rx_descriptors[i]->desc_buffer);
 		port->rx_descriptors[i]->desc_physical_address = temp_address.LowPart;
 		RtlZeroMemory(port->rx_descriptors[i]->desc, sizeof(struct fscc_descriptor));
+		clear_timestamp(&port->rx_descriptors[i]->timestamp);
 		if(i%2) port->rx_descriptors[i]->desc->control = DESC_HI_BIT;
 		else port->rx_descriptors[i]->desc->control = 0;
 	}
@@ -153,6 +154,7 @@ NTSTATUS fscc_io_create_tx_desc(struct fscc_port *port, size_t number_of_desc)
 		port->tx_descriptors[i]->desc_physical_address = temp_address.LowPart;
 		RtlZeroMemory(port->tx_descriptors[i]->desc, sizeof(struct fscc_descriptor));
 		port->tx_descriptors[i]->desc->control = DESC_CSTOP_BIT;
+		clear_timestamp(&port->tx_descriptors[i]->timestamp);
 	}
 	
 	// Create the singly linked list
@@ -313,6 +315,7 @@ void fscc_io_reset_rx(struct fscc_port *port)
 	{
 		port->rx_descriptors[i]->desc->control = DESC_HI_BIT;
 		port->rx_descriptors[i]->desc->data_count = port->desc_rx_size;
+		clear_timestamp(&port->rx_descriptors[i]->timestamp);
 	}
 	port->user_rx_desc = 0;
 	port->fifo_rx_desc = 0;
@@ -330,6 +333,7 @@ void fscc_io_reset_tx(struct fscc_port *port)
 	{
 		port->tx_descriptors[i]->desc->control = DESC_CSTOP_BIT;
 		port->tx_descriptors[i]->desc->data_count = 0;
+		clear_timestamp(&port->tx_descriptors[i]->timestamp);
 	}
 	port->user_tx_desc = 0;
 	port->fifo_tx_desc = 0;
@@ -482,6 +486,30 @@ unsigned fscc_user_next_read_size(struct fscc_port *port, size_t *bytes)
 	return 0;
 }
 
+void fscc_dma_apply_timestamps(struct fscc_port *port)
+{
+	unsigned i, cur_desc;
+	UINT32 control = 0;
+	
+	cur_desc = port->user_rx_desc;
+	
+	WdfSpinLockAcquire(port->board_rx_spinlock);
+	for(i=0;i<port->desc_rx_num;i++) {
+		control = port->rx_descriptors[cur_desc]->desc->control;
+
+		if(!(control&DESC_FE_BIT) && !(control&DESC_CSTOP_BIT))
+			break;
+		
+		if(timestamp_is_empty(&port->rx_descriptors[cur_desc]->timestamp))
+			set_timestamp(&port->rx_descriptors[cur_desc]->timestamp);
+		
+		cur_desc++;
+		if(cur_desc == port->desc_rx_num) 
+			cur_desc = 0;
+	}
+	WdfSpinLockRelease(port->board_rx_spinlock);
+}
+
 size_t fscc_user_get_tx_space(struct fscc_port *port)
 {
 	unsigned i, cur_desc;
@@ -612,7 +640,8 @@ int fscc_fifo_read_data(struct fscc_port *port)
 		
 		// Finalize the descriptor if it's finished.
 		if(new_control&DESC_CSTOP_BIT) {
-			KeQuerySystemTime(&port->rx_descriptors[port->fifo_rx_desc]->timestamp);
+			if(timestamp_is_empty(&port->rx_descriptors[port->fifo_rx_desc]->timestamp))
+				set_timestamp(&port->rx_descriptors[port->fifo_rx_desc]->timestamp);
 			port->rx_descriptors[port->fifo_rx_desc]->desc->data_count = port->desc_rx_size;
 		}
 		
@@ -736,10 +765,12 @@ int fscc_user_read_frame(struct fscc_port *port, char *buf, size_t buf_length, s
 		*out_length += real_move_size;
 		
 		if(bytes_in_descs == 0 && port->append_timestamp) {
+			if(timestamp_is_empty(&port->rx_descriptors[port->user_rx_desc]->timestamp))
+				set_timestamp(&port->rx_descriptors[port->user_rx_desc]->timestamp);
 			RtlCopyMemory(buf + *out_length, &port->rx_descriptors[port->user_rx_desc]->timestamp, sizeof(fscc_timestamp));
 			*out_length += sizeof(fscc_timestamp);
 		}
-
+		clear_timestamp(&port->rx_descriptors[port->user_rx_desc]->timestamp);
 		port->rx_descriptors[port->user_rx_desc]->desc->control = DESC_HI_BIT;
 		
 		port->user_rx_desc++;
@@ -795,6 +826,7 @@ int fscc_user_read_stream(struct fscc_port *port, char *buf, size_t buf_length, 
 		
 		if(receive_length == port->rx_descriptors[port->user_rx_desc]->desc->data_count) {
 			port->rx_descriptors[port->user_rx_desc]->desc->data_count = port->desc_rx_size;
+			clear_timestamp(&port->rx_descriptors[port->user_rx_desc]->timestamp);
 			if(i%2) port->rx_descriptors[port->user_rx_desc]->desc->control = DESC_HI_BIT;
 			else port->rx_descriptors[port->user_rx_desc]->desc->control = 0;
 		}
@@ -810,7 +842,7 @@ int fscc_user_read_stream(struct fscc_port *port, char *buf, size_t buf_length, 
 		
 		port->user_rx_desc++;
 		if(port->user_rx_desc == port->desc_rx_num) 
-		port->user_rx_desc = 0;
+			port->user_rx_desc = 0;
 	}
 	WdfSpinLockRelease(port->board_rx_spinlock);
 	

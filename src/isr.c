@@ -62,9 +62,11 @@ BOOLEAN fscc_isr(WDFINTERRUPT Interrupt, ULONG MessageID)
 	// This creates a problem in transparent mode with DMA - there's no
 	// mechanism to alert the waiting read request that new data has arrived.
 	if (using_dma) {
-		if (isr_value & (DR_HI | DR_FE | RFT | RFS | RFE | DR_STOP)) {
+		if (isr_value & RFE)
+			WdfDpcEnqueue(port->timestamp_dpc);
+		
+		if (isr_value & (DR_HI | DR_FE | RFT | RFS | RFE | DR_STOP))
 			WdfDpcEnqueue(port->process_read_dpc);
-		}
 	}
 	else {
 		if (isr_value & (RFE | RFT | RFS | RFO | RDO ))
@@ -196,6 +198,15 @@ void isr_alert_worker(WDFDPC Dpc)
 #ifdef DEBUG
 	print_interrupts(isr_value);
 #endif
+}
+
+void timestamp_worker(WDFDPC Dpc)
+{
+	struct fscc_port *port = 0;
+	port = WdfObjectGet_FSCC_PORT(WdfDpcGetParentObject(Dpc));
+	if(fscc_port_uses_dma(port)) return;
+	
+	fscc_dma_apply_timestamps(port);
 }
 
 void iframe_worker(WDFDPC Dpc)

@@ -36,6 +36,7 @@ EVT_WDF_DPC iframe_worker;
 EVT_WDF_DPC isr_alert_worker;
 EVT_WDF_DPC request_worker;
 EVT_WDF_DPC alls_worker;
+EVT_WDF_DPC timestamp_worker;
 
 EVT_WDF_TIMER timer_handler;
 
