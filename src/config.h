@@ -33,13 +33,14 @@ THE SOFTWARE.
 //#define DEFAULT_OUTPUT_MEMORY_CAP_VALUE 1000000
 
 // NUM * SIZE = new memory_cap
-// Default is 256k instead of 1m
+// Because we are preallocating instead of setting a cap, the 
+// new default values are much lower than the original memory cap.
 // Adjust these at your own risk, too large of values can cause
 // a BSOD, caused by the DPC watchdog.
 
 // The NUM can be any positive number greater than 1.
-#define DEFAULT_DESC_RX_NUM 1000
-#define DEFAULT_DESC_TX_NUM 1000
+#define DEFAULT_DESC_RX_NUM 200
+#define DEFAULT_DESC_TX_NUM 200
 // The SIZE should ALWAYS be in 4 byte increments.
 // The SIZE should be smaller than the FIFO, ideally a lot smaller.
 #define DEFAULT_DESC_RX_SIZE 256
