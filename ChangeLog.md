@@ -1,5 +1,9 @@
 # ChangeLog
 
+## [2.8.2](https://github.com/commtech/fscc-windows/releases/tag/v2.8.2) (08/11/2022)
+- This is another release of the DMA rework, with lower default values for the DMA allocations and more safety checks for failed DMA allocations.
+- **The most significant change is that instead of allocated as needed, memory buffers are now pre-allocated.** This means that when ports are installed or memory cap is changed, there may be slight delays caused by the allocation of large chunks of memory. If these values are set too high, it can cause a DPC Watchdog BSOD to occur because of how long memory allocation may take.
+
 ## [2.8.1](https://github.com/commtech/fscc-windows/releases/tag/v2.8.1) (07/18/2022)
 - This is a complete rewrite of the internal IO for both DMA and FIFO. The DMA is automatically enabled for Super\* family cards, but can be disabled with ENABLE_FORCE_FIFO. DMA can be enabled again with DISABLE_FORCE_FIFO.
 - **The most significant change is that instead of allocated as needed, memory buffers are now pre-allocated.** This means that when ports are installed or memory cap is changed, there may be slight delays caused by the allocation of large chunks of memory. If these values are set too high, it can cause a DPC Watchdog BSOD to occur because of how long memory allocation may take.
