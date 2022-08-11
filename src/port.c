@@ -544,13 +544,33 @@ WDFCMRESLIST ResourcesRaw, WDFCMRESLIST ResourcesTranslated)
 	port->memory_cap.output = DEFAULT_DESC_TX_NUM * DEFAULT_DESC_TX_SIZE;
 	
 	WdfSpinLockAcquire(port->board_rx_spinlock);
-	fscc_io_build_rx(port, DEFAULT_DESC_RX_NUM, DEFAULT_DESC_RX_SIZE);
+	status = fscc_io_build_rx(port, DEFAULT_DESC_RX_NUM, DEFAULT_DESC_RX_SIZE);
+	if (!NT_SUCCESS(status)) {
+		fscc_io_destroy_rx(port);
+		WdfSpinLockRelease(port->board_rx_spinlock);
+		WdfSpinLockAcquire(port->board_tx_spinlock);
+		fscc_io_destroy_tx(port);
+		WdfSpinLockRelease(port->board_tx_spinlock);
+		TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE,
+		"fscc_card_init build_rx failed %!STATUS!", status);
+		return status;
+	}
 	WdfSpinLockRelease(port->board_rx_spinlock);
 	
 	WdfSpinLockAcquire(port->board_tx_spinlock);
-	fscc_io_build_tx(port, DEFAULT_DESC_TX_NUM, DEFAULT_DESC_TX_SIZE);
+	status = fscc_io_build_tx(port, DEFAULT_DESC_TX_NUM, DEFAULT_DESC_TX_SIZE);
+	if (!NT_SUCCESS(status)) {
+		fscc_io_destroy_tx(port);
+		WdfSpinLockRelease(port->board_tx_spinlock);
+		WdfSpinLockAcquire(port->board_rx_spinlock);
+		fscc_io_destroy_rx(port);
+		WdfSpinLockRelease(port->board_rx_spinlock);
+		TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE,
+		"fscc_card_init build_tx failed %!STATUS!", status);
+		return status;
+	}
 	WdfSpinLockRelease(port->board_tx_spinlock);
-
+	
 	port->last_isr_value = 0;
 
 	FSCC_REGISTERS_INIT(port->register_storage);
