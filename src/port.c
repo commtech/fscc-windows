@@ -1658,12 +1658,15 @@ NTSTATUS fscc_port_set_memory_cap(struct fscc_port *port, struct fscc_memory_cap
 			if(fscc_io_calculate_desc_size(value->input, port->desc_rx_size, &num_desc) == STATUS_SUCCESS) {
 				fscc_port_purge_rx(port);
 				WdfSpinLockAcquire(port->board_rx_spinlock);
-				fscc_io_rebuild_rx(port, num_desc, port->desc_rx_size);
+				status = fscc_io_rebuild_rx(port, num_desc, port->desc_rx_size);
+				if (!NT_SUCCESS(status)) {
+					fscc_io_rebuild_rx(port, port->desc_rx_num, port->desc_rx_size);
+				}
 				WdfSpinLockRelease(port->board_rx_spinlock);
 				TraceEvents(TRACE_LEVEL_INFORMATION, TRACE_DEVICE,
 				"Memory cap (input) %i => %i",
-				port->memory_cap.input, value->input);
-				port->memory_cap.input = port->desc_rx_size * num_desc;
+				port->memory_cap.input, port->desc_rx_size * port->desc_rx_num);
+				port->memory_cap.input = port->desc_rx_size * port->desc_rx_num;
 			}
 			else {
 				status = STATUS_UNSUCCESSFUL;
@@ -1685,12 +1688,15 @@ NTSTATUS fscc_port_set_memory_cap(struct fscc_port *port, struct fscc_memory_cap
 			if(fscc_io_calculate_desc_size(value->output, port->desc_tx_size, &num_desc) == STATUS_SUCCESS) {
 				fscc_port_purge_tx(port);
 				WdfSpinLockAcquire(port->board_tx_spinlock);
-				fscc_io_rebuild_tx(port, num_desc, port->desc_tx_size);
+				status = fscc_io_rebuild_tx(port, num_desc, port->desc_tx_size);
+				if (!NT_SUCCESS(status)) {
+					fscc_io_rebuild_tx(port, port->desc_tx_num, port->desc_tx_size);
+				}
 				WdfSpinLockRelease(port->board_tx_spinlock);
 				TraceEvents(TRACE_LEVEL_INFORMATION, TRACE_DEVICE,
 				"Memory cap (output) %i => %i",
-				port->memory_cap.output, value->output);
-				port->memory_cap.output = port->desc_tx_size * num_desc;
+				port->memory_cap.output, port->desc_tx_size * port->desc_tx_num);
+				port->memory_cap.output = port->desc_tx_size * port->desc_tx_num;
 			}
 			else {
 				status = STATUS_UNSUCCESSFUL;
