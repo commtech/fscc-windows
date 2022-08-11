@@ -370,7 +370,8 @@ DMA allocates an additional 1MB of space for transmit and 1MB of space for recei
 
 
 ## Run-time Dependencies
-- OS: Windows XP+
+- OS: Windows XP+ (driver versions 2.7.8 or lower)
+- OS: Windows 7+ (driver versions 2.0.0 or higher)
 
 
 ## API Compatibility
@@ -379,6 +380,6 @@ We follow [Semantic Versioning](http://semver.org/) when creating releases.
 
 ## License
 
-Copyright (C) 2019 [Commtech, Inc.](https://fastcomproducts.com/)
+Copyright (C) 2022 [Commtech, Inc.](https://fastcomproducts.com/)
 
 Licensed under the [MIT license](https://opensource.org/licenses/MIT).
