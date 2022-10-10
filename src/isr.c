@@ -61,6 +61,7 @@ BOOLEAN fscc_isr(WDFINTERRUPT Interrupt, ULONG MessageID)
 	// framing mode and transparent mode, no DR_HI.
 	// This creates a problem in transparent mode with DMA - there's no
 	// mechanism to alert the waiting read request that new data has arrived.
+	// This can be worked around by always using RLC with transparent mode.
 	if (using_dma) {
 		if (isr_value & RFE)
 			WdfDpcEnqueue(port->timestamp_dpc);
@@ -204,7 +205,8 @@ void timestamp_worker(WDFDPC Dpc)
 {
 	struct fscc_port *port = 0;
 	port = WdfObjectGet_FSCC_PORT(WdfDpcGetParentObject(Dpc));
-	if(fscc_port_uses_dma(port)) return;
+	
+	if(!fscc_port_uses_dma(port)) return;
 	
 	fscc_dma_apply_timestamps(port);
 }

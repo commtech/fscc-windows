@@ -98,32 +98,44 @@ NTSTATUS fscc_io_create_rx_desc(struct fscc_port *port, size_t number_of_desc)
 	PHYSICAL_ADDRESS temp_address;
 	
 	// Allocate space for the list of dma_frames
-	port->rx_descriptors = (struct dma_frame **)ExAllocatePoolWithTag(NonPagedPool, (sizeof(struct dma_frame) * number_of_desc), 'CSED');
-	if(port->rx_descriptors == NULL)
+	port->rx_descriptors = (struct dma_frame **)ExAllocatePoolWithTag(NonPagedPool, (sizeof(struct dma_frame *) * number_of_desc), 'CSED');
+	if(port->rx_descriptors == NULL) {
+		TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE, "ExAllocatePoolWithTag for all rx desc failed!");
+		port->desc_rx_num = 0;
 		return STATUS_UNSUCCESSFUL;
+	}
 	
 	// Allocate a common buffer for each descriptor and set it up
 	for(i=0;i<number_of_desc;i++)
 	{
 		port->rx_descriptors[i] = (struct dma_frame *)ExAllocatePoolWithTag(NonPagedPool, sizeof(struct dma_frame), 'CSED');
+		if(port->rx_descriptors[i] == NULL) {
+			TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE, "ExAllocatePoolWithTag(%d) failed!", i);
+			break;
+		}
 		status = WdfCommonBufferCreate(port->dma_enabler, sizeof(struct fscc_descriptor), WDF_NO_OBJECT_ATTRIBUTES, &port->rx_descriptors[i]->desc_buffer);
 		if(!NT_SUCCESS(status)) {
+			ExFreePoolWithTag(port->rx_descriptors[i], 'CSED');
 			TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE, "WdfCommonBufferCreate(%d) failed: %!STATUS!", i, status);
-			return status;
+			break;
 		} 
 		port->rx_descriptors[i]->desc = WdfCommonBufferGetAlignedVirtualAddress(port->rx_descriptors[i]->desc_buffer);
 		temp_address = WdfCommonBufferGetAlignedLogicalAddress(port->rx_descriptors[i]->desc_buffer);
 		port->rx_descriptors[i]->desc_physical_address = temp_address.LowPart;
 		RtlZeroMemory(port->rx_descriptors[i]->desc, sizeof(struct fscc_descriptor));
 		clear_timestamp(&port->rx_descriptors[i]->timestamp);
-		if(i%2) port->rx_descriptors[i]->desc->control = DESC_HI_BIT;
-		else port->rx_descriptors[i]->desc->control = 0;
+		if(i%2) 
+			port->rx_descriptors[i]->desc->control = DESC_HI_BIT;
+		else 
+			port->rx_descriptors[i]->desc->control = 0;
 	}
 	
+	port->desc_rx_num = i;
+	
 	// Create the singly linked list
-	for(i=0;i<number_of_desc;i++)
+	for(i=0;i<port->desc_rx_num;i++)
 	{
-		port->rx_descriptors[i]->desc->next_descriptor = port->rx_descriptors[i < number_of_desc-1 ? i + 1 : 0]->desc_physical_address;
+		port->rx_descriptors[i]->desc->next_descriptor = port->rx_descriptors[i < port->desc_rx_num-1 ? i + 1 : 0]->desc_physical_address;
 	}
 	
 	return STATUS_SUCCESS;
@@ -136,18 +148,26 @@ NTSTATUS fscc_io_create_tx_desc(struct fscc_port *port, size_t number_of_desc)
 	PHYSICAL_ADDRESS temp_address;
 	
 	// Allocate space for the list of dma_frames
-	port->tx_descriptors = (struct dma_frame **)ExAllocatePoolWithTag(NonPagedPool, (sizeof(struct dma_frame) * number_of_desc), 'CSED');
-	if(port->tx_descriptors == NULL)
+	port->tx_descriptors = (struct dma_frame **)ExAllocatePoolWithTag(NonPagedPool, (sizeof(struct dma_frame *) * number_of_desc), 'CSED');
+	if(port->tx_descriptors == NULL) {
+		TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE, "ExAllocatePoolWithTag for all tx desc failed!");
+		port->desc_tx_num = 0;
 		return STATUS_UNSUCCESSFUL;
+	}
 	
 	// Allocate a common buffer for each descriptor and set it up
 	for(i=0;i<number_of_desc;i++)
 	{
 		port->tx_descriptors[i] = (struct dma_frame *)ExAllocatePoolWithTag(NonPagedPool, sizeof(struct dma_frame), 'CSED');
+		if(port->tx_descriptors[i] == NULL) {
+			TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE, "ExAllocatePoolWithTag(%d) failed!", i);
+			break;
+		}
 		status = WdfCommonBufferCreate(port->dma_enabler, sizeof(struct fscc_descriptor), WDF_NO_OBJECT_ATTRIBUTES, &port->tx_descriptors[i]->desc_buffer);
 		if(!NT_SUCCESS(status)) {
+			ExFreePoolWithTag(port->tx_descriptors[i], 'CSED');
 			TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE, "WdfCommonBufferCreate(%d) failed: %!STATUS!", i, status);
-			return status;
+			break;
 		}
 		port->tx_descriptors[i]->desc = WdfCommonBufferGetAlignedVirtualAddress(port->tx_descriptors[i]->desc_buffer);
 		temp_address = WdfCommonBufferGetAlignedLogicalAddress(port->tx_descriptors[i]->desc_buffer);
@@ -157,22 +177,25 @@ NTSTATUS fscc_io_create_tx_desc(struct fscc_port *port, size_t number_of_desc)
 		clear_timestamp(&port->tx_descriptors[i]->timestamp);
 	}
 	
+	port->desc_tx_num = i;
+	
 	// Create the singly linked list
-	for(i=0;i<number_of_desc;i++)
+	for(i=0;i<port->desc_tx_num;i++)
 	{
-		port->tx_descriptors[i]->desc->next_descriptor = port->tx_descriptors[i < number_of_desc-1 ? i + 1 : 0]->desc_physical_address;
+		port->tx_descriptors[i]->desc->next_descriptor = port->tx_descriptors[i < port->desc_tx_num-1 ? i + 1 : 0]->desc_physical_address;
 	}
 	
 	return STATUS_SUCCESS;
 }
 
-NTSTATUS fscc_io_create_rx_buffers(struct fscc_port *port, size_t number_of_desc, size_t size_of_desc)
+NTSTATUS fscc_io_create_rx_buffers(struct fscc_port *port, size_t size_of_desc)
 {
 	NTSTATUS status;
 	size_t i;
 	PHYSICAL_ADDRESS temp_address;
 	
-	for(i=0;i<number_of_desc;i++)
+	port->desc_rx_size = size_of_desc;
+	for(i=0;i<port->desc_rx_num;i++)
 	{
 		status = WdfCommonBufferCreate(port->dma_enabler, size_of_desc, WDF_NO_OBJECT_ATTRIBUTES, &port->rx_descriptors[i]->data_buffer);
 		if(!NT_SUCCESS(status)) {
@@ -187,13 +210,14 @@ NTSTATUS fscc_io_create_rx_buffers(struct fscc_port *port, size_t number_of_desc
 	return STATUS_SUCCESS;
 }
 
-NTSTATUS fscc_io_create_tx_buffers(struct fscc_port *port, size_t number_of_desc, size_t size_of_desc)
+NTSTATUS fscc_io_create_tx_buffers(struct fscc_port *port, size_t size_of_desc)
 {
 	NTSTATUS status;
 	size_t i;
 	PHYSICAL_ADDRESS temp_address;
-	
-	for(i=0;i<number_of_desc;i++)
+
+	port->desc_tx_size = size_of_desc;
+	for(i=0;i<port->desc_tx_num;i++)
 	{
 		status = WdfCommonBufferCreate(port->dma_enabler, size_of_desc, WDF_NO_OBJECT_ATTRIBUTES, &port->tx_descriptors[i]->data_buffer);
 		if(!NT_SUCCESS(status)) {
@@ -275,12 +299,9 @@ NTSTATUS fscc_io_build_rx(struct fscc_port *port, size_t number_of_desc, size_t 
 	if(status != STATUS_SUCCESS)
 		return status;
 	
-	status = fscc_io_create_rx_buffers(port, number_of_desc, size_of_desc);
+	status = fscc_io_create_rx_buffers(port, size_of_desc);
 	if(status != STATUS_SUCCESS)
 		return status;
-	
-	port->desc_rx_num = number_of_desc;
-	port->desc_rx_size = size_of_desc;
 	
 	fscc_io_reset_rx(port);
 	return STATUS_SUCCESS;
@@ -295,12 +316,9 @@ NTSTATUS fscc_io_build_tx(struct fscc_port *port, size_t number_of_desc, size_t 
 	if(status != STATUS_SUCCESS)
 		return status;
 
-	status = fscc_io_create_tx_buffers(port, number_of_desc, size_of_desc);
+	status = fscc_io_create_tx_buffers(port, size_of_desc);
 	if(status != STATUS_SUCCESS)
 		return status;
-	
-	port->desc_tx_num = number_of_desc;
-	port->desc_tx_size = size_of_desc;
 	
 	fscc_io_reset_tx(port);
 	return STATUS_SUCCESS;
@@ -417,6 +435,22 @@ BOOLEAN fscc_dma_is_tx_running(struct fscc_port *port)
 		return (dstar_value&0x8) ? 0 : 1;
 }
 
+BOOLEAN fscc_dma_is_master_dead(struct fscc_port *port)
+{
+	UINT32 dstar_value = 0;
+	
+	return_val_if_untrue(port, 0);
+	dstar_value = fscc_port_get_register(port, 2, DSTAR_OFFSET);
+	
+	return (dstar_value&0x10) ? 1 : 0;
+}
+
+// To reset the master, we need to write to the first port, so we skip port_set_register
+void fscc_dma_reset_master(struct fscc_port *port)
+{
+	fscc_card_set_register(&port->card, 2, DMACCR_OFFSET, 0x10000);
+}
+
 NTSTATUS fscc_dma_execute_RSTR(struct fscc_port *port)
 {
 	NTSTATUS status;
@@ -490,10 +524,9 @@ void fscc_dma_apply_timestamps(struct fscc_port *port)
 {
 	unsigned i, cur_desc;
 	UINT32 control = 0;
-	
+
+	WdfSpinLockAcquire(port->board_rx_spinlock);	
 	cur_desc = port->user_rx_desc;
-	
-	WdfSpinLockAcquire(port->board_rx_spinlock);
 	for(i=0;i<port->desc_rx_num;i++) {
 		control = port->rx_descriptors[cur_desc]->desc->control;
 
@@ -672,7 +705,7 @@ int fscc_user_write_frame(struct fscc_port *port, char *buf, size_t data_length,
 	for(i = 0; i < port->desc_tx_num; i++) {
 		if((port->tx_descriptors[port->user_tx_desc]->desc->control&DESC_CSTOP_BIT)!=DESC_CSTOP_BIT) {
 			status = STATUS_BUFFER_TOO_SMALL;
-				break;
+			break;
 		}
 		if(start_desc==0)
 			start_desc = port->tx_descriptors[port->user_tx_desc]->desc_physical_address;
