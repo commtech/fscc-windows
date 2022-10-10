@@ -1,5 +1,10 @@
 # ChangeLog
 
+## [3.0.0](https://github.com/commtech/fscc-windows/releases/tag/v3.0.0) (10/10/2022)
+- Further DMA work.
+- Added DSTAR and DMACCR to the register structure.
+- As much as I'd like to claim this is perfectly backwards compatible, the change to the register structure breaks backwards compatibility. Older software can be 'fixed' by using the new fscc.h header (with the updated register structure) and recompiling your software. Otherwise, the changes should be invisible.
+
 ## [2.8.2](https://github.com/commtech/fscc-windows/releases/tag/v2.8.2) (08/11/2022)
 - This is another release of the DMA rework, with lower default values for the DMA allocations and more safety checks for failed DMA allocations.
 - **The most significant change is that instead of allocated as needed, memory buffers are now pre-allocated.** This means that when ports are installed or memory cap is changed, there may be slight delays caused by the allocation of large chunks of memory. If these values are set too high, it can cause a DPC Watchdog BSOD to occur because of how long memory allocation may take.
