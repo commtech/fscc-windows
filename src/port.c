@@ -1170,7 +1170,7 @@ VOID FsccEvtIoWrite(IN WDFQUEUE Queue, IN WDFREQUEST Request, IN size_t Length)
 		WdfRequestComplete(Request, STATUS_IO_TIMEOUT);
 		return;
 	}
-
+	
 	status = WdfRequestRetrieveInputBuffer(Request, Length, (PVOID *)&data_buffer, NULL);
 	if (!NT_SUCCESS(status)) {
 		TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE,
@@ -1180,7 +1180,7 @@ VOID FsccEvtIoWrite(IN WDFQUEUE Queue, IN WDFREQUEST Request, IN size_t Length)
 	}
 	
 	status = fscc_user_write_frame(port, data_buffer, Length, &write_count);
-
+	
 	if (port->wait_on_write) {
 		status = WdfRequestForwardToIoQueue(Request, port->write_queue2);
 		if (!NT_SUCCESS(status)) {
@@ -1195,7 +1195,7 @@ VOID FsccEvtIoWrite(IN WDFQUEUE Queue, IN WDFREQUEST Request, IN size_t Length)
 	}
 
 	if(!fscc_port_uses_dma(port))
-	WdfDpcEnqueue(port->oframe_dpc);
+		WdfDpcEnqueue(port->oframe_dpc);
 }
 
 UINT32 fscc_port_get_register(struct fscc_port *port, unsigned bar,
@@ -1312,21 +1312,25 @@ NTSTATUS fscc_port_set_registers(struct fscc_port *port, const struct fscc_regis
 	for (i = 0; i < sizeof(*regs) / sizeof(fscc_register); i++) {
 		unsigned register_offset = i * 4;
 
-		if (is_read_only_register(register_offset)
-				|| ((fscc_register *)regs)[i] < 0) {
+		if (is_read_only_register(register_offset) || ((fscc_register *)regs)[i] < 0)
 			continue;
-		}
-
-		if (register_offset <= DPLLR_OFFSET) {
-			if (fscc_port_set_register(port, 0, register_offset, (UINT32)(((fscc_register *)regs)[i])) == STATUS_IO_TIMEOUT)
+		
+		if(i * 4 > MAX_OFFSET)
+			break;
+		
+		if (fscc_port_set_register(port, 0, register_offset, (UINT32)(((fscc_register *)regs)[i])) == STATUS_IO_TIMEOUT)
 			stalled = 1;
-		}
-		else {
-			fscc_port_set_register(port, 2, FCR_OFFSET,
-			(UINT32)(((fscc_register *)regs)[i]) & 0x3fffffff);
-		}
 	}
-
+	// Because BAR 2 offsets aren't uniform, the reg structure requires
+	// custom code
+	if(regs->FCR > 0)
+		fscc_port_set_register(port, 2, FCR_OFFSET, regs->FCR & 0x3fffffff);
+	// Special condition for 'master reset' bit, which only exists on the first port.
+	if(regs->DMACCR & 0x10000)
+		fscc_card_set_register(&port->card, 2, DMACCR_OFFSET, 0x10000);
+	if(regs->DMACCR > 0)
+		fscc_port_set_register(port, 2, DMACCR_OFFSET, (UINT32)regs->DMACCR);
+	
 	return (stalled) ? STATUS_IO_TIMEOUT : STATUS_SUCCESS;
 }
 
@@ -1336,16 +1340,21 @@ void fscc_port_get_registers(struct fscc_port *port, struct fscc_registers *regs
 
 	for (i = 0; i < sizeof(*regs) / sizeof(fscc_register); i++) {        
 		if (((fscc_register *)regs)[i] != FSCC_UPDATE_VALUE)
-		continue;
+			continue;
 
-		if (i * 4 <= MAX_OFFSET) {
-			((fscc_register *)regs)[i] = fscc_port_get_register(port, 0, i * 4);
-		}
-		else {
-			((fscc_register *)regs)[i] = fscc_port_get_register(port, 2,
-			FCR_OFFSET);
-		}
+		if(i * 4 > MAX_OFFSET)
+			break;
+
+		((fscc_register *)regs)[i] = fscc_port_get_register(port, 0, i * 4);
 	}
+	// Because BAR 2 offsets aren't uniform, the reg structure requires
+	// custom code
+	if(regs->FCR == FSCC_UPDATE_VALUE) 
+		regs->FCR = fscc_port_get_register(port, 2, FCR_OFFSET);
+	if(regs->DMACCR == FSCC_UPDATE_VALUE) 
+		regs->DMACCR = fscc_port_get_register(port, 2, DMACCR_OFFSET);
+	if(regs->DSTAR == FSCC_UPDATE_VALUE) 
+		regs->DSTAR = fscc_port_get_register(port, 2, DSTAR_OFFSET);
 }
 
 UCHAR fscc_port_get_FREV(struct fscc_port *port)
@@ -1660,7 +1669,7 @@ NTSTATUS fscc_port_set_memory_cap(struct fscc_port *port, struct fscc_memory_cap
 				WdfSpinLockAcquire(port->board_rx_spinlock);
 				status = fscc_io_rebuild_rx(port, num_desc, port->desc_rx_size);
 				if (!NT_SUCCESS(status)) {
-					fscc_io_rebuild_rx(port, port->desc_rx_num, port->desc_rx_size);
+					status = fscc_io_rebuild_rx(port, port->desc_rx_num, port->desc_rx_size);
 				}
 				WdfSpinLockRelease(port->board_rx_spinlock);
 				TraceEvents(TRACE_LEVEL_INFORMATION, TRACE_DEVICE,
@@ -1669,10 +1678,10 @@ NTSTATUS fscc_port_set_memory_cap(struct fscc_port *port, struct fscc_memory_cap
 				port->memory_cap.input = port->desc_rx_size * port->desc_rx_num;
 			}
 			else {
-				status = STATUS_UNSUCCESSFUL;
 				TraceEvents(TRACE_LEVEL_WARNING, TRACE_DEVICE,
 				"Memory cap (input) passed in value too small for desc size: %i",
 				value->input);
+				status = STATUS_UNSUCCESSFUL;
 			}
 		}
 		else {
@@ -1682,7 +1691,8 @@ NTSTATUS fscc_port_set_memory_cap(struct fscc_port *port, struct fscc_memory_cap
 		}
 
 	}
-
+	if(!NT_SUCCESS(status)) return status;
+	
 	if (value->output >= 0) {
 		if (port->memory_cap.output != value->output) {
 			if(fscc_io_calculate_desc_size(value->output, port->desc_tx_size, &num_desc) == STATUS_SUCCESS) {
@@ -1690,7 +1700,7 @@ NTSTATUS fscc_port_set_memory_cap(struct fscc_port *port, struct fscc_memory_cap
 				WdfSpinLockAcquire(port->board_tx_spinlock);
 				status = fscc_io_rebuild_tx(port, num_desc, port->desc_tx_size);
 				if (!NT_SUCCESS(status)) {
-					fscc_io_rebuild_tx(port, port->desc_tx_num, port->desc_tx_size);
+					status = fscc_io_rebuild_tx(port, port->desc_tx_num, port->desc_tx_size);
 				}
 				WdfSpinLockRelease(port->board_tx_spinlock);
 				TraceEvents(TRACE_LEVEL_INFORMATION, TRACE_DEVICE,
@@ -1717,7 +1727,6 @@ NTSTATUS fscc_port_set_memory_cap(struct fscc_port *port, struct fscc_memory_cap
 #define STRB_BASE 0x00000008
 #define DTA_BASE 0x00000001
 #define CLK_BASE 0x00000002
-
 void fscc_port_set_clock_bits(struct fscc_port *port, unsigned char *clock_data)
 {
 	UINT32 orig_fcr_value = 0;
@@ -1974,9 +1983,6 @@ void fscc_port_reset_timer(struct fscc_port *port)
 	WdfTimerStart(port->timer, WDF_ABS_TIMEOUT_IN_MS(TIMER_DELAY_MS));
 }
 
-/* Count is for streaming mode where we need to check there is enough
-streaming data.
-*/
 unsigned fscc_port_has_incoming_data(struct fscc_port *port)
 {
 	int frame_waiting = 0;

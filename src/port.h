@@ -56,7 +56,7 @@ THE SOFTWARE.
 #define ISR_OFFSET 0x50
 #define IMR_OFFSET 0x54
 #define DPLLR_OFFSET 0x58
-#define MAX_OFFSET 0x58 //must equal the highest FCore register address
+#define MAX_OFFSET 0x58 //must equal the highest FCore register address in the first BAR
 
 #define DMACCR_OFFSET 0x04
 #define DMA_RX_BASE_OFFSET 0x0c

@@ -128,6 +128,9 @@ struct fscc_registers {
 
 	/* BAR 2 */
 	fscc_register FCR;
+	fscc_register DMACCR;
+	fscc_register __reserved5[4];
+	fscc_register DSTAR;
 };
 
 struct fscc_memory_cap {
