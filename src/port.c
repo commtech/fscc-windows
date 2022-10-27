@@ -1634,6 +1634,8 @@ NTSTATUS fscc_port_set_memory(struct fscc_port *port, struct fscc_memory *value)
 			WdfSpinLockAcquire(port->board_rx_spinlock);
 			status = fscc_io_rebuild_rx(port, value->rx_num, value->rx_size);
 			WdfSpinLockRelease(port->board_rx_spinlock);
+			if(fscc_port_uses_dma(port)) 
+				fscc_dma_execute_GO_R(port);
 			TraceEvents(TRACE_LEVEL_INFORMATION, TRACE_DEVICE, 
 			"New RX Memory: Size: %d, Number: %d", 
 			port->memory.rx_size, port->memory.rx_num);
