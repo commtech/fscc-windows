@@ -28,10 +28,6 @@ THE SOFTWARE.
 
 #define DEVICE_NAME "fscc"
 
-// Deprecated by DEFAULT_*X_SIZE and DEFAULT_*X_NUM
-//#define DEFAULT_INPUT_MEMORY_CAP_VALUE 1000000
-//#define DEFAULT_OUTPUT_MEMORY_CAP_VALUE 1000000
-
 // NUM * SIZE = new memory_cap
 // Because we are preallocating instead of setting a cap, the 
 // new default values are much lower than the original memory cap.
@@ -39,12 +35,12 @@ THE SOFTWARE.
 // a BSOD, caused by the DPC watchdog.
 
 // The NUM can be any positive number greater than 1.
-#define DEFAULT_DESC_RX_NUM 200
-#define DEFAULT_DESC_TX_NUM 200
+#define DEFAULT_BUFFER_RX_NUM 200
+#define DEFAULT_BUFFER_TX_NUM 200
 // The SIZE should ALWAYS be in 4 byte increments.
 // The SIZE should be smaller than the FIFO, ideally a lot smaller.
-#define DEFAULT_DESC_RX_SIZE 256
-#define DEFAULT_DESC_TX_SIZE 256
+#define DEFAULT_BUFFER_RX_SIZE 256
+#define DEFAULT_BUFFER_TX_SIZE 256
 
 #define DEFAULT_TIMEOUT_VALUE 20
 #define DEFAULT_HOT_PLUG_VALUE 0

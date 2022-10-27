@@ -91,184 +91,216 @@ void FsccProcessRead(WDFDPC Dpc)
 	WdfRequestCompleteWithInformation(request, status, read_count);
 }
 
-NTSTATUS fscc_io_create_rx_desc(struct fscc_port *port, size_t number_of_desc)
+struct dma_frame *fscc_io_create_frame(struct fscc_port *port, size_t size_of_buffer) 
+{
+	NTSTATUS status = STATUS_SUCCESS;
+	PHYSICAL_ADDRESS temp_address;
+	struct dma_frame *frame = 0;
+	
+	frame = (struct dma_frame *)ExAllocatePoolWithTag(NonPagedPool, sizeof(struct dma_frame), 'CSED');
+	if(frame == NULL) {
+		DbgPrint("Failed to make frame..\n");
+		TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE, "ExAllocatePoolWithTag failed!");
+		return 0;
+	}
+	status = WdfCommonBufferCreate(port->dma_enabler, sizeof(struct fscc_descriptor), WDF_NO_OBJECT_ATTRIBUTES, &frame->desc_buffer);
+	if(!NT_SUCCESS(status)) {
+		DbgPrint("Failed to make desc_buffer\n");
+		ExFreePoolWithTag(frame, 'CSED');
+		TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE, "WdfCommonBufferCreate failed!");
+		return 0;
+	}
+	status = WdfCommonBufferCreate(port->dma_enabler, size_of_buffer, WDF_NO_OBJECT_ATTRIBUTES, &frame->data_buffer);
+	if(!NT_SUCCESS(status)) {
+		DbgPrint("Failed to make data_buffer\n");
+		WdfObjectDelete(frame->desc_buffer);
+		ExFreePoolWithTag(frame, 'CSED');
+		TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE, "WdfCommonBufferCreate failed! %!STATUS!", status);
+		return 0;
+	}
+	
+	frame->desc = WdfCommonBufferGetAlignedVirtualAddress(frame->desc_buffer);
+	temp_address = WdfCommonBufferGetAlignedLogicalAddress(frame->desc_buffer);
+	frame->desc_physical_address = temp_address.LowPart;
+	frame->desc_size = WdfCommonBufferGetLength(frame->desc_buffer);
+	RtlZeroMemory(frame->desc, frame->desc_size);
+	
+	frame->buffer = WdfCommonBufferGetAlignedVirtualAddress(frame->data_buffer);
+	temp_address = WdfCommonBufferGetAlignedLogicalAddress(frame->data_buffer);
+	frame->desc->data_address = temp_address.LowPart;
+	frame->data_size = WdfCommonBufferGetLength(frame->data_buffer);
+	RtlZeroMemory(frame->buffer, frame->data_size);
+	
+	clear_timestamp(&frame->timestamp);
+	
+	return frame;
+}
+
+void fscc_io_destroy_frame(struct fscc_port *port, struct dma_frame *frame)
+{
+	RtlZeroMemory(frame->buffer, frame->data_size);
+	frame->desc->data_address = 0;
+	frame->buffer = 0;
+	if(frame->data_buffer)
+		WdfObjectDelete(frame->data_buffer);
+	frame->data_buffer = 0;
+	
+	RtlZeroMemory(frame->desc, frame->desc_size);
+	frame->desc_physical_address = 0;
+	frame->desc = 0;
+	if(frame->desc_buffer) 
+		WdfObjectDelete(frame->desc_buffer);
+	frame->desc_buffer = 0;
+	
+	ExFreePoolWithTag(frame, 'CSED');
+	frame = 0;
+}
+
+void fscc_io_link_desc(struct fscc_port *port, struct dma_frame **descs, size_t number_of_buffers)
+{
+	size_t i;
+	
+	for(i=0;i<number_of_buffers;i++)
+	{
+		descs[i]->desc->next_descriptor = descs[i < number_of_buffers-1 ? i + 1 : 0]->desc_physical_address;
+	}
+}
+
+NTSTATUS fscc_io_create_rx(struct fscc_port *port, size_t number_of_buffers, size_t size_of_buffers)
 {
 	NTSTATUS status;
-	size_t i;
 	PHYSICAL_ADDRESS temp_address;
+	size_t i;
 	
-	// Allocate space for the list of dma_frames
-	port->rx_descriptors = (struct dma_frame **)ExAllocatePoolWithTag(NonPagedPool, (sizeof(struct dma_frame *) * number_of_desc), 'CSED');
+	port->rx_descriptors = (struct dma_frame **)ExAllocatePoolWithTag(NonPagedPool, (sizeof(struct dma_frame *) * number_of_buffers), 'CSED');
 	if(port->rx_descriptors == NULL) {
 		TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE, "ExAllocatePoolWithTag for all rx desc failed!");
-		port->desc_rx_num = 0;
+		port->memory.rx_num = 0;
+		port->memory.rx_size = 0;
 		return STATUS_UNSUCCESSFUL;
 	}
 	
-	// Allocate a common buffer for each descriptor and set it up
-	for(i=0;i<number_of_desc;i++)
-	{
-		port->rx_descriptors[i] = (struct dma_frame *)ExAllocatePoolWithTag(NonPagedPool, sizeof(struct dma_frame), 'CSED');
-		if(port->rx_descriptors[i] == NULL) {
-			TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE, "ExAllocatePoolWithTag(%d) failed!", i);
+	for(i=0;i<number_of_buffers;i++) {
+		port->rx_descriptors[i] = fscc_io_create_frame(port, size_of_buffers);
+		if(!port->rx_descriptors[i]) {
+			DbgPrint("Failed to create rx frame at %d\n", i);
+			TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE, "Failed to create rx frame at %d!", i);
 			break;
 		}
-		status = WdfCommonBufferCreate(port->dma_enabler, sizeof(struct fscc_descriptor), WDF_NO_OBJECT_ATTRIBUTES, &port->rx_descriptors[i]->desc_buffer);
-		if(!NT_SUCCESS(status)) {
-			ExFreePoolWithTag(port->rx_descriptors[i], 'CSED');
-			TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE, "WdfCommonBufferCreate(%d) failed: %!STATUS!", i, status);
-			break;
-		} 
-		port->rx_descriptors[i]->desc = WdfCommonBufferGetAlignedVirtualAddress(port->rx_descriptors[i]->desc_buffer);
-		temp_address = WdfCommonBufferGetAlignedLogicalAddress(port->rx_descriptors[i]->desc_buffer);
-		port->rx_descriptors[i]->desc_physical_address = temp_address.LowPart;
-		RtlZeroMemory(port->rx_descriptors[i]->desc, sizeof(struct fscc_descriptor));
-		clear_timestamp(&port->rx_descriptors[i]->timestamp);
+
 		if(i%2) 
 			port->rx_descriptors[i]->desc->control = DESC_HI_BIT;
 		else 
 			port->rx_descriptors[i]->desc->control = 0;
+					
+		port->rx_descriptors[i]->desc->data_count = port->rx_descriptors[i]->data_size;
 	}
 	
-	port->desc_rx_num = i;
+	port->memory.rx_size = size_of_buffers;
+	port->memory.rx_num = i;
 	
-	// Create the singly linked list
-	for(i=0;i<port->desc_rx_num;i++)
-	{
-		port->rx_descriptors[i]->desc->next_descriptor = port->rx_descriptors[i < port->desc_rx_num-1 ? i + 1 : 0]->desc_physical_address;
-	}
+	fscc_io_link_desc(port, port->rx_descriptors, port->memory.rx_num);
+
+	fscc_io_reset_rx(port);
 	
 	return STATUS_SUCCESS;
 }
 
-NTSTATUS fscc_io_create_tx_desc(struct fscc_port *port, size_t number_of_desc)
+NTSTATUS fscc_io_create_tx(struct fscc_port *port, size_t number_of_buffers, size_t size_of_buffers)
 {
 	NTSTATUS status;
-	size_t i;
 	PHYSICAL_ADDRESS temp_address;
+	size_t i;
 	
-	// Allocate space for the list of dma_frames
-	port->tx_descriptors = (struct dma_frame **)ExAllocatePoolWithTag(NonPagedPool, (sizeof(struct dma_frame *) * number_of_desc), 'CSED');
+	port->tx_descriptors = (struct dma_frame **)ExAllocatePoolWithTag(NonPagedPool, (sizeof(struct dma_frame *) * number_of_buffers), 'CSED');
 	if(port->tx_descriptors == NULL) {
 		TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE, "ExAllocatePoolWithTag for all tx desc failed!");
-		port->desc_tx_num = 0;
+		port->memory.tx_num = 0;
+		port->memory.tx_size = 0;
 		return STATUS_UNSUCCESSFUL;
 	}
 	
-	// Allocate a common buffer for each descriptor and set it up
-	for(i=0;i<number_of_desc;i++)
-	{
-		port->tx_descriptors[i] = (struct dma_frame *)ExAllocatePoolWithTag(NonPagedPool, sizeof(struct dma_frame), 'CSED');
-		if(port->tx_descriptors[i] == NULL) {
-			TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE, "ExAllocatePoolWithTag(%d) failed!", i);
+	for(i=0;i<number_of_buffers;i++) {
+		port->tx_descriptors[i] = fscc_io_create_frame(port, size_of_buffers);
+		if(!port->tx_descriptors[i]) {
+			DbgPrint("Failed to create tx frame at %d\n", i);
+			TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE, "Failed to create tx frame at %d!", i);
 			break;
 		}
-		status = WdfCommonBufferCreate(port->dma_enabler, sizeof(struct fscc_descriptor), WDF_NO_OBJECT_ATTRIBUTES, &port->tx_descriptors[i]->desc_buffer);
-		if(!NT_SUCCESS(status)) {
-			ExFreePoolWithTag(port->tx_descriptors[i], 'CSED');
-			TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE, "WdfCommonBufferCreate(%d) failed: %!STATUS!", i, status);
-			break;
-		}
-		port->tx_descriptors[i]->desc = WdfCommonBufferGetAlignedVirtualAddress(port->tx_descriptors[i]->desc_buffer);
-		temp_address = WdfCommonBufferGetAlignedLogicalAddress(port->tx_descriptors[i]->desc_buffer);
-		port->tx_descriptors[i]->desc_physical_address = temp_address.LowPart;
-		RtlZeroMemory(port->tx_descriptors[i]->desc, sizeof(struct fscc_descriptor));
-		port->tx_descriptors[i]->desc->control = DESC_CSTOP_BIT;
-		clear_timestamp(&port->tx_descriptors[i]->timestamp);
-	}
-	
-	port->desc_tx_num = i;
-	
-	// Create the singly linked list
-	for(i=0;i<port->desc_tx_num;i++)
-	{
-		port->tx_descriptors[i]->desc->next_descriptor = port->tx_descriptors[i < port->desc_tx_num-1 ? i + 1 : 0]->desc_physical_address;
-	}
-	
-	return STATUS_SUCCESS;
-}
-
-NTSTATUS fscc_io_create_rx_buffers(struct fscc_port *port, size_t size_of_desc)
-{
-	NTSTATUS status;
-	size_t i;
-	PHYSICAL_ADDRESS temp_address;
-	
-	port->desc_rx_size = size_of_desc;
-	for(i=0;i<port->desc_rx_num;i++)
-	{
-		status = WdfCommonBufferCreate(port->dma_enabler, size_of_desc, WDF_NO_OBJECT_ATTRIBUTES, &port->rx_descriptors[i]->data_buffer);
-		if(!NT_SUCCESS(status)) {
-			TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE, "WdfCommonBufferCreate(%d) failed: %!STATUS!", i, status);
-			return status;
-		}
-		port->rx_descriptors[i]->buffer = WdfCommonBufferGetAlignedVirtualAddress(port->rx_descriptors[i]->data_buffer);
-		port->rx_descriptors[i]->desc->data_count = size_of_desc;
-		temp_address = WdfCommonBufferGetAlignedLogicalAddress(port->rx_descriptors[i]->data_buffer);
-		port->rx_descriptors[i]->desc->data_address = temp_address.LowPart;
-	}
-	return STATUS_SUCCESS;
-}
-
-NTSTATUS fscc_io_create_tx_buffers(struct fscc_port *port, size_t size_of_desc)
-{
-	NTSTATUS status;
-	size_t i;
-	PHYSICAL_ADDRESS temp_address;
-
-	port->desc_tx_size = size_of_desc;
-	for(i=0;i<port->desc_tx_num;i++)
-	{
-		status = WdfCommonBufferCreate(port->dma_enabler, size_of_desc, WDF_NO_OBJECT_ATTRIBUTES, &port->tx_descriptors[i]->data_buffer);
-		if(!NT_SUCCESS(status)) {
-			TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE, "WdfCommonBufferCreate(%d) failed: %!STATUS!", i, status);
-			return status;
-		}
-		port->tx_descriptors[i]->buffer = WdfCommonBufferGetAlignedVirtualAddress(port->tx_descriptors[i]->data_buffer);
+		
+		if(i%2) 
+			port->tx_descriptors[i]->desc->control = DESC_HI_BIT;
+		else 
+			port->tx_descriptors[i]->desc->control = 0;
+		
 		port->tx_descriptors[i]->desc->data_count = 0;
-		temp_address = WdfCommonBufferGetAlignedLogicalAddress(port->tx_descriptors[i]->data_buffer);
-		port->tx_descriptors[i]->desc->data_address = temp_address.LowPart;
+		
 	}
+	
+	port->memory.tx_size = size_of_buffers;
+	port->memory.tx_num = i;
+	
+	fscc_io_link_desc(port, port->tx_descriptors, port->memory.tx_num);
+
+	fscc_io_reset_tx(port);
+	
 	return STATUS_SUCCESS;
 }
 
-void fscc_io_destroy_data(struct fscc_port *port, struct dma_frame *frame)
+void fscc_io_destroy_rx(struct fscc_port *port)
 {
-	frame->desc->data_address = 0;
-	frame->buffer = 0;
-	if(frame->data_buffer) 
-		WdfObjectDelete(frame->data_buffer);
-	frame->data_buffer = 0;
+	size_t i;
+	
+	fscc_dma_execute_RSTR(port);
+	fscc_port_set_register(port, 2, DMA_RX_BASE_OFFSET, 0);
+	if(!port->rx_descriptors) 
+		return;
+	
+	for(i=0;i<port->memory.rx_num;i++) 
+	{
+		fscc_io_destroy_frame(port, port->rx_descriptors[i]);
+	}
+	
+	ExFreePoolWithTag(port->rx_descriptors, 'CSED');
+	port->rx_descriptors = 0;
 }
 
-void fscc_io_destroy_desc(struct fscc_port *port, struct dma_frame *frame)
+void fscc_io_destroy_tx(struct fscc_port *port)
 {
-	fscc_io_destroy_data(port, frame);
-	RtlZeroMemory(frame->desc, sizeof(struct fscc_descriptor));
-	frame->desc_physical_address = 0;
-	if(frame->desc_buffer) 
-		WdfObjectDelete(frame->desc_buffer);
-	frame->desc_buffer = 0;
+	size_t i;
+	
+	fscc_dma_execute_RSTT(port);
+	fscc_port_set_register(port, 2, DMA_TX_BASE_OFFSET, 0);
+	if(!port->tx_descriptors) 
+		return;
+	
+	for(i=0;i<port->memory.tx_num;i++)
+	{
+		fscc_io_destroy_frame(port, port->tx_descriptors[i]);
+	}
+	
+	ExFreePoolWithTag(port->tx_descriptors, 'CSED');
+	port->tx_descriptors = 0;
 }
 
-NTSTATUS fscc_io_rebuild_rx(struct fscc_port *port, size_t number_of_desc, size_t size_of_desc)
+NTSTATUS fscc_io_rebuild_rx(struct fscc_port *port, size_t number_of_buffers, size_t size_of_buffers)
 {
 	if(!port) 
 		return STATUS_UNSUCCESSFUL;
 	
 	fscc_io_destroy_rx(port);
 	
-	return fscc_io_build_rx(port, number_of_desc, size_of_desc);
+	return fscc_io_create_rx(port, number_of_buffers, size_of_buffers);
 }
 
-NTSTATUS fscc_io_rebuild_tx(struct fscc_port *port, size_t number_of_desc, size_t size_of_desc)
+NTSTATUS fscc_io_rebuild_tx(struct fscc_port *port, size_t number_of_buffers, size_t size_of_buffers)
 {
 	if(!port) 
 		return STATUS_UNSUCCESSFUL;
 	
 	fscc_io_destroy_tx(port);
 	
-	return fscc_io_build_tx(port, number_of_desc, size_of_desc);
+	return fscc_io_create_tx(port, number_of_buffers, size_of_buffers);
 }
 
 NTSTATUS fscc_io_initialize(struct fscc_port *port)
@@ -290,49 +322,15 @@ NTSTATUS fscc_io_initialize(struct fscc_port *port)
 	return status;
 }
 
-NTSTATUS fscc_io_build_rx(struct fscc_port *port, size_t number_of_desc, size_t size_of_desc)
-{
-	NTSTATUS status;
-	
-	// Rebuild the RX DMA stuff.
-	status = fscc_io_create_rx_desc(port, number_of_desc);
-	if(status != STATUS_SUCCESS)
-		return status;
-	
-	status = fscc_io_create_rx_buffers(port, size_of_desc);
-	if(status != STATUS_SUCCESS)
-		return status;
-	
-	fscc_io_reset_rx(port);
-	return STATUS_SUCCESS;
-}
-
-NTSTATUS fscc_io_build_tx(struct fscc_port *port, size_t number_of_desc, size_t size_of_desc)
-{
-	NTSTATUS status;
-	
-	// Rebuild the TX DMA stuff.
-	status = fscc_io_create_tx_desc(port, number_of_desc);
-	if(status != STATUS_SUCCESS)
-		return status;
-
-	status = fscc_io_create_tx_buffers(port, size_of_desc);
-	if(status != STATUS_SUCCESS)
-		return status;
-	
-	fscc_io_reset_tx(port);
-	return STATUS_SUCCESS;
-}
-
 void fscc_io_reset_rx(struct fscc_port *port)
 {
 	size_t i;
 	
 	fscc_dma_execute_RSTR(port);
-	for(i=0;i<port->desc_rx_num;i++)
+	for(i=0;i<port->memory.rx_num;i++)
 	{
 		port->rx_descriptors[i]->desc->control = DESC_HI_BIT;
-		port->rx_descriptors[i]->desc->data_count = port->desc_rx_size;
+		port->rx_descriptors[i]->desc->data_count = port->rx_descriptors[i]->data_size;
 		clear_timestamp(&port->rx_descriptors[i]->timestamp);
 	}
 	port->user_rx_desc = 0;
@@ -347,7 +345,7 @@ void fscc_io_reset_tx(struct fscc_port *port)
 	size_t i;
 	
 	fscc_dma_execute_RSTT(port);
-	for(i=0;i<port->desc_tx_num;i++)
+	for(i=0;i<port->memory.tx_num;i++)
 	{
 		port->tx_descriptors[i]->desc->control = DESC_CSTOP_BIT;
 		port->tx_descriptors[i]->desc->data_count = 0;
@@ -358,55 +356,6 @@ void fscc_io_reset_tx(struct fscc_port *port)
 	port->tx_bytes_in_frame = 0;
 	port->tx_frame_size = 0;
 	fscc_port_set_register(port, 2, DMA_TX_BASE_OFFSET, port->tx_descriptors[0]->desc_physical_address);
-}
-
-void fscc_io_destroy_rx(struct fscc_port *port)
-{
-	size_t i;
-	
-	fscc_dma_execute_RSTR(port);
-	fscc_port_set_register(port, 2, DMA_RX_BASE_OFFSET, 0);
-	if(!port->rx_descriptors) 
-		return;
-	
-	for(i=0;i<port->desc_rx_num;i++) 
-	{
-		fscc_io_destroy_desc(port, port->rx_descriptors[i]);
-		if(port->rx_descriptors[i]) 
-			ExFreePoolWithTag(port->rx_descriptors[i], 'CSED');
-	}
-	
-	ExFreePoolWithTag(port->rx_descriptors, 'CSED');
-	port->rx_descriptors = 0;
-}
-
-void fscc_io_destroy_tx(struct fscc_port *port)
-{
-	size_t i;
-	
-	fscc_dma_execute_RSTT(port);
-	fscc_port_set_register(port, 2, DMA_TX_BASE_OFFSET, 0);
-	if(!port->tx_descriptors) 
-		return;
-	
-	for(i=0;i<port->desc_tx_num;i++)
-	{
-		fscc_io_destroy_desc(port, port->tx_descriptors[i]);
-		if(port->tx_descriptors[i]) 
-			ExFreePoolWithTag(port->tx_descriptors[i], 'CSED');
-	}
-	
-	ExFreePoolWithTag(port->tx_descriptors, 'CSED');
-	port->tx_descriptors = 0;
-}
-
-// You need at least 2 descriptors for a list.
-NTSTATUS fscc_io_calculate_desc_size(int total_max_size, int desc_size, size_t *num_frames)
-{
-	*num_frames = total_max_size / desc_size;
-	if(*num_frames < 2) 
-		return STATUS_UNSUCCESSFUL; 
-	return STATUS_SUCCESS;
 }
 
 BOOLEAN fscc_dma_is_rx_running(struct fscc_port *port)
@@ -491,12 +440,12 @@ NTSTATUS fscc_dma_port_disable(struct fscc_port *port)
 
 unsigned fscc_user_next_read_size(struct fscc_port *port, size_t *bytes)
 {
-	unsigned i, cur_desc;
+	size_t i, cur_desc;
 	UINT32 control = 0;
 	
 	*bytes = 0;
 	cur_desc = port->user_rx_desc;
-	for(i = 0; i < port->desc_rx_num; i++) {
+	for(i = 0; i < port->memory.rx_num; i++) {
 		control = port->rx_descriptors[cur_desc]->desc->control;
 		
 		// If neither FE or CSTOP, desc is unfinished.
@@ -513,7 +462,7 @@ unsigned fscc_user_next_read_size(struct fscc_port *port, size_t *bytes)
 		*bytes += port->rx_descriptors[cur_desc]->desc->data_count;
 
 		cur_desc++;
-		if(cur_desc == port->desc_rx_num) 
+		if(cur_desc == port->memory.rx_num) 
 			cur_desc = 0;
 	}
 	
@@ -522,12 +471,12 @@ unsigned fscc_user_next_read_size(struct fscc_port *port, size_t *bytes)
 
 void fscc_dma_apply_timestamps(struct fscc_port *port)
 {
-	unsigned i, cur_desc;
+	size_t i, cur_desc;
 	UINT32 control = 0;
 
 	WdfSpinLockAcquire(port->board_rx_spinlock);	
 	cur_desc = port->user_rx_desc;
-	for(i=0;i<port->desc_rx_num;i++) {
+	for(i=0;i<port->memory.rx_num;i++) {
 		control = port->rx_descriptors[cur_desc]->desc->control;
 
 		if(!(control&DESC_FE_BIT) && !(control&DESC_CSTOP_BIT))
@@ -537,7 +486,7 @@ void fscc_dma_apply_timestamps(struct fscc_port *port)
 			set_timestamp(&port->rx_descriptors[cur_desc]->timestamp);
 		
 		cur_desc++;
-		if(cur_desc == port->desc_rx_num) 
+		if(cur_desc == port->memory.rx_num) 
 			cur_desc = 0;
 	}
 	WdfSpinLockRelease(port->board_rx_spinlock);
@@ -545,18 +494,18 @@ void fscc_dma_apply_timestamps(struct fscc_port *port)
 
 size_t fscc_user_get_tx_space(struct fscc_port *port)
 {
-	unsigned i, cur_desc;
+	size_t i, cur_desc;
 	size_t space = 0;
 	
 	cur_desc = port->user_tx_desc;
-	for(i = 0; i < port->desc_tx_num; i++) {
+	for(i = 0; i < port->memory.tx_num; i++) {
 		if((port->tx_descriptors[cur_desc]->desc->control&DESC_CSTOP_BIT)!=DESC_CSTOP_BIT) 
 			break;
 		
-		space += port->desc_tx_size;
+		space += port->tx_descriptors[cur_desc]->data_size;
 
 		cur_desc++;
-		if(cur_desc == port->desc_tx_num) 
+		if(cur_desc == port->memory.tx_num) 
 			cur_desc = 0;
 	}
 	
@@ -567,7 +516,8 @@ size_t fscc_user_get_tx_space(struct fscc_port *port)
 int fscc_fifo_write_data(struct fscc_port *port)
 {
 	unsigned fifo_space, write_length, frame_size = 0, size_in_fifo;
-	size_t i, data_written = 0;
+	size_t data_written = 0;
+	size_t i;
 	UINT32 txcnt = 0, tfcnt = 0;
 
 	tfcnt = fscc_port_get_TFCNT(port);
@@ -581,7 +531,7 @@ int fscc_fifo_write_data(struct fscc_port *port)
 		return 0;
 	
 	WdfSpinLockAcquire(port->board_tx_spinlock);
-	for(i = 0; i < port->desc_tx_num; i++) {
+	for(i = 0; i < port->memory.tx_num; i++) {
 		if((port->tx_descriptors[port->fifo_tx_desc]->desc->control&DESC_CSTOP_BIT)==DESC_CSTOP_BIT)
 			break;
 		
@@ -607,7 +557,7 @@ int fscc_fifo_write_data(struct fscc_port *port)
 		port->tx_descriptors[port->fifo_tx_desc]->desc->control = DESC_CSTOP_BIT;
 
 		port->fifo_tx_desc++;
-		if(port->fifo_tx_desc == port->desc_tx_num)
+		if(port->fifo_tx_desc == port->memory.tx_num)
 			port->fifo_tx_desc = 0;
 	}
 	if(frame_size) 
@@ -624,7 +574,7 @@ int fscc_fifo_read_data(struct fscc_port *port)
 	UINT32 new_control = 0;
 	
 	WdfSpinLockAcquire(port->board_rx_spinlock);
-	for(i = 0; i < port->desc_rx_num; i++) {
+	for(i = 0; i < port->memory.rx_num; i++) {
 		
 		new_control = port->rx_descriptors[port->fifo_rx_desc]->desc->control;
 		if((new_control&DESC_CSTOP_BIT)==DESC_CSTOP_BIT)
@@ -646,7 +596,7 @@ int fscc_fifo_read_data(struct fscc_port *port)
 			receive_length = rxcnt - (rxcnt % 4);
 		}
 		
-		receive_length = min(receive_length, port->desc_rx_size - (new_control&DMA_MAX_LENGTH));
+		receive_length = min(receive_length, port->rx_descriptors[port->fifo_rx_desc]->data_size - (new_control&DMA_MAX_LENGTH));
 		// Instead of breaking out if this is 0, we move on to allow the FE/CSTOP processing.
 		
 		if(receive_length)
@@ -655,7 +605,7 @@ int fscc_fifo_read_data(struct fscc_port *port)
 		port->rx_bytes_in_frame += receive_length;
 
 		// We've finished this descriptor, so we finalize it.
-		if((new_control&DMA_MAX_LENGTH) >= port->desc_rx_size) {
+		if((new_control&DMA_MAX_LENGTH) >= (unsigned)port->rx_descriptors[port->fifo_rx_desc]->data_size) {
 			new_control &= ~DMA_MAX_LENGTH;
 			new_control |= DESC_CSTOP_BIT;
 		}
@@ -675,7 +625,7 @@ int fscc_fifo_read_data(struct fscc_port *port)
 		if(new_control&DESC_CSTOP_BIT) {
 			if(timestamp_is_empty(&port->rx_descriptors[port->fifo_rx_desc]->timestamp))
 				set_timestamp(&port->rx_descriptors[port->fifo_rx_desc]->timestamp);
-			port->rx_descriptors[port->fifo_rx_desc]->desc->data_count = port->desc_rx_size;
+			port->rx_descriptors[port->fifo_rx_desc]->desc->data_count = port->rx_descriptors[port->fifo_rx_desc]->data_size;
 		}
 		
 		port->rx_descriptors[port->fifo_rx_desc]->desc->control = new_control;
@@ -685,7 +635,7 @@ int fscc_fifo_read_data(struct fscc_port *port)
 			break;
 		
 		port->fifo_rx_desc++;
-		if(port->fifo_rx_desc == port->desc_rx_num) 
+		if(port->fifo_rx_desc == port->memory.rx_num) 
 			port->fifo_rx_desc = 0;
 	}
 	WdfSpinLockRelease(port->board_rx_spinlock);
@@ -702,14 +652,14 @@ int fscc_user_write_frame(struct fscc_port *port, char *buf, size_t data_length,
 	
 	*out_length = 0;
 	WdfSpinLockAcquire(port->board_tx_spinlock);
-	for(i = 0; i < port->desc_tx_num; i++) {
+	for(i = 0; i < port->memory.tx_num; i++) {
 		if((port->tx_descriptors[port->user_tx_desc]->desc->control&DESC_CSTOP_BIT)!=DESC_CSTOP_BIT) {
 			status = STATUS_BUFFER_TOO_SMALL;
 			break;
 		}
 		if(start_desc==0)
 			start_desc = port->tx_descriptors[port->user_tx_desc]->desc_physical_address;
-		transmit_length = min(data_length - *out_length, port->desc_tx_size);
+		transmit_length = min(data_length - *out_length,  port->tx_descriptors[port->user_tx_desc]->data_size);
 		
 		RtlCopyMemory(port->tx_descriptors[port->user_tx_desc]->buffer, buf + *out_length, transmit_length);
 		*out_length += transmit_length;
@@ -725,12 +675,13 @@ int fscc_user_write_frame(struct fscc_port *port, char *buf, size_t data_length,
 		port->tx_descriptors[port->user_tx_desc]->desc->control = new_control;
 		
 		port->user_tx_desc++;
-		if(port->user_tx_desc == port->desc_tx_num) 
+		if(port->user_tx_desc == port->memory.tx_num) 
 			port->user_tx_desc = 0;
 		if(*out_length == data_length)
 			break;
 	}
 	WdfSpinLockRelease(port->board_tx_spinlock);
+	
 	// There is no additional prep for DMA.. so lets just start it.
 	if(fscc_port_uses_dma(port) && !fscc_dma_is_tx_running(port)) {
 		fscc_port_set_register(port, 2, DMA_TX_BASE_OFFSET, start_desc);
@@ -750,6 +701,7 @@ int fscc_user_read_frame(struct fscc_port *port, char *buf, size_t buf_length, s
 	size_t filled_frame_size = 0;
 	size_t buffer_requirement = 0;
 	UINT32 control = 0;
+	unsigned char *tempbuf;
 	
 	return_val_if_untrue(port, STATUS_UNSUCCESSFUL);
 	
@@ -772,7 +724,7 @@ int fscc_user_read_frame(struct fscc_port *port, char *buf, size_t buf_length, s
 		WdfSpinLockRelease(port->board_rx_spinlock);
 		return STATUS_BUFFER_TOO_SMALL;
 	}
-	for(i = 0; i < port->desc_rx_num; i++) {		
+	for(i = 0; i < port->memory.rx_num; i++) {		
 		control = port->rx_descriptors[port->user_rx_desc]->desc->control;
 		
 		planned_move_size = port->rx_descriptors[port->user_rx_desc]->desc->data_count;
@@ -781,6 +733,7 @@ int fscc_user_read_frame(struct fscc_port *port, char *buf, size_t buf_length, s
 			// CNT to get the total size of the frame, subtract already gathered bytes.
 			planned_move_size = (control&DMA_MAX_LENGTH) - filled_frame_size;
 		}
+		
 		if(planned_move_size > total_valid_data) 
 			real_move_size = total_valid_data;
 		else 
@@ -807,7 +760,7 @@ int fscc_user_read_frame(struct fscc_port *port, char *buf, size_t buf_length, s
 		port->rx_descriptors[port->user_rx_desc]->desc->control = DESC_HI_BIT;
 		
 		port->user_rx_desc++;
-		if(port->user_rx_desc == port->desc_rx_num) 
+		if(port->user_rx_desc == port->memory.rx_num) 
 			port->user_rx_desc = 0;
 		
 		if(bytes_in_descs == 0) {
@@ -845,12 +798,12 @@ int fscc_user_read_stream(struct fscc_port *port, char *buf, size_t buf_length, 
 	
 	*out_length = 0;
 	WdfSpinLockAcquire(port->board_rx_spinlock);
-	for(i = 0; i < port->desc_rx_num; i++) {	
+	for(i = 0; i < port->memory.rx_num; i++) {	
 		control = port->rx_descriptors[port->user_rx_desc]->desc->control;
 		
 		// If not CSTOP && not FE, then break
 		if(!(control&DESC_FE_BIT) && !(control&DESC_CSTOP_BIT))
-		break;
+			break;
 		
 		receive_length = min(port->rx_descriptors[port->user_rx_desc]->desc->data_count, buf_length - *out_length);
 		
@@ -858,7 +811,7 @@ int fscc_user_read_stream(struct fscc_port *port, char *buf, size_t buf_length, 
 		*out_length += receive_length;
 		
 		if(receive_length == port->rx_descriptors[port->user_rx_desc]->desc->data_count) {
-			port->rx_descriptors[port->user_rx_desc]->desc->data_count = port->desc_rx_size;
+			port->rx_descriptors[port->user_rx_desc]->desc->data_count = port->rx_descriptors[port->user_rx_desc]->data_size;
 			clear_timestamp(&port->rx_descriptors[port->user_rx_desc]->timestamp);
 			if(i%2) port->rx_descriptors[port->user_rx_desc]->desc->control = DESC_HI_BIT;
 			else port->rx_descriptors[port->user_rx_desc]->desc->control = 0;
@@ -874,7 +827,7 @@ int fscc_user_read_stream(struct fscc_port *port, char *buf, size_t buf_length, 
 		}
 		
 		port->user_rx_desc++;
-		if(port->user_rx_desc == port->desc_rx_num) 
+		if(port->user_rx_desc == port->memory.rx_num) 
 			port->user_rx_desc = 0;
 	}
 	WdfSpinLockRelease(port->board_rx_spinlock);

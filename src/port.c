@@ -483,7 +483,6 @@ NTSTATUS FsccEvtDevicePrepareHardware(WDFDEVICE Device,
 WDFCMRESLIST ResourcesRaw, WDFCMRESLIST ResourcesTranslated)
 {
 	unsigned char clock_bits[20] = DEFAULT_CLOCK_BITS;
-	struct fscc_memory_cap memory_cap;
 
 	WDF_TIMER_CONFIG  timerConfig;
 	WDF_OBJECT_ATTRIBUTES  timerAttributes;
@@ -528,6 +527,7 @@ WDFCMRESLIST ResourcesRaw, WDFCMRESLIST ResourcesTranslated)
 	if(vstr & 0x04) port->has_dma = 1;
 	else port->has_dma = 0;
 	TraceEvents(TRACE_LEVEL_INFORMATION, TRACE_DEVICE, "Board has DMA: %d!", port->has_dma);
+	
 	fscc_io_initialize(port);
 
 	fscc_port_set_append_status(port, DEFAULT_APPEND_STATUS_VALUE);
@@ -539,37 +539,23 @@ WDFCMRESLIST ResourcesRaw, WDFCMRESLIST ResourcesTranslated)
 	fscc_port_set_blocking_write(port, DEFAULT_BLOCKING_WRITE_VALUE);
 	fscc_port_set_force_fifo(port, DEFAULT_FORCE_FIFO_VALUE);
 	
-
-	port->memory_cap.input = DEFAULT_DESC_RX_NUM * DEFAULT_DESC_RX_SIZE;
-	port->memory_cap.output = DEFAULT_DESC_TX_NUM * DEFAULT_DESC_TX_SIZE;
-	
-	WdfSpinLockAcquire(port->board_rx_spinlock);
-	status = fscc_io_build_rx(port, DEFAULT_DESC_RX_NUM, DEFAULT_DESC_RX_SIZE);
+	status = fscc_io_create_rx(port, DEFAULT_BUFFER_RX_NUM, DEFAULT_BUFFER_RX_SIZE);
 	if (!NT_SUCCESS(status)) {
 		fscc_io_destroy_rx(port);
-		WdfSpinLockRelease(port->board_rx_spinlock);
-		WdfSpinLockAcquire(port->board_tx_spinlock);
 		fscc_io_destroy_tx(port);
-		WdfSpinLockRelease(port->board_tx_spinlock);
 		TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE,
 		"fscc_card_init build_rx failed %!STATUS!", status);
 		return status;
 	}
-	WdfSpinLockRelease(port->board_rx_spinlock);
 	
-	WdfSpinLockAcquire(port->board_tx_spinlock);
-	status = fscc_io_build_tx(port, DEFAULT_DESC_TX_NUM, DEFAULT_DESC_TX_SIZE);
+	status = fscc_io_create_tx(port, DEFAULT_BUFFER_TX_NUM, DEFAULT_BUFFER_TX_SIZE);
 	if (!NT_SUCCESS(status)) {
 		fscc_io_destroy_tx(port);
-		WdfSpinLockRelease(port->board_tx_spinlock);
-		WdfSpinLockAcquire(port->board_rx_spinlock);
 		fscc_io_destroy_rx(port);
-		WdfSpinLockRelease(port->board_rx_spinlock);
 		TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE,
 		"fscc_card_init build_tx failed %!STATUS!", status);
 		return status;
 	}
-	WdfSpinLockRelease(port->board_tx_spinlock);
 	
 	port->last_isr_value = 0;
 
@@ -875,37 +861,37 @@ IN ULONG IoControlCode)
 
 		break;
 
-	case FSCC_SET_MEMORY_CAP: {
-			struct fscc_memory_cap *memcap = 0;
+	case FSCC_SET_MEMORY: {
+			struct fscc_memory *mem = 0;
 
-			status = WdfRequestRetrieveInputBuffer(Request, sizeof(*memcap),
-			(PVOID *)&memcap, NULL);
+			status = WdfRequestRetrieveInputBuffer(Request,
+			sizeof(*mem), (PVOID *)&mem, NULL);
 			if (!NT_SUCCESS(status)) {
 				TraceEvents(TRACE_LEVEL_WARNING, TRACE_DEVICE,
 				"WdfRequestRetrieveInputBuffer failed %!STATUS!", status);
 				break;
 			}
-
-			status = fscc_port_set_memory_cap(port, memcap);
+			status = fscc_port_set_memory(port, mem);
 		}
 
 		break;
 
-	case FSCC_GET_MEMORY_CAP: {
-			struct fscc_memory_cap *memcap = 0;
+	case FSCC_GET_MEMORY: {
+			struct fscc_memory *mem = 0;
 
-			status = WdfRequestRetrieveOutputBuffer(Request, sizeof(*memcap),
-			(PVOID *)&memcap, NULL);
+			status = WdfRequestRetrieveOutputBuffer(Request,
+			sizeof(*mem), (PVOID *)&mem, NULL);
 			if (!NT_SUCCESS(status)) {
 				TraceEvents(TRACE_LEVEL_WARNING, TRACE_DEVICE,
-				"WdfRequestRetrieveInputBuffer failed %!STATUS!", status);
+				"WdfRequestRetrieveOutputBuffer failed %!STATUS!", status);
 				break;
 			}
+			mem->rx_size = port->memory.rx_size;
+			mem->rx_num = port->memory.rx_num;
+			mem->tx_size = port->memory.tx_size;
+			mem->tx_num = port->memory.tx_num;
 
-			memcap->input = fscc_port_get_input_memory_cap(port);
-			memcap->output = fscc_port_get_output_memory_cap(port);
-
-			bytes_returned = sizeof(*memcap);
+			bytes_returned = sizeof(*mem);
 		}
 
 		break;
@@ -1027,23 +1013,6 @@ IN ULONG IoControlCode)
 		}
 		return;
 
-	case FSCC_GET_MEM_USAGE: {
-			struct fscc_memory_cap *memcap = 0;
-
-			status = WdfRequestRetrieveOutputBuffer(Request, sizeof(*memcap), (PVOID *)&memcap, NULL);
-			if (!NT_SUCCESS(status)) {
-				TraceEvents(TRACE_LEVEL_WARNING, TRACE_DEVICE,
-				"WdfRequestRetrieveInputBuffer failed %!STATUS!", status);
-				break;
-			}
-			
-			memcap->input = fscc_port_get_input_memory_usage(port);
-			memcap->output = fscc_port_get_output_memory_usage(port);
-
-			bytes_returned = sizeof(*memcap);
-		}
-
-		break;
 	case FSCC_GET_BLOCKING_WRITE: {
 			BOOLEAN *blocking_write = 0;
 
@@ -1094,6 +1063,7 @@ IN ULONG IoControlCode)
 		}
 		break;
 	default:
+		status = STATUS_NOT_SUPPORTED;
 		TraceEvents(TRACE_LEVEL_WARNING, TRACE_DEVICE,
 		"Unknown DeviceIoControl 0x%x", IoControlCode);
 		break;
@@ -1141,7 +1111,7 @@ VOID FsccEvtIoWrite(IN WDFQUEUE Queue, IN WDFREQUEST Request, IN size_t Length)
 		return;
 	}
 	
-	if(Length > (port->desc_tx_size * port->desc_tx_num)) {
+	if(Length > (port->memory.tx_size * port->memory.tx_num)) {
 		WdfRequestComplete(Request, STATUS_BUFFER_TOO_SMALL);
 		return;
 	}
@@ -1640,21 +1610,7 @@ unsigned fscc_port_get_tx_modifiers(struct fscc_port *port)
 	return port->tx_modifiers;
 }
 
-unsigned fscc_port_get_input_memory_cap(struct fscc_port *port)
-{
-	return_val_if_untrue(port, 0);
-
-	return port->memory_cap.input;
-}
-
-unsigned fscc_port_get_output_memory_cap(struct fscc_port *port)
-{
-	return_val_if_untrue(port, 0);
-
-	return port->memory_cap.output;
-}
-
-NTSTATUS fscc_port_set_memory_cap(struct fscc_port *port, struct fscc_memory_cap *value)
+NTSTATUS fscc_port_set_memory(struct fscc_port *port, struct fscc_memory *value)
 {
 	size_t num_desc = 0;
 	NTSTATUS status = STATUS_SUCCESS;
@@ -1662,65 +1618,60 @@ NTSTATUS fscc_port_set_memory_cap(struct fscc_port *port, struct fscc_memory_cap
 	return_val_if_untrue(port, STATUS_UNSUCCESSFUL);
 	return_val_if_untrue(value, STATUS_UNSUCCESSFUL);
 
-	if (value->input >= 0) {
-		if (port->memory_cap.input != value->input) {
-			if(fscc_io_calculate_desc_size(value->input, port->desc_rx_size, &num_desc) == STATUS_SUCCESS) {
-				fscc_port_purge_rx(port);
-				WdfSpinLockAcquire(port->board_rx_spinlock);
-				status = fscc_io_rebuild_rx(port, num_desc, port->desc_rx_size);
-				if (!NT_SUCCESS(status)) {
-					status = fscc_io_rebuild_rx(port, port->desc_rx_num, port->desc_rx_size);
-				}
-				WdfSpinLockRelease(port->board_rx_spinlock);
-				TraceEvents(TRACE_LEVEL_INFORMATION, TRACE_DEVICE,
-				"Memory cap (input) %i => %i",
-				port->memory_cap.input, port->desc_rx_size * port->desc_rx_num);
-				port->memory_cap.input = port->desc_rx_size * port->desc_rx_num;
-			}
-			else {
-				TraceEvents(TRACE_LEVEL_WARNING, TRACE_DEVICE,
-				"Memory cap (input) passed in value too small for desc size: %i",
-				value->input);
-				status = STATUS_UNSUCCESSFUL;
-			}
+	if(value->rx_num > 0 || value->rx_size > 0) {
+		// Enforce a few rules - must have at least 2 desc, and size must be %4.
+		if(value->rx_num == 0)
+			value->rx_num = port->memory.rx_num;
+		if(value->rx_size == 0)
+			value->rx_size = port->memory.rx_size;
+		if(value->rx_num < 2) 
+			value->rx_num = 2;
+		if(value->rx_size % 4)
+			value->rx_size += (4 - (value->rx_size % 4));
+		
+		if(value->rx_num != port->memory.rx_num || value->rx_size != port->memory.rx_size) {
+			fscc_port_purge_rx(port);
+			WdfSpinLockAcquire(port->board_rx_spinlock);
+			status = fscc_io_rebuild_rx(port, value->rx_num, value->rx_size);
+			WdfSpinLockRelease(port->board_rx_spinlock);
+			TraceEvents(TRACE_LEVEL_INFORMATION, TRACE_DEVICE, 
+			"New RX Memory: Size: %d, Number: %d", 
+			port->memory.rx_size, port->memory.rx_num);
 		}
 		else {
-			TraceEvents(TRACE_LEVEL_VERBOSE, TRACE_DEVICE,
-			"Memory cap (input) = %i",
-			value->input);
+			TraceEvents(TRACE_LEVEL_WARNING, TRACE_DEVICE, 
+			"RX Memory unchanged: Size: %d, Number: %d", 
+			port->memory.rx_size, port->memory.rx_num);
 		}
-
 	}
-	if(!NT_SUCCESS(status)) return status;
 	
-	if (value->output >= 0) {
-		if (port->memory_cap.output != value->output) {
-			if(fscc_io_calculate_desc_size(value->output, port->desc_tx_size, &num_desc) == STATUS_SUCCESS) {
-				fscc_port_purge_tx(port);
-				WdfSpinLockAcquire(port->board_tx_spinlock);
-				status = fscc_io_rebuild_tx(port, num_desc, port->desc_tx_size);
-				if (!NT_SUCCESS(status)) {
-					status = fscc_io_rebuild_tx(port, port->desc_tx_num, port->desc_tx_size);
-				}
-				WdfSpinLockRelease(port->board_tx_spinlock);
-				TraceEvents(TRACE_LEVEL_INFORMATION, TRACE_DEVICE,
-				"Memory cap (output) %i => %i",
-				port->memory_cap.output, port->desc_tx_size * port->desc_tx_num);
-				port->memory_cap.output = port->desc_tx_size * port->desc_tx_num;
-			}
-			else {
-				status = STATUS_UNSUCCESSFUL;
-				TraceEvents(TRACE_LEVEL_WARNING, TRACE_DEVICE,
-				"Memory cap (output) passed in value too small for desc size: %i",
-				value->output);
-			}
+	if(value->tx_num > 0 || value->tx_size > 0) {
+		// Enforce a few rules - must have at least 2 desc, and size must be %4.
+		if(value->tx_num == 0)
+			value->tx_num = port->memory.tx_num;
+		if(value->tx_size == 0)
+			value->tx_size = port->memory.tx_size;
+		if(value->tx_num < 2) 
+			value->tx_num = 2;
+		if(value->tx_size % 4)
+			value->tx_size += (4 - (value->tx_size % 4));
+		
+		if(value->tx_num != port->memory.tx_num || value->tx_size != port->memory.tx_size) {
+			fscc_port_purge_tx(port);
+			WdfSpinLockAcquire(port->board_tx_spinlock);
+			status = fscc_io_rebuild_tx(port, value->tx_num, value->tx_size);
+			WdfSpinLockRelease(port->board_tx_spinlock);
+			TraceEvents(TRACE_LEVEL_INFORMATION, TRACE_DEVICE, 
+			"New TX Memory: Size: %d, Number: %d", 
+			port->memory.tx_size, port->memory.tx_num);
 		}
 		else {
-			TraceEvents(TRACE_LEVEL_VERBOSE, TRACE_DEVICE,
-			"Memory cap (output) = %i",
-			value->output);
+			TraceEvents(TRACE_LEVEL_WARNING, TRACE_DEVICE, 
+			"TX Memory unchanged: Size: %d, Number: %d", 
+			port->memory.tx_size, port->memory.tx_num);		
 		}
 	}
+	
 	return status;
 }
 
@@ -1824,28 +1775,6 @@ unsigned fscc_port_using_async(struct fscc_port *port)
 	}
 
 	return 0;
-}
-
-unsigned fscc_port_get_output_memory_usage(struct fscc_port *port)
-{
-	unsigned value = 0;
-
-	return_val_if_untrue(port, 0);
-
-	// TODO implement this?
-
-	return value;
-}
-
-unsigned fscc_port_get_input_memory_usage(struct fscc_port *port)
-{
-	unsigned value = 0;
-
-	return_val_if_untrue(port, 0);
-	
-	// TODO implement this?
-
-	return value;
 }
 
 unsigned fscc_port_is_streaming(struct fscc_port *port)

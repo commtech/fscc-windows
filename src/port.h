@@ -104,7 +104,7 @@ typedef struct fscc_port {
 	int tx_modifiers;
 	unsigned last_isr_value;
 	unsigned open_counter;
-	struct fscc_memory_cap memory_cap;
+	struct fscc_memory memory;
 
 	WDFQUEUE write_queue;
 	WDFQUEUE write_queue2; /* TODO: Change name to be more descriptive. */
@@ -133,16 +133,12 @@ typedef struct fscc_port {
 	BOOLEAN has_dma;
 	WDFDMAENABLER dma_enabler;
 	struct dma_frame **rx_descriptors;
-	unsigned desc_rx_num;  // Number of descriptors.
-	unsigned desc_rx_size; // Size of each descriptor
 	unsigned user_rx_desc; // DMA & FIFO, this is where the drivers are working.
 	unsigned fifo_rx_desc; // For non-DMA use, this is where the FIFO is currently working.
 	int rx_bytes_in_frame; // FIFO, How many bytes are in the current RX frame
 	int rx_frame_size; // FIFO, The current RX frame size
 	
 	struct dma_frame **tx_descriptors;
-	unsigned desc_tx_num;  // Number of descriptors.
-	unsigned desc_tx_size; // Size of each descriptor.
 	unsigned user_tx_desc; // DMA & FIFO, this is where the drivers are working.
 	unsigned fifo_tx_desc; // For non-DMA use, this is where the FIFO is currently working.
 	int tx_bytes_in_frame; // FIFO, How many bytes are in the current TX frame
@@ -202,11 +198,7 @@ BOOLEAN fscc_port_get_blocking_write(struct fscc_port *port);
 NTSTATUS fscc_port_set_tx_modifiers(struct fscc_port *port, int value);
 unsigned fscc_port_get_tx_modifiers(struct fscc_port *port);
 
-NTSTATUS fscc_port_set_memory_cap(struct fscc_port *port, struct fscc_memory_cap *memory_cap);
-unsigned fscc_port_get_input_memory_cap(struct fscc_port *port);
-unsigned fscc_port_get_output_memory_cap(struct fscc_port *port);
-unsigned fscc_port_get_input_memory_usage(struct fscc_port *port);
-unsigned fscc_port_get_output_memory_usage(struct fscc_port *port);
+NTSTATUS fscc_port_set_memory(struct fscc_port *port, struct fscc_memory *mem);
 
 void fscc_port_set_clock_bits(struct fscc_port *port, unsigned char *clock_data);
 

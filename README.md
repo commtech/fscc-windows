@@ -75,7 +75,7 @@ There are likely other configuration options you will need to set up for your  o
 - [Append Timestamp](docs/append-timestamp.md)
 - [Clock Frequency](docs/clock-frequency.md)
 - [Ignore Timeout](docs/ignore-timeout.md)
-- [Memory Cap](docs/memory-cap.md)
+- [Memory](docs/memory.md)
 - [Purge](docs/purge.md)
 - [Read](docs/read.md)
 - [Registers](docs/registers.md)
@@ -358,11 +358,9 @@ At this point you can install the 'legacy' version of the driver without the new
 
 
 ##### Do I need to do anything special to use DMA?
-No! If you have a board with DMA enabled (the SuperFSCC family), the drivers will automatically utilize DMA for both transmit and receive (as of version 2.8.0). If you find you do not want to use DMA, you can disable it by using ENABLE_FORCE_FIFO. You can switch back to DMA by using DISABLE_FORCE_FIFO. 
+No! If you have a board with DMA enabled (the SuperFSCC family), the drivers will automatically utilize DMA for both transmit and receive (as of version 3.0.0). If you find you do not want to use DMA, you can disable it by using ENABLE_FORCE_FIFO. You can switch back to DMA by using DISABLE_FORCE_FIFO. 
 
 It is advisable to purge after switching between DMA and FIFO mode.
-
-DMA allocates an additional 1MB of space for transmit and 1MB of space for receive in addition to the memory cap.
 
 
 ## Build Dependencies

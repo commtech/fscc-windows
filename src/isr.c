@@ -278,7 +278,7 @@ void request_worker(WDFDPC Dpc)
 	Length = params.Parameters.Write.Length;
 	
 	if(fscc_user_get_tx_space(port) < Length) 
-	return;
+		return;
 	
 	status = WdfIoQueueRetrieveFoundRequest(port->blocking_request_queue, tagRequest, &Request);
 	WdfObjectDereference(tagRequest);
@@ -295,7 +295,7 @@ void request_worker(WDFDPC Dpc)
 
 	WdfRequestCompleteWithInformation(Request, status, write_count);
 	if(!fscc_port_uses_dma(port))
-	WdfDpcEnqueue(port->oframe_dpc);
+		WdfDpcEnqueue(port->oframe_dpc);
 }
 
 VOID timer_handler(WDFTIMER Timer)
@@ -304,7 +304,9 @@ VOID timer_handler(WDFTIMER Timer)
 
 	port = WdfObjectGet_FSCC_PORT(WdfTimerGetParentObject(Timer));
 	
-	if(fscc_port_uses_dma(port)) WdfDpcEnqueue(port->process_read_dpc);
-	else WdfDpcEnqueue(port->iframe_dpc);
+	if(fscc_port_uses_dma(port)) 
+		WdfDpcEnqueue(port->process_read_dpc);
+	else 
+		WdfDpcEnqueue(port->iframe_dpc);
 	WdfDpcEnqueue(port->request_dpc);
 }

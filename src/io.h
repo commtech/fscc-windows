@@ -45,16 +45,17 @@ typedef struct dma_frame {
 	WDFCOMMONBUFFER data_buffer;
 	unsigned char *buffer;
 	fscc_timestamp timestamp;
+	size_t data_size;
+	size_t desc_size;
 } DMA_FRAME;
 
 EVT_WDF_DPC FsccProcessRead;
 
 NTSTATUS fscc_io_initialize(struct fscc_port *port);
-NTSTATUS fscc_io_rebuild_rx(struct fscc_port *port, size_t number_of_desc, size_t size_of_desc);
-NTSTATUS fscc_io_rebuild_tx(struct fscc_port *port, size_t number_of_desc, size_t size_of_desc);
-NTSTATUS fscc_io_build_rx(struct fscc_port *port, size_t number_of_desc, size_t size_of_desc);
-NTSTATUS fscc_io_build_tx(struct fscc_port *port, size_t number_of_desc, size_t size_of_desc);
-NTSTATUS fscc_io_calculate_desc_size(int total_max_size, int desc_size, size_t *num_frames);
+NTSTATUS fscc_io_rebuild_rx(struct fscc_port *port, size_t number_of_buffers, size_t size_of_buffers);
+NTSTATUS fscc_io_rebuild_tx(struct fscc_port *port, size_t number_of_buffers, size_t size_of_buffers);
+NTSTATUS fscc_io_create_rx(struct fscc_port *port, size_t number_of_buffers, size_t size_of_buffers);
+NTSTATUS fscc_io_create_tx(struct fscc_port *port, size_t number_of_buffers, size_t size_of_buffers);
 void fscc_io_reset_rx(struct fscc_port *port);
 void fscc_io_reset_tx(struct fscc_port *port);
 void fscc_io_destroy_rx(struct fscc_port *port);
