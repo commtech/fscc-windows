@@ -1,11 +1,13 @@
 # Memory Cap
 
+NOT YET IMPLEMENTED.
+
 The memory structure determines how much space is available in the drivers for storing input and output data. The total input memory is equal to rx_size \* rx_num while the total output memory is equal to tx_size \* tx_num. These values should be big enough to hold as much data as necessary before the user can get handle emptying or filling them again.
 
 ###### Support
 | Code  | Version |
 | ----- | ------- |
-| fscc-windows | 3.0.0 |
+| fscc-windows | -.-.- |
 
 
 ## Structure

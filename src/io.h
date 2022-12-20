@@ -50,27 +50,45 @@ typedef struct dma_frame {
 } DMA_FRAME;
 
 EVT_WDF_DPC FsccProcessRead;
+EVT_WDF_IO_QUEUE_IO_WRITE FsccEvtIoWrite;
+EVT_WDF_IO_QUEUE_IO_READ FsccEvtIoRead;
+
+NTSTATUS fscc_io_set_memory(struct fscc_port *port, struct fscc_memory *mem);
+
+BOOLEAN fscc_port_uses_dma(struct fscc_port *port);
+unsigned fscc_io_is_streaming(struct fscc_port *port);
+unsigned fscc_io_has_incoming_data(struct fscc_port *port);
+unsigned fscc_io_transmit_frame(struct fscc_port *port);
+void fscc_io_execute_transmit(struct fscc_port *port, unsigned dma);
 
 NTSTATUS fscc_io_initialize(struct fscc_port *port);
 NTSTATUS fscc_io_rebuild_rx(struct fscc_port *port, size_t number_of_buffers, size_t size_of_buffers);
 NTSTATUS fscc_io_rebuild_tx(struct fscc_port *port, size_t number_of_buffers, size_t size_of_buffers);
 NTSTATUS fscc_io_create_rx(struct fscc_port *port, size_t number_of_buffers, size_t size_of_buffers);
 NTSTATUS fscc_io_create_tx(struct fscc_port *port, size_t number_of_buffers, size_t size_of_buffers);
-void fscc_io_reset_rx(struct fscc_port *port);
-void fscc_io_reset_tx(struct fscc_port *port);
 void fscc_io_destroy_rx(struct fscc_port *port);
 void fscc_io_destroy_tx(struct fscc_port *port);
+NTSTATUS fscc_io_purge_tx(struct fscc_port *port);
+NTSTATUS fscc_io_purge_rx(struct fscc_port *port);
 
+NTSTATUS fscc_io_execute_RRES(struct fscc_port *port);
+NTSTATUS fscc_io_execute_TRES(struct fscc_port *port);
+unsigned fscc_io_get_RFCNT(struct fscc_port *port);
+unsigned fscc_io_get_TFCNT(struct fscc_port *port);
+unsigned fscc_io_get_RXCNT(struct fscc_port *port);
+unsigned fscc_io_get_TXCNT(struct fscc_port *port);
+NTSTATUS fscc_dma_execute_RST_T(struct fscc_port *port);
+NTSTATUS fscc_dma_execute_RST_R(struct fscc_port *port);
+NTSTATUS fscc_dma_execute_STOP_T(struct fscc_port *port);
+NTSTATUS fscc_dma_execute_STOP_R(struct fscc_port *port);
 NTSTATUS fscc_dma_execute_GO_T(struct fscc_port *port);
 NTSTATUS fscc_dma_execute_GO_R(struct fscc_port *port);
-NTSTATUS fscc_dma_execute_RSTT(struct fscc_port *port);
-NTSTATUS fscc_dma_execute_RSTR(struct fscc_port *port);
 NTSTATUS fscc_dma_port_enable(struct fscc_port *port);
 NTSTATUS fscc_dma_port_disable(struct fscc_port *port);
 BOOLEAN fscc_dma_is_tx_running(struct fscc_port *port);
 BOOLEAN fscc_dma_is_rx_running(struct fscc_port *port);
-void fscc_dma_apply_timestamps(struct fscc_port *port);
 
+void fscc_dma_apply_timestamps(struct fscc_port *port);
 size_t fscc_user_get_tx_space(struct fscc_port *port);
 int fscc_fifo_read_data(struct fscc_port *port);
 int fscc_fifo_write_data(struct fscc_port *port);

@@ -66,7 +66,7 @@ BOOLEAN fscc_isr(WDFINTERRUPT Interrupt, ULONG MessageID)
 		if (isr_value & RFE)
 			WdfDpcEnqueue(port->timestamp_dpc);
 		
-		if (isr_value & (DR_HI | DR_FE | RFT | RFS | RFE | DR_STOP))
+		if (isr_value & (DR_HI | DR_FE | RFT | RFS | RFE))
 			WdfDpcEnqueue(port->process_read_dpc);
 	}
 	else {
@@ -231,7 +231,7 @@ void oframe_worker(WDFDPC Dpc)
 
 	return_if_untrue(port);
 	if(fscc_port_uses_dma(port)) return;
-	fscc_port_transmit_frame(port);
+	fscc_io_transmit_frame(port);
 }
 
 void alls_worker(WDFDPC Dpc)

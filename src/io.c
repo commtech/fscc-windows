@@ -34,6 +34,9 @@ THE SOFTWARE.
 #include "io.tmh"
 #endif
 
+NTSTATUS fscc_io_reset_tx(struct fscc_port *port);
+NTSTATUS fscc_io_reset_rx(struct fscc_port *port);
+
 void FsccProcessRead(WDFDPC Dpc)
 {
 	struct fscc_port *port = 0;
@@ -47,9 +50,10 @@ void FsccProcessRead(WDFDPC Dpc)
 	size_t bytes_ready;
 	
 	port = WdfObjectGet_FSCC_PORT(WdfDpcGetParentObject(Dpc));
-	
-	streaming = fscc_port_is_streaming(port);
+	streaming = fscc_io_is_streaming(port);
+	WdfSpinLockAcquire(port->board_rx_spinlock);
 	frame_ready = fscc_user_next_read_size(port, &bytes_ready);
+	WdfSpinLockRelease(port->board_rx_spinlock);
 	if (bytes_ready == 0) return;
 	if (!streaming && !frame_ready) return;
 	
@@ -172,9 +176,15 @@ NTSTATUS fscc_io_create_rx(struct fscc_port *port, size_t number_of_buffers, siz
 	PHYSICAL_ADDRESS temp_address;
 	size_t i;
 	
+	if(number_of_buffers < 2) 
+		number_of_buffers = 2;
+	if(size_of_buffers % 4)
+		size_of_buffers += (4 - (size_of_buffers % 4));
+	
 	port->rx_descriptors = (struct dma_frame **)ExAllocatePoolWithTag(NonPagedPool, (sizeof(struct dma_frame *) * number_of_buffers), 'CSED');
 	if(port->rx_descriptors == NULL) {
 		TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE, "ExAllocatePoolWithTag for all rx desc failed!");
+		DbgPrint("Failed all rx desc\n");
 		port->memory.rx_num = 0;
 		port->memory.rx_size = 0;
 		return STATUS_UNSUCCESSFUL;
@@ -199,10 +209,9 @@ NTSTATUS fscc_io_create_rx(struct fscc_port *port, size_t number_of_buffers, siz
 	port->memory.rx_size = size_of_buffers;
 	port->memory.rx_num = i;
 	
+	DbgPrint("rx_num %d, rx_size %d\n", port->memory.rx_num, port->memory.rx_size);
 	fscc_io_link_desc(port, port->rx_descriptors, port->memory.rx_num);
 
-	fscc_io_reset_rx(port);
-	
 	return STATUS_SUCCESS;
 }
 
@@ -211,10 +220,16 @@ NTSTATUS fscc_io_create_tx(struct fscc_port *port, size_t number_of_buffers, siz
 	NTSTATUS status;
 	PHYSICAL_ADDRESS temp_address;
 	size_t i;
+
+	if(number_of_buffers < 2) 
+		number_of_buffers = 2;
+	if(size_of_buffers % 4)
+		size_of_buffers += (4 - (size_of_buffers % 4));
 	
 	port->tx_descriptors = (struct dma_frame **)ExAllocatePoolWithTag(NonPagedPool, (sizeof(struct dma_frame *) * number_of_buffers), 'CSED');
 	if(port->tx_descriptors == NULL) {
 		TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE, "ExAllocatePoolWithTag for all tx desc failed!");
+		DbgPrint("Failed all tx desc\n");
 		port->memory.tx_num = 0;
 		port->memory.tx_size = 0;
 		return STATUS_UNSUCCESSFUL;
@@ -240,9 +255,8 @@ NTSTATUS fscc_io_create_tx(struct fscc_port *port, size_t number_of_buffers, siz
 	port->memory.tx_size = size_of_buffers;
 	port->memory.tx_num = i;
 	
+	DbgPrint("tx_num %d, tx_size %d\n", port->memory.tx_num, port->memory.tx_size);
 	fscc_io_link_desc(port, port->tx_descriptors, port->memory.tx_num);
-
-	fscc_io_reset_tx(port);
 	
 	return STATUS_SUCCESS;
 }
@@ -251,8 +265,11 @@ void fscc_io_destroy_rx(struct fscc_port *port)
 {
 	size_t i;
 	
-	fscc_dma_execute_RSTR(port);
-	fscc_port_set_register(port, 2, DMA_RX_BASE_OFFSET, 0);
+	fscc_dma_execute_STOP_R(port);
+	fscc_dma_execute_RST_R(port);
+	if(fscc_port_uses_dma(port))
+		fscc_port_set_register(port, 2, DMA_RX_BASE_OFFSET, 0);
+	
 	if(!port->rx_descriptors) 
 		return;
 	
@@ -269,8 +286,11 @@ void fscc_io_destroy_tx(struct fscc_port *port)
 {
 	size_t i;
 	
-	fscc_dma_execute_RSTT(port);
-	fscc_port_set_register(port, 2, DMA_TX_BASE_OFFSET, 0);
+	fscc_dma_execute_STOP_T(port);
+	fscc_dma_execute_RST_T(port);
+	if(fscc_port_uses_dma(port))
+		fscc_port_set_register(port, 2, DMA_TX_BASE_OFFSET, 0);
+	
 	if(!port->tx_descriptors) 
 		return;
 	
@@ -285,22 +305,54 @@ void fscc_io_destroy_tx(struct fscc_port *port)
 
 NTSTATUS fscc_io_rebuild_rx(struct fscc_port *port, size_t number_of_buffers, size_t size_of_buffers)
 {
+	NTSTATUS status;
+	
 	if(!port) 
 		return STATUS_UNSUCCESSFUL;
 	
+	WdfSpinLockAcquire(port->board_rx_spinlock);
 	fscc_io_destroy_rx(port);
+	status = fscc_io_create_rx(port, number_of_buffers, size_of_buffers);
+	fscc_io_reset_rx(port);
+	WdfSpinLockRelease(port->board_rx_spinlock);
 	
-	return fscc_io_create_rx(port, number_of_buffers, size_of_buffers);
+	if(fscc_port_uses_dma(port)) {
+		fscc_port_set_register(port, 2, DMA_RX_BASE_OFFSET, port->rx_descriptors[0]->desc_physical_address);
+		fscc_dma_execute_GO_R(port);
+	}
+	
+	WdfIoQueuePurgeSynchronously(port->read_queue);
+	WdfIoQueuePurgeSynchronously(port->read_queue2);
+	
+	WdfIoQueueStart(port->read_queue);
+	WdfIoQueueStart(port->read_queue2);
+	
+	return status;
 }
 
 NTSTATUS fscc_io_rebuild_tx(struct fscc_port *port, size_t number_of_buffers, size_t size_of_buffers)
 {
+	NTSTATUS status;
+	
 	if(!port) 
 		return STATUS_UNSUCCESSFUL;
 	
+	WdfSpinLockAcquire(port->board_tx_spinlock);
 	fscc_io_destroy_tx(port);
+	status = fscc_io_create_tx(port, number_of_buffers, size_of_buffers);
+	fscc_io_reset_tx(port);
+	WdfSpinLockRelease(port->board_tx_spinlock);
 	
-	return fscc_io_create_tx(port, number_of_buffers, size_of_buffers);
+	if(fscc_port_uses_dma(port))
+		fscc_port_set_register(port, 2, DMA_TX_BASE_OFFSET, port->tx_descriptors[0]->desc_physical_address);
+	
+	WdfIoQueuePurgeSynchronously(port->write_queue);
+	WdfIoQueuePurgeSynchronously(port->write_queue2);
+	
+	WdfIoQueueStart(port->write_queue);
+	WdfIoQueueStart(port->write_queue2);
+	
+	return status;
 }
 
 NTSTATUS fscc_io_initialize(struct fscc_port *port)
@@ -322,11 +374,13 @@ NTSTATUS fscc_io_initialize(struct fscc_port *port)
 	return status;
 }
 
-void fscc_io_reset_rx(struct fscc_port *port)
-{
+NTSTATUS fscc_io_reset_rx(struct fscc_port *port) {
+	NTSTATUS status;
 	size_t i;
 	
-	fscc_dma_execute_RSTR(port);
+	fscc_dma_execute_STOP_R(port);
+	status = fscc_io_execute_RRES(port);
+	fscc_dma_execute_RST_R(port);
 	for(i=0;i<port->memory.rx_num;i++)
 	{
 		port->rx_descriptors[i]->desc->control = DESC_HI_BIT;
@@ -337,14 +391,17 @@ void fscc_io_reset_rx(struct fscc_port *port)
 	port->fifo_rx_desc = 0;
 	port->rx_bytes_in_frame = 0;
 	port->rx_frame_size = 0;
-	fscc_port_set_register(port, 2, DMA_RX_BASE_OFFSET, port->rx_descriptors[0]->desc_physical_address);
+	
+	return status;
 }
 
-void fscc_io_reset_tx(struct fscc_port *port)
-{
+NTSTATUS fscc_io_reset_tx(struct fscc_port *port) {
+	NTSTATUS status;
 	size_t i;
 	
-	fscc_dma_execute_RSTT(port);
+	fscc_dma_execute_STOP_T(port);
+	status = fscc_io_execute_TRES(port);
+	fscc_dma_execute_RST_T(port);
 	for(i=0;i<port->memory.tx_num;i++)
 	{
 		port->tx_descriptors[i]->desc->control = DESC_CSTOP_BIT;
@@ -355,7 +412,60 @@ void fscc_io_reset_tx(struct fscc_port *port)
 	port->fifo_tx_desc = 0;
 	port->tx_bytes_in_frame = 0;
 	port->tx_frame_size = 0;
-	fscc_port_set_register(port, 2, DMA_TX_BASE_OFFSET, port->tx_descriptors[0]->desc_physical_address);
+	
+	return status;
+}
+
+// TODO Apparently this should only done with CCR0:RECD=1
+NTSTATUS fscc_io_purge_rx(struct fscc_port *port)
+{
+
+	return_val_if_untrue(port, 0);
+
+	TraceEvents(TRACE_LEVEL_INFORMATION, TRACE_DEVICE, "Purging receive data");
+
+	WdfSpinLockAcquire(port->board_rx_spinlock);
+	fscc_io_reset_rx(port);
+	WdfSpinLockRelease(port->board_rx_spinlock);
+
+	if(fscc_port_uses_dma(port)) {
+		fscc_port_set_register(port, 2, DMA_RX_BASE_OFFSET, port->rx_descriptors[0]->desc_physical_address);
+		fscc_dma_execute_GO_R(port);
+	}
+	
+	WdfIoQueuePurgeSynchronously(port->read_queue);
+	WdfIoQueuePurgeSynchronously(port->read_queue2);
+	
+	WdfIoQueueStart(port->read_queue);
+	WdfIoQueueStart(port->read_queue2);
+	
+	return STATUS_SUCCESS;
+}
+
+NTSTATUS fscc_io_purge_tx(struct fscc_port *port)
+{
+	NTSTATUS status;
+	size_t i;
+
+	return_val_if_untrue(port, 0);
+
+	TraceEvents(TRACE_LEVEL_INFORMATION, TRACE_DEVICE,
+	"Purging transmit data");
+	
+	WdfSpinLockAcquire(port->board_tx_spinlock);
+	fscc_io_reset_tx(port);
+	WdfSpinLockRelease(port->board_tx_spinlock);
+	
+	if(fscc_port_uses_dma(port))
+		fscc_port_set_register(port, 2, DMA_TX_BASE_OFFSET, port->tx_descriptors[0]->desc_physical_address);
+	
+	WdfIoQueuePurgeSynchronously(port->write_queue);
+	WdfIoQueuePurgeSynchronously(port->write_queue2);
+
+	WdfIoQueueStart(port->write_queue);
+	WdfIoQueueStart(port->write_queue2);
+
+	return STATUS_SUCCESS;
 }
 
 BOOLEAN fscc_dma_is_rx_running(struct fscc_port *port)
@@ -400,32 +510,98 @@ void fscc_dma_reset_master(struct fscc_port *port)
 	fscc_card_set_register(&port->card, 2, DMACCR_OFFSET, 0x10000);
 }
 
-NTSTATUS fscc_dma_execute_RSTR(struct fscc_port *port)
+NTSTATUS fscc_dma_execute_STOP_R(struct fscc_port *port)
 {
-	NTSTATUS status;
-	status  = fscc_port_set_register(port, 2, DMACCR_OFFSET, 0x100);
-	status |= fscc_port_set_register(port, 2, DMACCR_OFFSET, 0x10);
-	
-	return status;
+	if(!fscc_port_uses_dma(port)) return STATUS_SUCCESS;
+	return fscc_port_set_register(port, 2, DMACCR_OFFSET, 0x100);
+}
+
+NTSTATUS fscc_dma_execute_STOP_T(struct fscc_port *port)
+{
+	if(!fscc_port_uses_dma(port)) return STATUS_SUCCESS;
+	return fscc_port_set_register(port, 2, DMACCR_OFFSET, 0x200);
 }
 
 NTSTATUS fscc_dma_execute_GO_R(struct fscc_port *port)
 {
+	if(!fscc_port_uses_dma(port)) return STATUS_SUCCESS;
 	return fscc_port_set_register(port, 2, DMACCR_OFFSET, 0x1);
-}
-
-NTSTATUS fscc_dma_execute_RSTT(struct fscc_port *port)
-{
-	NTSTATUS status;
-	status  = fscc_port_set_register(port, 2, DMACCR_OFFSET, 0x200);
-	status |= fscc_port_set_register(port, 2, DMACCR_OFFSET, 0x20);
-	
-	return status;
 }
 
 NTSTATUS fscc_dma_execute_GO_T(struct fscc_port *port)
 {
+	if(!fscc_port_uses_dma(port)) return STATUS_SUCCESS;
 	return fscc_port_set_register(port, 2, DMACCR_OFFSET, 0x2);
+}
+
+NTSTATUS fscc_dma_execute_RST_R(struct fscc_port *port)
+{
+	if(!fscc_port_uses_dma(port)) return STATUS_SUCCESS;
+	return fscc_port_set_register(port, 2, DMACCR_OFFSET, 0x10);
+}
+
+NTSTATUS fscc_dma_execute_RST_T(struct fscc_port *port)
+{
+	if(!fscc_port_uses_dma(port)) return STATUS_SUCCESS;
+	return fscc_port_set_register(port, 2, DMACCR_OFFSET, 0x20);
+}
+
+unsigned fscc_io_get_RFCNT(struct fscc_port *port)
+{
+	UINT32 fifo_fc_value = 0;
+
+	return_val_if_untrue(port, 0);
+
+	fifo_fc_value = fscc_port_get_register(port, 0, FIFO_FC_OFFSET);
+
+	return (unsigned)(fifo_fc_value & 0x000003ff);
+}
+
+unsigned fscc_io_get_TFCNT(struct fscc_port *port)
+{
+	UINT32 fifo_fc_value = 0;
+
+	return_val_if_untrue(port, 0);
+
+	fifo_fc_value = fscc_port_get_register(port, 0, FIFO_FC_OFFSET);
+
+	return (unsigned)((fifo_fc_value & 0x01ff0000) >> 16);
+}
+
+unsigned fscc_io_get_RXCNT(struct fscc_port *port)
+{
+	UINT32 fifo_bc_value = 0;
+
+	return_val_if_untrue(port, 0);
+
+	fifo_bc_value = fscc_port_get_register(port, 0, FIFO_BC_OFFSET);
+
+	/* Not sure why, but this can be larger than 8192. We add
+	the 8192 check here so other code can count on the value
+	not being larger than 8192. */
+	fifo_bc_value = fifo_bc_value & 0x00003FFF;
+	return (fifo_bc_value > 8192) ? 0 : fifo_bc_value;
+}
+
+unsigned fscc_io_get_TXCNT(struct fscc_port *port)
+{
+	UINT32 fifo_bc_value = 0;
+
+	return_val_if_untrue(port, 0);
+
+	fifo_bc_value = fscc_port_get_register(port, 0, FIFO_BC_OFFSET);
+
+	return (fifo_bc_value & 0x1FFF0000) >> 16;
+}
+
+NTSTATUS fscc_io_execute_TRES(struct fscc_port *port)
+{
+	return fscc_port_set_register(port, 0, CMDR_OFFSET, 0x08000000);
+}
+
+NTSTATUS fscc_io_execute_RRES(struct fscc_port *port)
+{
+	return fscc_port_set_register(port, 0, CMDR_OFFSET, 0x00020000);
 }
 
 NTSTATUS fscc_dma_port_enable(struct fscc_port *port)
@@ -520,11 +696,11 @@ int fscc_fifo_write_data(struct fscc_port *port)
 	size_t i;
 	UINT32 txcnt = 0, tfcnt = 0;
 
-	tfcnt = fscc_port_get_TFCNT(port);
+	tfcnt = fscc_io_get_TFCNT(port);
 	if(tfcnt > 254)
 		return 0;
 	
-	txcnt = fscc_port_get_TXCNT(port);
+	txcnt = fscc_io_get_TXCNT(port);
 	fifo_space = TX_FIFO_SIZE - txcnt - 1;
 	fifo_space -= fifo_space % 4;
 	if(fifo_space > TX_FIFO_SIZE)
@@ -581,7 +757,7 @@ int fscc_fifo_read_data(struct fscc_port *port)
 			break;
 		
 		if (port->rx_frame_size == 0) {
-			if (fscc_port_get_RFCNT(port)) 
+			if (fscc_io_get_RFCNT(port)) 
 				port->rx_frame_size = fscc_port_get_register(port, 0, BC_FIFO_L_OFFSET);
 		}
 		
@@ -592,7 +768,7 @@ int fscc_fifo_read_data(struct fscc_port *port)
 				receive_length = 0;
 		}
 		else {
-			rxcnt = fscc_port_get_RXCNT(port);
+			rxcnt = fscc_io_get_RXCNT(port);
 			receive_length = rxcnt - (rxcnt % 4);
 		}
 		
@@ -685,7 +861,7 @@ int fscc_user_write_frame(struct fscc_port *port, char *buf, size_t data_length,
 	// There is no additional prep for DMA.. so lets just start it.
 	if(fscc_port_uses_dma(port) && !fscc_dma_is_tx_running(port)) {
 		fscc_port_set_register(port, 2, DMA_TX_BASE_OFFSET, start_desc);
-		fscc_port_execute_transmit(port, 1);
+		fscc_io_execute_transmit(port, 1);
 	}
 	return status;
 }
@@ -834,3 +1010,243 @@ int fscc_user_read_stream(struct fscc_port *port, char *buf, size_t buf_length, 
 	
 	return STATUS_SUCCESS;
 }
+
+unsigned fscc_io_transmit_frame(struct fscc_port *port)
+{
+	int result;
+
+	result = fscc_fifo_write_data(port);
+	if(result) fscc_io_execute_transmit(port, 0);
+
+	return result;
+}
+
+unsigned fscc_io_has_incoming_data(struct fscc_port *port)
+{
+	int frame_waiting = 0;
+	size_t bytes_waiting = 0;
+	
+	return_val_if_untrue(port, 0);
+
+	frame_waiting = fscc_user_next_read_size(port, &bytes_waiting);
+	if(fscc_io_is_streaming(port)) return bytes_waiting;
+	else return frame_waiting;
+}
+
+void fscc_io_execute_transmit(struct fscc_port *port, unsigned dma)
+{
+	unsigned command_register = 0;
+	unsigned command_value = 0;
+	unsigned command_bar = 0;
+
+	return_if_untrue(port);
+	
+	if (dma) {
+		command_bar = 2;
+		command_register = DMACCR_OFFSET;
+		command_value = 0x00000002;
+		
+		if (port->tx_modifiers & XREP)
+		command_value |= 0x40000000;
+
+		if (port->tx_modifiers & TXT)
+		command_value |= 0x10000000;
+
+		if (port->tx_modifiers & TXEXT)
+		command_value |= 0x20000000;
+
+		fscc_port_set_register(port, command_bar, command_register, command_value);
+	}
+	else {
+		command_bar = 0;
+		command_register = CMDR_OFFSET;
+		command_value = 0x01000000;
+
+		if (port->tx_modifiers & XREP)
+		command_value |= 0x02000000;
+
+		if (port->tx_modifiers & TXT)
+		command_value |= 0x10000000;
+
+		if (port->tx_modifiers & TXEXT)
+		command_value |= 0x20000000;
+		
+		fscc_port_set_register(port, command_bar, command_register, command_value);
+	}
+}
+
+BOOLEAN fscc_port_uses_dma(struct fscc_port *port)
+{
+	return_val_if_untrue(port, 0);
+
+	if (port->force_fifo) return FALSE;
+
+	return port->has_dma;
+}
+
+unsigned fscc_io_is_streaming(struct fscc_port *port)
+{
+	unsigned transparent_mode = 0;
+	unsigned xsync_mode = 0;
+	unsigned rlc_mode = 0;
+	unsigned fsc_mode = 0;
+	unsigned ntb = 0;
+
+	return_val_if_untrue(port, 0);
+
+	transparent_mode = ((port->register_storage.CCR0 & 0x3) == 0x2) ? 1 : 0;
+	xsync_mode = ((port->register_storage.CCR0 & 0x3) == 0x1) ? 1 : 0;
+	rlc_mode = (port->register_storage.CCR2 & 0xffff0000) ? 1 : 0;
+	fsc_mode = (port->register_storage.CCR0 & 0x700) ? 1 : 0;
+	ntb = (port->register_storage.CCR0 & 0x70000) >> 16;
+
+	return ((transparent_mode || xsync_mode) && !(rlc_mode || fsc_mode || ntb)) ? 1 : 0;
+}
+
+// Temporarily unused. See the comment in the IOCTL section of port.c.
+NTSTATUS fscc_io_set_memory(struct fscc_port *port, struct fscc_memory *value)
+{
+	size_t num_desc = 0;
+	NTSTATUS status = STATUS_SUCCESS;
+	
+	return_val_if_untrue(port, STATUS_UNSUCCESSFUL);
+	return_val_if_untrue(value, STATUS_UNSUCCESSFUL);
+
+	if(value->rx_num > 0 || value->rx_size > 0) {
+		if(value->rx_num == 0)
+			value->rx_num = port->memory.rx_num;
+		if(value->rx_size == 0)
+			value->rx_size = port->memory.rx_size;
+		
+		if(value->rx_num != port->memory.rx_num || value->rx_size != port->memory.rx_size) {
+			status = fscc_io_rebuild_rx(port, value->rx_num, value->rx_size);
+			TraceEvents(TRACE_LEVEL_INFORMATION, TRACE_DEVICE, 
+			"New RX Memory: Size: %d, Number: %d", 
+			port->memory.rx_size, port->memory.rx_num);
+		}
+		else {
+			TraceEvents(TRACE_LEVEL_WARNING, TRACE_DEVICE, 
+			"RX Memory unchanged: Size: %d, Number: %d", 
+			port->memory.rx_size, port->memory.rx_num);
+		}
+	}
+	
+	if(value->tx_num > 0 || value->tx_size > 0) {
+		if(value->tx_num == 0)
+			value->tx_num = port->memory.tx_num;
+		if(value->tx_size == 0)
+			value->tx_size = port->memory.tx_size;
+		
+		if(value->tx_num != port->memory.tx_num || value->tx_size != port->memory.tx_size) {
+			status = fscc_io_rebuild_tx(port, value->tx_num, value->tx_size);
+			TraceEvents(TRACE_LEVEL_INFORMATION, TRACE_DEVICE, 
+			"New TX Memory: Size: %d, Number: %d", 
+			port->memory.tx_size, port->memory.tx_num);
+		}
+		else {
+			TraceEvents(TRACE_LEVEL_WARNING, TRACE_DEVICE, 
+			"TX Memory unchanged: Size: %d, Number: %d", 
+			port->memory.tx_size, port->memory.tx_num);		
+		}
+	}
+	
+	return status;
+}
+
+VOID FsccEvtIoRead(IN WDFQUEUE Queue, IN WDFREQUEST Request, IN size_t Length)
+{
+	NTSTATUS status = STATUS_SUCCESS;
+	struct fscc_port *port = 0;
+
+	port = WdfObjectGet_FSCC_PORT(WdfIoQueueGetDevice(Queue));
+	
+	/* The user is requsting 0 bytes so return immediately */
+	if (Length == 0) {
+		WdfRequestCompleteWithInformation(Request, STATUS_SUCCESS, Length);
+		return;
+	}
+
+	status = WdfRequestForwardToIoQueue(Request, port->read_queue2);
+	if (!NT_SUCCESS(status)) {
+		TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE,
+		"WdfRequestForwardToIoQueue failed %!STATUS!", status);
+		WdfRequestComplete(Request, status);
+		return;
+	}
+
+	WdfDpcEnqueue(port->process_read_dpc);
+}
+
+VOID FsccEvtIoWrite(IN WDFQUEUE Queue, IN WDFREQUEST Request, IN size_t Length)
+{
+	NTSTATUS status;
+	char *data_buffer = NULL;
+	struct fscc_port *port = 0;
+	size_t write_count = 0;
+	int uses_dma;
+
+	port = WdfObjectGet_FSCC_PORT(WdfIoQueueGetDevice(Queue));
+	
+	if (Length == 0) {
+		WdfRequestCompleteWithInformation(Request, STATUS_SUCCESS, Length);
+		return;
+	}
+	
+	if(Length > (port->memory.tx_size * port->memory.tx_num)) {
+		WdfRequestComplete(Request, STATUS_BUFFER_TOO_SMALL);
+		return;
+	}
+	
+	if (port->blocking_write) {
+		status = WdfRequestForwardToIoQueue(Request, port->blocking_request_queue);
+		if (!NT_SUCCESS(status)) {
+			TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE, 
+			"WdfRequestForwardToIoQueue failed %!STATUS!", status);
+			WdfRequestComplete(Request, status);
+			return;
+		}
+		WdfDpcEnqueue(port->request_dpc);
+		return;
+	}
+	
+	if(fscc_user_get_tx_space(port) < Length) {
+		WdfRequestComplete(Request, STATUS_BUFFER_TOO_SMALL);
+		return;
+	}
+	
+	/* Checks to make sure there is a clock present. */
+	if (port->ignore_timeout == FALSE && fscc_port_timed_out(port)) {
+		TraceEvents(TRACE_LEVEL_WARNING, TRACE_DEVICE,
+		"device stalled (wrong clock mode?)");
+		WdfRequestComplete(Request, STATUS_IO_TIMEOUT);
+		return;
+	}
+	
+	status = WdfRequestRetrieveInputBuffer(Request, Length, (PVOID *)&data_buffer, NULL);
+	if (!NT_SUCCESS(status)) {
+		TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE,
+		"WdfRequestRetrieveInputBuffer failed %!STATUS!", status);
+		WdfRequestComplete(Request, status);
+		return;
+	}
+	
+	status = fscc_user_write_frame(port, data_buffer, Length, &write_count);
+	
+	if (port->wait_on_write) {
+		status = WdfRequestForwardToIoQueue(Request, port->write_queue2);
+		if (!NT_SUCCESS(status)) {
+			TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE,
+			"WdfRequestForwardToIoQueue failed %!STATUS!", status);
+			WdfRequestComplete(Request, status);
+			return;
+		}
+	}
+	else {
+		WdfRequestCompleteWithInformation(Request, status, write_count);
+	}
+
+	if(!fscc_port_uses_dma(port))
+		WdfDpcEnqueue(port->oframe_dpc);
+}
+
+

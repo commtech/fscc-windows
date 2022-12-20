@@ -171,9 +171,6 @@ UCHAR fscc_port_get_FREV(struct fscc_port *port);
 UCHAR fscc_port_get_PREV(struct fscc_port *port);
 UINT16 fscc_port_get_PDEV(struct fscc_port *port);
 
-NTSTATUS fscc_port_purge_tx(struct fscc_port *port);
-NTSTATUS fscc_port_purge_rx(struct fscc_port *port);
-
 void fscc_port_set_append_status(struct fscc_port *port, BOOLEAN value);
 BOOLEAN fscc_port_get_append_status(struct fscc_port *port);
 
@@ -198,29 +195,10 @@ BOOLEAN fscc_port_get_blocking_write(struct fscc_port *port);
 NTSTATUS fscc_port_set_tx_modifiers(struct fscc_port *port, int value);
 unsigned fscc_port_get_tx_modifiers(struct fscc_port *port);
 
-NTSTATUS fscc_port_set_memory(struct fscc_port *port, struct fscc_memory *mem);
-
 void fscc_port_set_clock_bits(struct fscc_port *port, unsigned char *clock_data);
 
-NTSTATUS fscc_port_execute_RRES(struct fscc_port *port);
-NTSTATUS fscc_port_execute_TRES(struct fscc_port *port);
-
 unsigned fscc_port_using_async(struct fscc_port *port);
-
-BOOLEAN fscc_port_uses_dma(struct fscc_port *port);
-
-UINT32 fscc_port_get_TXCNT(struct fscc_port *port);
-
-unsigned fscc_port_is_streaming(struct fscc_port *port);
-
-unsigned fscc_port_get_RFCNT(struct fscc_port *port);
-unsigned fscc_port_get_TFCNT(struct fscc_port *port);
-unsigned fscc_port_get_RXCNT(struct fscc_port *port);
-UINT32 fscc_port_get_DCTDB(struct fscc_port *port);
-UINT32 fscc_port_get_DCRDB(struct fscc_port *port);
+unsigned fscc_port_timed_out(struct fscc_port *port);
 void fscc_port_reset_timer(struct fscc_port *port);
-unsigned fscc_port_has_incoming_data(struct fscc_port *port);
-unsigned fscc_port_transmit_frame(struct fscc_port *port);
 
-void fscc_port_execute_transmit(struct fscc_port *port, unsigned dma);
 #endif

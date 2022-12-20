@@ -1,7 +1,9 @@
 #include <fscc.h>
+#include <stdio.h>
 
 int main(void)
 {
+	/*
     HANDLE h = 0;
     DWORD tmp;
     struct fscc_memory memory;
@@ -25,7 +27,8 @@ int main(void)
                     &tmp, (LPOVERLAPPED)NULL);
 
     CloseHandle(h);
-
+	*/
+	printf("Not yet implemented!\n");
     return 0;
 }
 
