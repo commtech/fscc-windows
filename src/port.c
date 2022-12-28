@@ -48,6 +48,7 @@ EVT_WDF_DEVICE_RELEASE_HARDWARE FsccEvtDeviceReleaseHardware;
 NTSTATUS fscc_port_get_port_num(struct fscc_port *port, unsigned *port_num);
 NTSTATUS fscc_port_set_port_num(struct fscc_port *port, unsigned value);
 NTSTATUS fscc_port_get_default_memory(struct fscc_port *port, struct fscc_memory *memory);
+NTSTATUS fscc_port_get_default_registers(struct fscc_port *port, struct fscc_registers *regs);
 
 #pragma warning( disable: 4267 )
 
@@ -522,8 +523,10 @@ WDFCMRESLIST ResourcesRaw, WDFCMRESLIST ResourcesTranslated)
 	port->channel);
 	
 	vstr = fscc_port_get_PREV(port);
-	if(vstr & 0x04) port->has_dma = 1;
-	else port->has_dma = 0;
+	if(vstr & 0x04) 
+		port->has_dma = 1;
+	else 
+		port->has_dma = 0;
 	TraceEvents(TRACE_LEVEL_INFORMATION, TRACE_DEVICE, "Board has DMA: %d!", port->has_dma);
 	
 	fscc_io_initialize(port);
@@ -537,6 +540,10 @@ WDFCMRESLIST ResourcesRaw, WDFCMRESLIST ResourcesTranslated)
 	fscc_port_set_blocking_write(port, DEFAULT_BLOCKING_WRITE_VALUE);
 	fscc_port_set_force_fifo(port, DEFAULT_FORCE_FIFO_VALUE);
 	
+	memory.tx_num = DEFAULT_BUFFER_TX_NUM;
+	memory.rx_num = DEFAULT_BUFFER_RX_NUM;
+	memory.tx_size = DEFAULT_BUFFER_TX_SIZE;
+	memory.rx_size = DEFAULT_BUFFER_RX_SIZE;
 	fscc_port_get_default_memory(port, &memory);
 	status = fscc_io_create_rx(port, memory.rx_num, memory.rx_size);
 	if (!NT_SUCCESS(status)) {
@@ -555,10 +562,8 @@ WDFCMRESLIST ResourcesRaw, WDFCMRESLIST ResourcesTranslated)
 		return status;
 	}
 	
-	port->last_isr_value = 0;
 
 	FSCC_REGISTERS_INIT(port->register_storage);
-
 	port->register_storage.FIFOT = DEFAULT_FIFOT_VALUE;
 	port->register_storage.CCR0 = DEFAULT_CCR0_VALUE;
 	port->register_storage.CCR1 = DEFAULT_CCR1_VALUE;
@@ -575,9 +580,11 @@ WDFCMRESLIST ResourcesRaw, WDFCMRESLIST ResourcesTranslated)
 	port->register_storage.IMR = DEFAULT_IMR_VALUE;
 	port->register_storage.DPLLR = DEFAULT_DPLLR_VALUE;
 	port->register_storage.FCR = DEFAULT_FCR_VALUE;
-	port->rx_frame_size = 0;
-	
+	fscc_port_get_default_registers(port, &port->register_storage);
 	fscc_port_set_registers(port, &port->register_storage);
+	
+	port->rx_frame_size = 0;
+	port->last_isr_value = 0;
 
 	fscc_port_set_clock_bits(port, clock_bits);
 	
@@ -588,13 +595,11 @@ WDFCMRESLIST ResourcesRaw, WDFCMRESLIST ResourcesTranslated)
 	fscc_io_purge_tx(port);
 	
 	WDF_TIMER_CONFIG_INIT(&timerConfig, timer_handler);
-
 	timerConfig.Period = TIMER_DELAY_MS;
 	timerConfig.TolerableDelay = TIMER_DELAY_MS;
 
 	WDF_OBJECT_ATTRIBUTES_INIT(&timerAttributes);
 	timerAttributes.ParentObject = port->device;
-
 	status = WdfTimerCreate(&timerConfig, &timerAttributes, &port->timer);
 	if (!NT_SUCCESS(status)) {
 		TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE,
@@ -1554,65 +1559,6 @@ void fscc_port_reset_timer(struct fscc_port *port)
 	WdfTimerStart(port->timer, WDF_ABS_TIMEOUT_IN_MS(TIMER_DELAY_MS));
 }
 
-NTSTATUS fscc_port_get_default_memory(struct fscc_port *port, struct fscc_memory *memory)
-{
-	NTSTATUS status;
-	WDFKEY devkey;
-	UNICODE_STRING txnum_key_str, txsize_key_str;
-	UNICODE_STRING rxnum_key_str, rxsize_key_str;
-	ULONG value;
-
-	RtlInitUnicodeString(&txnum_key_str, L"TxNum");
-	RtlInitUnicodeString(&txsize_key_str, L"TxSize");
-	RtlInitUnicodeString(&rxnum_key_str, L"RxNum");
-	RtlInitUnicodeString(&rxsize_key_str, L"RxSize");
-
-	status = WdfDeviceOpenRegistryKey(port->device, PLUGPLAY_REGKEY_DEVICE,
-	STANDARD_RIGHTS_ALL,
-	WDF_NO_OBJECT_ATTRIBUTES, &devkey);
-	if (!NT_SUCCESS(status)) {
-		TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE,
-		"WdfDeviceOpenRegistryKey failed %!STATUS!", status);
-		memory->tx_num = DEFAULT_BUFFER_TX_NUM;
-		memory->rx_num = DEFAULT_BUFFER_RX_NUM;
-		memory->tx_size = DEFAULT_BUFFER_TX_SIZE;
-		memory->rx_size = DEFAULT_BUFFER_RX_SIZE;
-		return status;
-	}
-
-	status = WdfRegistryQueryULong(devkey, &txnum_key_str, &value);
-	if (!NT_SUCCESS(status)) {
-		value = DEFAULT_BUFFER_TX_NUM;
-		status = WdfRegistryAssignULong(devkey, &txnum_key_str, value);
-	}
-	memory->tx_num = (unsigned)value;
-
-	status = WdfRegistryQueryULong(devkey, &rxnum_key_str, &value);
-	if (!NT_SUCCESS(status)) {
-		value = DEFAULT_BUFFER_RX_NUM;
-		status = WdfRegistryAssignULong(devkey, &rxnum_key_str, value);
-	}
-	memory->rx_num = (unsigned)value;
-	
-	status = WdfRegistryQueryULong(devkey, &txsize_key_str, &value);
-	if (!NT_SUCCESS(status)) {
-		value = DEFAULT_BUFFER_TX_SIZE;
-		status = WdfRegistryAssignULong(devkey, &txsize_key_str, value);
-	}
-	memory->tx_size = (unsigned)value;
-	
-	status = WdfRegistryQueryULong(devkey, &rxsize_key_str, &value);
-	if (!NT_SUCCESS(status)) {
-		value = DEFAULT_BUFFER_RX_SIZE;
-		status = WdfRegistryAssignULong(devkey, &rxsize_key_str, value);
-	}
-	memory->rx_size = (unsigned)value;
-
-	WdfRegistryClose(devkey);
-
-	return STATUS_SUCCESS;
-}
-
 NTSTATUS fscc_port_get_port_num(struct fscc_port *port, unsigned *port_num)
 {
 	NTSTATUS status;
@@ -1695,4 +1641,203 @@ BOOLEAN fscc_port_get_force_fifo(struct fscc_port *port)
 	return_val_if_untrue(port, 0);
 
 	return port->force_fifo;
+}
+
+NTSTATUS fscc_port_get_default_memory(struct fscc_port *port, struct fscc_memory *memory)
+{
+	NTSTATUS status;
+	WDFKEY devkey;
+	UNICODE_STRING key_str;
+	ULONG value;
+	
+	status = WdfDeviceOpenRegistryKey(port->device, PLUGPLAY_REGKEY_DEVICE,
+	STANDARD_RIGHTS_ALL,
+	WDF_NO_OBJECT_ATTRIBUTES, &devkey);
+	if (!NT_SUCCESS(status)) {
+		TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE,
+		"WdfDeviceOpenRegistryKey failed %!STATUS!", status);
+		return status;
+	}
+	
+	RtlInitUnicodeString(&key_str, L"TxNum");
+	status = WdfRegistryQueryULong(devkey, &key_str, &value);
+	if (!NT_SUCCESS(status)) {
+		value = DEFAULT_BUFFER_TX_NUM;
+		status = WdfRegistryAssignULong(devkey, &key_str, value);
+	}
+	memory->tx_num = (unsigned)value;
+
+	RtlInitUnicodeString(&key_str, L"RxNum");
+	status = WdfRegistryQueryULong(devkey, &key_str, &value);
+	if (!NT_SUCCESS(status)) {
+		value = DEFAULT_BUFFER_RX_NUM;
+		status = WdfRegistryAssignULong(devkey, &key_str, value);
+	}
+	memory->rx_num = (unsigned)value;
+	
+	RtlInitUnicodeString(&key_str, L"TxSize");
+	status = WdfRegistryQueryULong(devkey, &key_str, &value);
+	if (!NT_SUCCESS(status)) {
+		value = DEFAULT_BUFFER_TX_SIZE;
+		status = WdfRegistryAssignULong(devkey, &key_str, value);
+	}
+	memory->tx_size = (unsigned)value;
+	
+	RtlInitUnicodeString(&key_str, L"RxSize");
+	status = WdfRegistryQueryULong(devkey, &key_str, &value);
+	if (!NT_SUCCESS(status)) {
+		value = DEFAULT_BUFFER_RX_SIZE;
+		status = WdfRegistryAssignULong(devkey, &key_str, value);
+	}
+	memory->rx_size = (unsigned)value;
+
+	WdfRegistryClose(devkey);
+
+	return STATUS_SUCCESS;
+}
+
+NTSTATUS fscc_port_get_default_registers(struct fscc_port *port, struct fscc_registers *regs)
+{
+	NTSTATUS status;
+	WDFKEY devkey;
+	UNICODE_STRING key_str;
+	ULONG value;
+
+	status = WdfDeviceOpenRegistryKey(port->device, PLUGPLAY_REGKEY_DEVICE, STANDARD_RIGHTS_ALL, WDF_NO_OBJECT_ATTRIBUTES, &devkey);
+	if (!NT_SUCCESS(status)) {
+		TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE, "WdfDeviceOpenRegistryKey failed %!STATUS!", status);
+		return status;
+	}
+
+	RtlInitUnicodeString(&key_str, L"FIFOT");
+	status = WdfRegistryQueryULong(devkey, &key_str, &value);
+	if (!NT_SUCCESS(status)) {
+		value = DEFAULT_FIFOT_VALUE;
+		status = WdfRegistryAssignULong(devkey, &key_str, value);
+	}
+	regs->FIFOT = (unsigned)value;
+
+	RtlInitUnicodeString(&key_str, L"CCR0");
+	status = WdfRegistryQueryULong(devkey, &key_str, &value);
+	if (!NT_SUCCESS(status)) {
+		value = DEFAULT_CCR0_VALUE;
+		status = WdfRegistryAssignULong(devkey, &key_str, value);
+	}
+	regs->CCR0 = (unsigned)value;
+
+	RtlInitUnicodeString(&key_str, L"CCR1");
+	status = WdfRegistryQueryULong(devkey, &key_str, &value);
+	if (!NT_SUCCESS(status)) {
+		value = DEFAULT_CCR1_VALUE;
+		status = WdfRegistryAssignULong(devkey, &key_str, value);
+	}
+	regs->CCR1 = (unsigned)value;
+
+	RtlInitUnicodeString(&key_str, L"CCR2");
+	status = WdfRegistryQueryULong(devkey, &key_str, &value);
+	if (!NT_SUCCESS(status)) {
+		value = DEFAULT_CCR2_VALUE;
+		status = WdfRegistryAssignULong(devkey, &key_str, value);
+	}
+	regs->CCR2 = (unsigned)value;
+	
+	RtlInitUnicodeString(&key_str, L"BGR");
+	status = WdfRegistryQueryULong(devkey, &key_str, &value);
+	if (!NT_SUCCESS(status)) {
+		value = DEFAULT_BGR_VALUE;
+		status = WdfRegistryAssignULong(devkey, &key_str, value);
+	}
+	regs->BGR = (unsigned)value;
+	
+	RtlInitUnicodeString(&key_str, L"SSR");
+	status = WdfRegistryQueryULong(devkey, &key_str, &value);
+	if (!NT_SUCCESS(status)) {
+		value = DEFAULT_SSR_VALUE;
+		status = WdfRegistryAssignULong(devkey, &key_str, value);
+	}
+	regs->SSR = (unsigned)value;
+	
+	RtlInitUnicodeString(&key_str, L"SMR");
+	status = WdfRegistryQueryULong(devkey, &key_str, &value);
+	if (!NT_SUCCESS(status)) {
+		value = DEFAULT_SMR_VALUE;
+		status = WdfRegistryAssignULong(devkey, &key_str, value);
+	}
+	regs->SMR = (unsigned)value;
+	
+	RtlInitUnicodeString(&key_str, L"TSR");
+	status = WdfRegistryQueryULong(devkey, &key_str, &value);
+	if (!NT_SUCCESS(status)) {
+		value = DEFAULT_TSR_VALUE;
+		status = WdfRegistryAssignULong(devkey, &key_str, value);
+	}
+	regs->TSR = (unsigned)value;
+	
+	RtlInitUnicodeString(&key_str, L"TMR");
+	status = WdfRegistryQueryULong(devkey, &key_str, &value);
+	if (!NT_SUCCESS(status)) {
+		value = DEFAULT_TMR_VALUE;
+		status = WdfRegistryAssignULong(devkey, &key_str, value);
+	}
+	regs->TMR = (unsigned)value;
+	
+	RtlInitUnicodeString(&key_str, L"RAR");
+	status = WdfRegistryQueryULong(devkey, &key_str, &value);
+	if (!NT_SUCCESS(status)) {
+		value = DEFAULT_RAR_VALUE;
+		status = WdfRegistryAssignULong(devkey, &key_str, value);
+	}
+	regs->RAR = (unsigned)value;
+	
+	RtlInitUnicodeString(&key_str, L"RAMR");
+	status = WdfRegistryQueryULong(devkey, &key_str, &value);
+	if (!NT_SUCCESS(status)) {
+		value = DEFAULT_RAMR_VALUE;
+		status = WdfRegistryAssignULong(devkey, &key_str, value);
+	}
+	regs->RAMR = (unsigned)value;
+	
+	RtlInitUnicodeString(&key_str, L"PPR");
+	status = WdfRegistryQueryULong(devkey, &key_str, &value);
+	if (!NT_SUCCESS(status)) {
+		value = DEFAULT_PPR_VALUE;
+		status = WdfRegistryAssignULong(devkey, &key_str, value);
+	}
+	regs->PPR = (unsigned)value;
+	
+	RtlInitUnicodeString(&key_str, L"TCR");
+	status = WdfRegistryQueryULong(devkey, &key_str, &value);
+	if (!NT_SUCCESS(status)) {
+		value = DEFAULT_TCR_VALUE;
+		status = WdfRegistryAssignULong(devkey, &key_str, value);
+	}
+	regs->TCR = (unsigned)value;
+	
+	RtlInitUnicodeString(&key_str, L"IMR");
+	status = WdfRegistryQueryULong(devkey, &key_str, &value);
+	if (!NT_SUCCESS(status)) {
+		value = DEFAULT_IMR_VALUE;
+		status = WdfRegistryAssignULong(devkey, &key_str, value);
+	}
+	regs->IMR = (unsigned)value;
+	
+	RtlInitUnicodeString(&key_str, L"DPLLR");
+	status = WdfRegistryQueryULong(devkey, &key_str, &value);
+	if (!NT_SUCCESS(status)) {
+		value = DEFAULT_DPLLR_VALUE;
+		status = WdfRegistryAssignULong(devkey, &key_str, value);
+	}
+	regs->DPLLR = (unsigned)value;
+	
+	RtlInitUnicodeString(&key_str, L"FCR");
+	status = WdfRegistryQueryULong(devkey, &key_str, &value);
+	if (!NT_SUCCESS(status)) {
+		value = DEFAULT_FCR_VALUE;
+		status = WdfRegistryAssignULong(devkey, &key_str, value);
+	}
+	regs->FCR = (unsigned)value;
+	
+	WdfRegistryClose(devkey);
+
+	return STATUS_SUCCESS;
 }
