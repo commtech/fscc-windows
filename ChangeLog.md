@@ -1,5 +1,10 @@
 # ChangeLog
 
+## [3.0.1](https://github.com/commtech/fscc-windows/releases/tag/v3.0.1) (12/29/2022)
+- Removed the ability to adjust the memory buffers while in the driver is in operation.
+- Added the ability to adjust the default memory buffer sizes and numbers to the registry.
+- Added default register settings to the registry.
+
 ## [3.0.0](https://github.com/commtech/fscc-windows/releases/tag/v3.0.0) (10/10/2022)
 - Further DMA work.
 - Added DSTAR and DMACCR to the register structure.

@@ -209,7 +209,6 @@ NTSTATUS fscc_io_create_rx(struct fscc_port *port, size_t number_of_buffers, siz
 	port->memory.rx_size = size_of_buffers;
 	port->memory.rx_num = i;
 	
-	DbgPrint("rx_num %d, rx_size %d\n", port->memory.rx_num, port->memory.rx_size);
 	fscc_io_link_desc(port, port->rx_descriptors, port->memory.rx_num);
 
 	return STATUS_SUCCESS;
@@ -255,7 +254,6 @@ NTSTATUS fscc_io_create_tx(struct fscc_port *port, size_t number_of_buffers, siz
 	port->memory.tx_size = size_of_buffers;
 	port->memory.tx_num = i;
 	
-	DbgPrint("tx_num %d, tx_size %d\n", port->memory.tx_num, port->memory.tx_size);
 	fscc_io_link_desc(port, port->tx_descriptors, port->memory.tx_num);
 	
 	return STATUS_SUCCESS;
@@ -301,58 +299,6 @@ void fscc_io_destroy_tx(struct fscc_port *port)
 	
 	ExFreePoolWithTag(port->tx_descriptors, 'CSED');
 	port->tx_descriptors = 0;
-}
-
-NTSTATUS fscc_io_rebuild_rx(struct fscc_port *port, size_t number_of_buffers, size_t size_of_buffers)
-{
-	NTSTATUS status;
-	
-	if(!port) 
-		return STATUS_UNSUCCESSFUL;
-	
-	WdfSpinLockAcquire(port->board_rx_spinlock);
-	fscc_io_destroy_rx(port);
-	status = fscc_io_create_rx(port, number_of_buffers, size_of_buffers);
-	fscc_io_reset_rx(port);
-	WdfSpinLockRelease(port->board_rx_spinlock);
-	
-	if(fscc_port_uses_dma(port)) {
-		fscc_port_set_register(port, 2, DMA_RX_BASE_OFFSET, port->rx_descriptors[0]->desc_physical_address);
-		fscc_dma_execute_GO_R(port);
-	}
-	
-	WdfIoQueuePurgeSynchronously(port->read_queue);
-	WdfIoQueuePurgeSynchronously(port->read_queue2);
-	
-	WdfIoQueueStart(port->read_queue);
-	WdfIoQueueStart(port->read_queue2);
-	
-	return status;
-}
-
-NTSTATUS fscc_io_rebuild_tx(struct fscc_port *port, size_t number_of_buffers, size_t size_of_buffers)
-{
-	NTSTATUS status;
-	
-	if(!port) 
-		return STATUS_UNSUCCESSFUL;
-	
-	WdfSpinLockAcquire(port->board_tx_spinlock);
-	fscc_io_destroy_tx(port);
-	status = fscc_io_create_tx(port, number_of_buffers, size_of_buffers);
-	fscc_io_reset_tx(port);
-	WdfSpinLockRelease(port->board_tx_spinlock);
-	
-	if(fscc_port_uses_dma(port))
-		fscc_port_set_register(port, 2, DMA_TX_BASE_OFFSET, port->tx_descriptors[0]->desc_physical_address);
-	
-	WdfIoQueuePurgeSynchronously(port->write_queue);
-	WdfIoQueuePurgeSynchronously(port->write_queue2);
-	
-	WdfIoQueueStart(port->write_queue);
-	WdfIoQueueStart(port->write_queue2);
-	
-	return status;
 }
 
 NTSTATUS fscc_io_initialize(struct fscc_port *port)
@@ -416,7 +362,6 @@ NTSTATUS fscc_io_reset_tx(struct fscc_port *port) {
 	return status;
 }
 
-// TODO Apparently this should only done with CCR0:RECD=1
 NTSTATUS fscc_io_purge_rx(struct fscc_port *port)
 {
 
@@ -424,6 +369,9 @@ NTSTATUS fscc_io_purge_rx(struct fscc_port *port)
 
 	TraceEvents(TRACE_LEVEL_INFORMATION, TRACE_DEVICE, "Purging receive data");
 
+	// enable RECD
+	fscc_port_set_register(port, 0, CCR0_OFFSET, port->register_storage.CCR0 | 0x02000000);
+	
 	WdfSpinLockAcquire(port->board_rx_spinlock);
 	fscc_io_reset_rx(port);
 	WdfSpinLockRelease(port->board_rx_spinlock);
@@ -438,6 +386,9 @@ NTSTATUS fscc_io_purge_rx(struct fscc_port *port)
 	
 	WdfIoQueueStart(port->read_queue);
 	WdfIoQueueStart(port->read_queue2);
+	
+	// disable RECD
+	fscc_port_set_register(port, 0, CCR0_OFFSET, port->register_storage.CCR0);
 	
 	return STATUS_SUCCESS;
 }
@@ -1101,56 +1052,6 @@ unsigned fscc_io_is_streaming(struct fscc_port *port)
 	ntb = (port->register_storage.CCR0 & 0x70000) >> 16;
 
 	return ((transparent_mode || xsync_mode) && !(rlc_mode || fsc_mode || ntb)) ? 1 : 0;
-}
-
-// Temporarily unused. See the comment in the IOCTL section of port.c.
-NTSTATUS fscc_io_set_memory(struct fscc_port *port, struct fscc_memory *value)
-{
-	size_t num_desc = 0;
-	NTSTATUS status = STATUS_SUCCESS;
-	
-	return_val_if_untrue(port, STATUS_UNSUCCESSFUL);
-	return_val_if_untrue(value, STATUS_UNSUCCESSFUL);
-
-	if(value->rx_num > 0 || value->rx_size > 0) {
-		if(value->rx_num == 0)
-			value->rx_num = port->memory.rx_num;
-		if(value->rx_size == 0)
-			value->rx_size = port->memory.rx_size;
-		
-		if(value->rx_num != port->memory.rx_num || value->rx_size != port->memory.rx_size) {
-			status = fscc_io_rebuild_rx(port, value->rx_num, value->rx_size);
-			TraceEvents(TRACE_LEVEL_INFORMATION, TRACE_DEVICE, 
-			"New RX Memory: Size: %d, Number: %d", 
-			port->memory.rx_size, port->memory.rx_num);
-		}
-		else {
-			TraceEvents(TRACE_LEVEL_WARNING, TRACE_DEVICE, 
-			"RX Memory unchanged: Size: %d, Number: %d", 
-			port->memory.rx_size, port->memory.rx_num);
-		}
-	}
-	
-	if(value->tx_num > 0 || value->tx_size > 0) {
-		if(value->tx_num == 0)
-			value->tx_num = port->memory.tx_num;
-		if(value->tx_size == 0)
-			value->tx_size = port->memory.tx_size;
-		
-		if(value->tx_num != port->memory.tx_num || value->tx_size != port->memory.tx_size) {
-			status = fscc_io_rebuild_tx(port, value->tx_num, value->tx_size);
-			TraceEvents(TRACE_LEVEL_INFORMATION, TRACE_DEVICE, 
-			"New TX Memory: Size: %d, Number: %d", 
-			port->memory.tx_size, port->memory.tx_num);
-		}
-		else {
-			TraceEvents(TRACE_LEVEL_WARNING, TRACE_DEVICE, 
-			"TX Memory unchanged: Size: %d, Number: %d", 
-			port->memory.tx_size, port->memory.tx_num);		
-		}
-	}
-	
-	return status;
 }
 
 VOID FsccEvtIoRead(IN WDFQUEUE Queue, IN WDFREQUEST Request, IN size_t Length)

@@ -33,7 +33,6 @@ extern "C"
 
 #define FSCC_REGISTERS_INIT(regs) memset(&regs, -1, sizeof(regs))
 #define FSCC_UPDATE_VALUE -2
-#define FSCC_MEMORY_INIT(mem) memset(&mem, 0, sizeof(mem))
 
 enum transmit_type { XF=0, XREP=1, TXT=2, TXEXT=4 };
 
@@ -73,13 +72,6 @@ struct fscc_registers {
 	fscc_register DMACCR;
 	fscc_register reserved4[4];
 	fscc_register DSTAR;
-};
-
-struct fscc_memory {
-	UINT32 tx_size;
-	UINT32 tx_num;
-	UINT32 rx_size;
-	UINT32 rx_num;
 };
 
 #define FSCC_IOCTL_MAGIC 0x8018
@@ -124,9 +116,6 @@ struct fscc_memory {
 #define FSCC_ENABLE_FORCE_FIFO CTL_CODE(FSCC_IOCTL_MAGIC, 0x81E, METHOD_BUFFERED, FILE_ANY_ACCESS)
 #define FSCC_DISABLE_FORCE_FIFO CTL_CODE(FSCC_IOCTL_MAGIC, 0x81F, METHOD_BUFFERED, FILE_ANY_ACCESS)
 #define FSCC_GET_FORCE_FIFO CTL_CODE(FSCC_IOCTL_MAGIC, 0x820, METHOD_BUFFERED, FILE_ANY_ACCESS)
-
-//#define FSCC_SET_MEMORY CTL_CODE(FSCC_IOCTL_MAGIC, 0x821, METHOD_BUFFERED, FILE_ANY_ACCESS) //NYI
-//#define FSCC_GET_MEMORY CTL_CODE(FSCC_IOCTL_MAGIC, 0x822, METHOD_BUFFERED, FILE_ANY_ACCESS) //NYI
 
 //#define FSCC_RESET_DMA CTL_CODE(FSCC_IOCTL_MAGIC, 0x823, METHOD_BUFFERED, FILE_ANY_ACCESS) //NYI
 

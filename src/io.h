@@ -53,8 +53,6 @@ EVT_WDF_DPC FsccProcessRead;
 EVT_WDF_IO_QUEUE_IO_WRITE FsccEvtIoWrite;
 EVT_WDF_IO_QUEUE_IO_READ FsccEvtIoRead;
 
-NTSTATUS fscc_io_set_memory(struct fscc_port *port, struct fscc_memory *mem);
-
 BOOLEAN fscc_port_uses_dma(struct fscc_port *port);
 unsigned fscc_io_is_streaming(struct fscc_port *port);
 unsigned fscc_io_has_incoming_data(struct fscc_port *port);
@@ -62,8 +60,6 @@ unsigned fscc_io_transmit_frame(struct fscc_port *port);
 void fscc_io_execute_transmit(struct fscc_port *port, unsigned dma);
 
 NTSTATUS fscc_io_initialize(struct fscc_port *port);
-NTSTATUS fscc_io_rebuild_rx(struct fscc_port *port, size_t number_of_buffers, size_t size_of_buffers);
-NTSTATUS fscc_io_rebuild_tx(struct fscc_port *port, size_t number_of_buffers, size_t size_of_buffers);
 NTSTATUS fscc_io_create_rx(struct fscc_port *port, size_t number_of_buffers, size_t size_of_buffers);
 NTSTATUS fscc_io_create_tx(struct fscc_port *port, size_t number_of_buffers, size_t size_of_buffers);
 void fscc_io_destroy_rx(struct fscc_port *port);

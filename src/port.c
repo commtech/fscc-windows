@@ -691,6 +691,9 @@ IN  WDFFILEOBJECT FileObject
 	}
 }
 
+// The ability to modify the number and size of buffers while the driver
+// is active has been intentionally removed. This feature clashed with
+// the ability to DMA because of CommonBuffers
 VOID FsccEvtIoDeviceControl(IN WDFQUEUE Queue, IN WDFREQUEST Request,
 IN size_t OutputBufferLength, IN size_t InputBufferLength,
 IN ULONG IoControlCode)
@@ -858,50 +861,7 @@ IN ULONG IoControlCode)
 		}
 
 		break;
-		// The memory calls are temporarily(I hope) disabled.
-		// Creating and deleting common buffers requires PASSIVE_LEVEL, and
-		// the DPCs that utilize those buffers require DISPATCH_LEVEL,
-		// which causes a problem when changing the memory and the
-		// DPCs try to reference that memory. Spinlocks can't be used because
-		// of the PASSIVE_LEVEL requirement. In the meantime, memory buffers
-		// can be adjusted in the registry after the first install, then 
-		// restarting.
-/*
-	case FSCC_SET_MEMORY: {
-			struct fscc_memory *mem = 0;
 
-			status = WdfRequestRetrieveInputBuffer(Request,
-			sizeof(*mem), (PVOID *)&mem, NULL);
-			if (!NT_SUCCESS(status)) {
-				TraceEvents(TRACE_LEVEL_WARNING, TRACE_DEVICE,
-				"WdfRequestRetrieveInputBuffer failed %!STATUS!", status);
-				break;
-			}
-			status = fscc_io_set_memory(port, mem);
-		}
-
-		break;
-
-	case FSCC_GET_MEMORY: {
-			struct fscc_memory *mem = 0;
-
-			status = WdfRequestRetrieveOutputBuffer(Request,
-			sizeof(*mem), (PVOID *)&mem, NULL);
-			if (!NT_SUCCESS(status)) {
-				TraceEvents(TRACE_LEVEL_WARNING, TRACE_DEVICE,
-				"WdfRequestRetrieveOutputBuffer failed %!STATUS!", status);
-				break;
-			}
-			mem->rx_size = port->memory.rx_size;
-			mem->rx_num = port->memory.rx_num;
-			mem->tx_size = port->memory.tx_size;
-			mem->tx_num = port->memory.tx_num;
-
-			bytes_returned = sizeof(*mem);
-		}
-
-		break;
-*/
 	case FSCC_SET_CLOCK_BITS: {
 			unsigned char *clock_bits = 0;
 
