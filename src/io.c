@@ -370,7 +370,7 @@ NTSTATUS fscc_io_purge_rx(struct fscc_port *port)
 	TraceEvents(TRACE_LEVEL_INFORMATION, TRACE_DEVICE, "Purging receive data");
 
 	// enable RECD
-	fscc_port_set_register(port, 0, CCR0_OFFSET, port->register_storage.CCR0 | 0x02000000);
+	fscc_port_set_register(port, 0, CCR0_OFFSET, (UINT32)port->register_storage.CCR0 | 0x02000000);
 	
 	WdfSpinLockAcquire(port->board_rx_spinlock);
 	fscc_io_reset_rx(port);
@@ -388,7 +388,7 @@ NTSTATUS fscc_io_purge_rx(struct fscc_port *port)
 	WdfIoQueueStart(port->read_queue2);
 	
 	// disable RECD
-	fscc_port_set_register(port, 0, CCR0_OFFSET, port->register_storage.CCR0);
+	fscc_port_set_register(port, 0, CCR0_OFFSET, (UINT32)port->register_storage.CCR0);
 	
 	return STATUS_SUCCESS;
 }
