@@ -364,13 +364,15 @@ NTSTATUS fscc_io_reset_tx(struct fscc_port *port) {
 
 NTSTATUS fscc_io_purge_rx(struct fscc_port *port)
 {
-
+	UINT32 orig_CCR0;
+	
 	return_val_if_untrue(port, 0);
 
 	TraceEvents(TRACE_LEVEL_INFORMATION, TRACE_DEVICE, "Purging receive data");
-
+	
+	orig_CCR0 = (UINT32)port->register_storage.CCR0;
 	// enable RECD
-	fscc_port_set_register(port, 0, CCR0_OFFSET, (UINT32)port->register_storage.CCR0 | 0x02000000);
+	fscc_port_set_register(port, 0, CCR0_OFFSET, orig_CCR0 | 0x02000000);
 	
 	WdfSpinLockAcquire(port->board_rx_spinlock);
 	fscc_io_reset_rx(port);
@@ -388,7 +390,7 @@ NTSTATUS fscc_io_purge_rx(struct fscc_port *port)
 	WdfIoQueueStart(port->read_queue2);
 	
 	// disable RECD
-	fscc_port_set_register(port, 0, CCR0_OFFSET, (UINT32)port->register_storage.CCR0);
+	fscc_port_set_register(port, 0, CCR0_OFFSET, orig_CCR0);
 	
 	return STATUS_SUCCESS;
 }
