@@ -1,5 +1,8 @@
 # ChangeLog
 
+## [3.0.2](https://github.com/commtech/fscc-windows/releases/tag/v3.0.2) (03/06/2023)
+- Fixed an issue with purging that turned off the receiver.
+
 ## [3.0.1](https://github.com/commtech/fscc-windows/releases/tag/v3.0.1) (01/09/2023)
 - Removed the ability to adjust the memory buffers while in the driver is in operation.
 - Added the ability to adjust the default memory buffer sizes and numbers to the registry.
