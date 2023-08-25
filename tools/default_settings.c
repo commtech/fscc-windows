@@ -42,11 +42,10 @@ int main(int argc, char *argv[])
 	regs.DPLLR = 0x00000004;
 	regs.FCR   = 0x00000000;
 	reg_return = DeviceIoControl(h, FSCC_SET_REGISTERS, &regs, sizeof(regs), NULL, 0, &tmp, (LPOVERLAPPED)NULL);
-	printf("SET_REGISTERS return value: %d\n", reg_return);
-	DeviceIoControl(h, FSCC_DISABLE_APPEND_STATUS, NULL, 0, NULL, 0, &tmp, (LPOVERLAPPED)NULL);
 	regs.CCR0  = 0x00112004;
 	reg_return = DeviceIoControl(h, FSCC_SET_REGISTERS, &regs, sizeof(regs), NULL, 0, &tmp, (LPOVERLAPPED)NULL);
-	printf("SET_REGISTERS return value: %d\n", reg_return);
+	
+	DeviceIoControl(h, FSCC_DISABLE_APPEND_STATUS, NULL, 0, NULL, 0, &tmp, (LPOVERLAPPED)NULL);
 	
     CloseHandle(h);
     return EXIT_SUCCESS;

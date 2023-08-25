@@ -27,8 +27,6 @@ int main(int argc, char *argv[])
 	// It's a good idea to purge the transmit and receive FIFOs before beginning any new operations.
 	tx_return = DeviceIoControl(h, FSCC_PURGE_TX, NULL, 0, NULL, 0, &tmp, (LPOVERLAPPED)NULL);
 	rx_return = DeviceIoControl(h, FSCC_PURGE_RX, NULL, 0, NULL, 0, &tmp, (LPOVERLAPPED)NULL);
-	printf("PURGE_TX return value: %d\n", tx_return);
-	printf("PURGE_RX return value: %d\n", rx_return);
     CloseHandle(h);
     return EXIT_SUCCESS;
 }
