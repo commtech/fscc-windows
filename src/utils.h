@@ -26,6 +26,7 @@ THE SOFTWARE.
 
 #include "port.h" /* struct fscc_port */
 #include "config.h"
+#include "defines.h"
 
 #define UNUSED(x) (void)(x)
 

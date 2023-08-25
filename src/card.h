@@ -27,21 +27,11 @@ THE SOFTWARE.
 #include <ntddk.h>
 #include <wdf.h>
 
+#include "defines.h"
 #include "trace.h"
 
 #define FCR_OFFSET 0x00
 #define DSTAR_OFFSET 0x30
-
-struct BAR {
-	void *address;
-	BOOLEAN memory_mapped;
-};
-
-
-typedef struct fscc_card {	
-	UINT32 device_id;
-	struct BAR bar[3];
-} FSCC_CARD;
 
 NTSTATUS fscc_card_init(struct fscc_card *card,
 WDFCMRESLIST ResourcesTranslated, WDFDEVICE port_device);

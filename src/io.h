@@ -23,31 +23,15 @@ THE SOFTWARE.
 
 #ifndef FSCC_IO
 #define FSCC_IO
+#include "fscc.h"
+#include "port.h"
+#include "defines.h"
 
 #define DESC_FE_BIT 0x80000000
 #define DESC_CSTOP_BIT 0x40000000
 #define DESC_HI_BIT 0x20000000
 #define DMA_MAX_LENGTH 0x1fffffff
 
-typedef LARGE_INTEGER fscc_timestamp;
-
-struct fscc_descriptor {
-	volatile UINT32 control;
-	volatile UINT32 data_address;
-	volatile UINT32 data_count;
-	volatile UINT32 next_descriptor;
-};
-
-typedef struct dma_frame {
-	WDFCOMMONBUFFER desc_buffer;
-	struct fscc_descriptor *desc;
-	UINT32 desc_physical_address;
-	WDFCOMMONBUFFER data_buffer;
-	unsigned char *buffer;
-	fscc_timestamp timestamp;
-	size_t data_size;
-	size_t desc_size;
-} DMA_FRAME;
 
 EVT_WDF_DPC FsccProcessRead;
 EVT_WDF_IO_QUEUE_IO_WRITE FsccEvtIoWrite;
@@ -60,8 +44,8 @@ unsigned fscc_io_transmit_frame(struct fscc_port *port);
 void fscc_io_execute_transmit(struct fscc_port *port, unsigned dma);
 
 NTSTATUS fscc_io_initialize(struct fscc_port *port);
-NTSTATUS fscc_io_create_rx(struct fscc_port *port, size_t number_of_buffers, size_t size_of_buffers);
-NTSTATUS fscc_io_create_tx(struct fscc_port *port, size_t number_of_buffers, size_t size_of_buffers);
+NTSTATUS fscc_io_create_rx(struct fscc_port *port, UINT32 number_of_buffers, UINT32 size_of_buffers);
+NTSTATUS fscc_io_create_tx(struct fscc_port *port, UINT32 number_of_buffers, UINT32 size_of_buffers);
 void fscc_io_destroy_rx(struct fscc_port *port);
 void fscc_io_destroy_tx(struct fscc_port *port);
 NTSTATUS fscc_io_purge_tx(struct fscc_port *port);
@@ -88,8 +72,8 @@ void fscc_dma_apply_timestamps(struct fscc_port *port);
 size_t fscc_user_get_tx_space(struct fscc_port *port);
 int fscc_fifo_read_data(struct fscc_port *port);
 int fscc_fifo_write_data(struct fscc_port *port);
-int fscc_user_read_stream(struct fscc_port *port, char *buf, size_t buf_length, size_t *out_length);
-int fscc_user_read_frame(struct fscc_port *port, char *buf, size_t buf_length, size_t *out_length);
-int fscc_user_write_frame(struct fscc_port *port, char *buf, size_t data_length, size_t *out_length);
-unsigned fscc_user_next_read_size(struct fscc_port *port, size_t *bytes);
+int fscc_user_read_stream(struct fscc_port *port, char *buf, UINT32 buf_length, UINT32*out_length);
+int fscc_user_read_frame(struct fscc_port *port, char *buf, UINT32 buf_length, UINT32*out_length);
+int fscc_user_write_frame(struct fscc_port *port, char *buf, UINT32 data_length, UINT32*out_length);
+unsigned fscc_user_next_read_size(struct fscc_port *port, UINT32*bytes);
 #endif

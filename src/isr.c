@@ -260,11 +260,11 @@ void request_worker(WDFDPC Dpc)
 {
 	struct fscc_port *port = 0;
 	char *data_buffer = NULL;
-	size_t write_count = 0;
+	UINT32 write_count = 0;
 	NTSTATUS status = STATUS_SUCCESS;
 	WDFREQUEST Request = NULL, tagRequest = NULL, prevTagRequest = NULL;
 	WDF_REQUEST_PARAMETERS params;
-	size_t Length;
+	UINT32 Length;
 
 	port = WdfObjectGet_FSCC_PORT(WdfDpcGetParentObject(Dpc));
 
@@ -275,7 +275,7 @@ void request_worker(WDFDPC Dpc)
 		TraceEvents(TRACE_LEVEL_VERBOSE, TRACE_DEVICE, "WdfIoQueueFindRequest failed %!STATUS!", status);
 		return;
 	}
-	Length = params.Parameters.Write.Length;
+	Length = (UINT32)params.Parameters.Write.Length;
 	
 	if(fscc_user_get_tx_space(port) < Length) 
 		return;

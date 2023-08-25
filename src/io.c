@@ -42,12 +42,12 @@ void FsccProcessRead(WDFDPC Dpc)
 	struct fscc_port *port = 0;
 	NTSTATUS status = STATUS_SUCCESS;
 	PCHAR data_buffer = NULL;
-	size_t read_count = 0;
+	UINT32 read_count = 0;
 	WDFREQUEST request;
 	unsigned length = 0;
 	WDF_REQUEST_PARAMETERS params;
-	unsigned frame_ready, streaming;
-	size_t bytes_ready;
+	UINT32 frame_ready, streaming;
+	UINT32 bytes_ready;
 	
 	port = WdfObjectGet_FSCC_PORT(WdfDpcGetParentObject(Dpc));
 	streaming = fscc_io_is_streaming(port);
@@ -95,13 +95,13 @@ void FsccProcessRead(WDFDPC Dpc)
 	WdfRequestCompleteWithInformation(request, status, read_count);
 }
 
-struct dma_frame *fscc_io_create_frame(struct fscc_port *port, size_t size_of_buffer) 
+struct dma_frame *fscc_io_create_frame(struct fscc_port *port, UINT32 size_of_buffer)
 {
 	NTSTATUS status = STATUS_SUCCESS;
 	PHYSICAL_ADDRESS temp_address;
 	struct dma_frame *frame = 0;
 	
-	frame = (struct dma_frame *)ExAllocatePoolWithTag(NonPagedPool, sizeof(struct dma_frame), 'CSED');
+	frame = (struct dma_frame *)ExAllocatePool2(POOL_FLAG_NON_PAGED, sizeof(struct dma_frame), 'CSED');
 	if(frame == NULL) {
 		DbgPrint("Failed to make frame..\n");
 		TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE, "ExAllocatePoolWithTag failed!");
@@ -126,13 +126,13 @@ struct dma_frame *fscc_io_create_frame(struct fscc_port *port, size_t size_of_bu
 	frame->desc = WdfCommonBufferGetAlignedVirtualAddress(frame->desc_buffer);
 	temp_address = WdfCommonBufferGetAlignedLogicalAddress(frame->desc_buffer);
 	frame->desc_physical_address = temp_address.LowPart;
-	frame->desc_size = WdfCommonBufferGetLength(frame->desc_buffer);
+	frame->desc_size = (UINT32)WdfCommonBufferGetLength(frame->desc_buffer);
 	RtlZeroMemory(frame->desc, frame->desc_size);
 	
 	frame->buffer = WdfCommonBufferGetAlignedVirtualAddress(frame->data_buffer);
 	temp_address = WdfCommonBufferGetAlignedLogicalAddress(frame->data_buffer);
 	frame->desc->data_address = temp_address.LowPart;
-	frame->data_size = WdfCommonBufferGetLength(frame->data_buffer);
+	frame->data_size = (UINT32)WdfCommonBufferGetLength(frame->data_buffer);
 	RtlZeroMemory(frame->buffer, frame->data_size);
 	
 	clear_timestamp(&frame->timestamp);
@@ -140,7 +140,7 @@ struct dma_frame *fscc_io_create_frame(struct fscc_port *port, size_t size_of_bu
 	return frame;
 }
 
-void fscc_io_destroy_frame(struct fscc_port *port, struct dma_frame *frame)
+void fscc_io_destroy_frame(struct dma_frame *frame)
 {
 	RtlZeroMemory(frame->buffer, frame->data_size);
 	frame->desc->data_address = 0;
@@ -160,7 +160,7 @@ void fscc_io_destroy_frame(struct fscc_port *port, struct dma_frame *frame)
 	frame = 0;
 }
 
-void fscc_io_link_desc(struct fscc_port *port, struct dma_frame **descs, size_t number_of_buffers)
+void fscc_io_link_desc(struct dma_frame **descs, size_t number_of_buffers)
 {
 	size_t i;
 	
@@ -170,18 +170,16 @@ void fscc_io_link_desc(struct fscc_port *port, struct dma_frame **descs, size_t 
 	}
 }
 
-NTSTATUS fscc_io_create_rx(struct fscc_port *port, size_t number_of_buffers, size_t size_of_buffers)
+NTSTATUS fscc_io_create_rx(struct fscc_port *port, UINT32 number_of_buffers, UINT32 size_of_buffers)
 {
-	NTSTATUS status;
-	PHYSICAL_ADDRESS temp_address;
-	size_t i;
+	UINT32 i;
 	
 	if(number_of_buffers < 2) 
 		number_of_buffers = 2;
 	if(size_of_buffers % 4)
 		size_of_buffers += (4 - (size_of_buffers % 4));
 	
-	port->rx_descriptors = (struct dma_frame **)ExAllocatePoolWithTag(NonPagedPool, (sizeof(struct dma_frame *) * number_of_buffers), 'CSED');
+	port->rx_descriptors = (struct dma_frame **)ExAllocatePool2(POOL_FLAG_NON_PAGED, (sizeof(struct dma_frame *) * number_of_buffers), 'CSED');
 	if(port->rx_descriptors == NULL) {
 		TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE, "ExAllocatePoolWithTag for all rx desc failed!");
 		DbgPrint("Failed all rx desc\n");
@@ -193,7 +191,6 @@ NTSTATUS fscc_io_create_rx(struct fscc_port *port, size_t number_of_buffers, siz
 	for(i=0;i<number_of_buffers;i++) {
 		port->rx_descriptors[i] = fscc_io_create_frame(port, size_of_buffers);
 		if(!port->rx_descriptors[i]) {
-			DbgPrint("Failed to create rx frame at %d\n", i);
 			TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE, "Failed to create rx frame at %d!", i);
 			break;
 		}
@@ -209,23 +206,21 @@ NTSTATUS fscc_io_create_rx(struct fscc_port *port, size_t number_of_buffers, siz
 	port->memory.rx_size = size_of_buffers;
 	port->memory.rx_num = i;
 	
-	fscc_io_link_desc(port, port->rx_descriptors, port->memory.rx_num);
+	fscc_io_link_desc(port->rx_descriptors, port->memory.rx_num);
 
 	return STATUS_SUCCESS;
 }
 
-NTSTATUS fscc_io_create_tx(struct fscc_port *port, size_t number_of_buffers, size_t size_of_buffers)
+NTSTATUS fscc_io_create_tx(struct fscc_port *port, UINT32 number_of_buffers, UINT32 size_of_buffers)
 {
-	NTSTATUS status;
-	PHYSICAL_ADDRESS temp_address;
-	size_t i;
+	UINT32 i;
 
 	if(number_of_buffers < 2) 
 		number_of_buffers = 2;
 	if(size_of_buffers % 4)
 		size_of_buffers += (4 - (size_of_buffers % 4));
 	
-	port->tx_descriptors = (struct dma_frame **)ExAllocatePoolWithTag(NonPagedPool, (sizeof(struct dma_frame *) * number_of_buffers), 'CSED');
+	port->tx_descriptors = (struct dma_frame **)ExAllocatePool2(POOL_FLAG_NON_PAGED, (sizeof(struct dma_frame *) * number_of_buffers), 'CSED');
 	if(port->tx_descriptors == NULL) {
 		TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE, "ExAllocatePoolWithTag for all tx desc failed!");
 		DbgPrint("Failed all tx desc\n");
@@ -237,7 +232,6 @@ NTSTATUS fscc_io_create_tx(struct fscc_port *port, size_t number_of_buffers, siz
 	for(i=0;i<number_of_buffers;i++) {
 		port->tx_descriptors[i] = fscc_io_create_frame(port, size_of_buffers);
 		if(!port->tx_descriptors[i]) {
-			DbgPrint("Failed to create tx frame at %d\n", i);
 			TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE, "Failed to create tx frame at %d!", i);
 			break;
 		}
@@ -254,7 +248,7 @@ NTSTATUS fscc_io_create_tx(struct fscc_port *port, size_t number_of_buffers, siz
 	port->memory.tx_size = size_of_buffers;
 	port->memory.tx_num = i;
 	
-	fscc_io_link_desc(port, port->tx_descriptors, port->memory.tx_num);
+	fscc_io_link_desc(port->tx_descriptors, port->memory.tx_num);
 	
 	return STATUS_SUCCESS;
 }
@@ -273,7 +267,7 @@ void fscc_io_destroy_rx(struct fscc_port *port)
 	
 	for(i=0;i<port->memory.rx_num;i++) 
 	{
-		fscc_io_destroy_frame(port, port->rx_descriptors[i]);
+		fscc_io_destroy_frame(port->rx_descriptors[i]);
 	}
 	
 	ExFreePoolWithTag(port->rx_descriptors, 'CSED');
@@ -294,7 +288,7 @@ void fscc_io_destroy_tx(struct fscc_port *port)
 	
 	for(i=0;i<port->memory.tx_num;i++)
 	{
-		fscc_io_destroy_frame(port, port->tx_descriptors[i]);
+		fscc_io_destroy_frame(port->tx_descriptors[i]);
 	}
 	
 	ExFreePoolWithTag(port->tx_descriptors, 'CSED');
@@ -304,7 +298,6 @@ void fscc_io_destroy_tx(struct fscc_port *port)
 NTSTATUS fscc_io_initialize(struct fscc_port *port)
 {
 	NTSTATUS status;
-	WDF_OBJECT_ATTRIBUTES attributes;
 	WDF_DMA_ENABLER_CONFIG dma_config;
 
 	// The registers are 4 bytes.
@@ -397,9 +390,6 @@ NTSTATUS fscc_io_purge_rx(struct fscc_port *port)
 
 NTSTATUS fscc_io_purge_tx(struct fscc_port *port)
 {
-	NTSTATUS status;
-	size_t i;
-
 	return_val_if_untrue(port, 0);
 
 	TraceEvents(TRACE_LEVEL_INFORMATION, TRACE_DEVICE,
@@ -567,7 +557,7 @@ NTSTATUS fscc_dma_port_disable(struct fscc_port *port)
 	return fscc_port_set_register(port, 2, DMACCR_OFFSET, 0x00000000);
 }
 
-unsigned fscc_user_next_read_size(struct fscc_port *port, size_t *bytes)
+UINT32 fscc_user_next_read_size(struct fscc_port *port, UINT32 *bytes)
 {
 	size_t i, cur_desc;
 	UINT32 control = 0;
@@ -645,8 +635,8 @@ size_t fscc_user_get_tx_space(struct fscc_port *port)
 int fscc_fifo_write_data(struct fscc_port *port)
 {
 	unsigned fifo_space, write_length, frame_size = 0, size_in_fifo;
-	size_t data_written = 0;
-	size_t i;
+	UINT32 data_written = 0;
+	UINT32 i;
 	UINT32 txcnt = 0, tfcnt = 0;
 
 	tfcnt = fscc_io_get_TFCNT(port);
@@ -677,7 +667,7 @@ int fscc_fifo_write_data(struct fscc_port *port)
 			frame_size = port->tx_descriptors[port->fifo_tx_desc]->desc->control&DMA_MAX_LENGTH;
 		}
 		
-		fscc_port_set_register_rep(port, 0, FIFO_OFFSET, port->tx_descriptors[port->fifo_tx_desc]->buffer, write_length);
+		fscc_port_set_register_rep(port, 0, FIFO_OFFSET, (char *)port->tx_descriptors[port->fifo_tx_desc]->buffer, write_length);
 		data_written = 1;
 		fifo_space -= size_in_fifo;
 		
@@ -699,7 +689,7 @@ int fscc_fifo_write_data(struct fscc_port *port)
 int fscc_fifo_read_data(struct fscc_port *port)
 {
 	size_t i;
-	unsigned rxcnt, receive_length = 0, pending_frame_size = 0;
+	unsigned rxcnt, receive_length = 0;
 	UINT32 new_control = 0;
 	
 	WdfSpinLockAcquire(port->board_rx_spinlock);
@@ -729,7 +719,7 @@ int fscc_fifo_read_data(struct fscc_port *port)
 		// Instead of breaking out if this is 0, we move on to allow the FE/CSTOP processing.
 		
 		if(receive_length)
-			fscc_port_get_register_rep(port, 0, FIFO_OFFSET, port->rx_descriptors[port->fifo_rx_desc]->buffer+(new_control&DMA_MAX_LENGTH), receive_length);
+			fscc_port_get_register_rep(port, 0, FIFO_OFFSET, (char *)port->rx_descriptors[port->fifo_rx_desc]->buffer+(new_control&DMA_MAX_LENGTH), receive_length);
 		new_control += receive_length;
 		port->rx_bytes_in_frame += receive_length;
 
@@ -771,12 +761,12 @@ int fscc_fifo_read_data(struct fscc_port *port)
 	return STATUS_SUCCESS;
 }
 
-int fscc_user_write_frame(struct fscc_port *port, char *buf, size_t data_length, size_t *out_length)
+int fscc_user_write_frame(struct fscc_port *port, char *buf, UINT32 data_length, UINT32 *out_length)
 {
 	size_t i;
 	int status = STATUS_SUCCESS;
 	UINT32 new_control = 0;
-	size_t transmit_length;
+	UINT32 transmit_length;
 	UINT32 start_desc = 0;
 	
 	*out_length = 0;
@@ -819,18 +809,17 @@ int fscc_user_write_frame(struct fscc_port *port, char *buf, size_t data_length,
 	return status;
 }
 
-int fscc_user_read_frame(struct fscc_port *port, char *buf, size_t buf_length, size_t *out_length)
+int fscc_user_read_frame(struct fscc_port *port, char *buf, UINT32 buf_length, UINT32 *out_length)
 {
-	size_t i;
+	UINT32 i;
 	int frame_ready = 0;
-	size_t planned_move_size = 0;
-	size_t real_move_size = 0;
-	size_t bytes_in_descs = 0;
-	size_t total_valid_data = 0;
-	size_t filled_frame_size = 0;
-	size_t buffer_requirement = 0;
+	UINT32 planned_move_size = 0;
+	UINT32 real_move_size = 0;
+	UINT32 bytes_in_descs = 0;
+	UINT32 total_valid_data = 0;
+	UINT32 filled_frame_size = 0;
+	UINT32 buffer_requirement = 0;
 	UINT32 control = 0;
-	unsigned char *tempbuf;
 	
 	return_val_if_untrue(port, STATUS_UNSUCCESSFUL);
 	
@@ -916,11 +905,10 @@ int fscc_user_read_frame(struct fscc_port *port, char *buf, size_t buf_length, s
 	return STATUS_SUCCESS;
 }
 
-int fscc_user_read_stream(struct fscc_port *port, char *buf, size_t buf_length, size_t *out_length)
+int fscc_user_read_stream(struct fscc_port *port, char *buf, UINT32 buf_length, UINT32 *out_length)
 {
 	size_t i;
-	int receive_length = 0;
-	int status;
+	UINT32 receive_length = 0;
 	UINT32 control;
 	
 	return_val_if_untrue(port, STATUS_UNSUCCESSFUL);
@@ -977,7 +965,7 @@ unsigned fscc_io_transmit_frame(struct fscc_port *port)
 unsigned fscc_io_has_incoming_data(struct fscc_port *port)
 {
 	int frame_waiting = 0;
-	size_t bytes_waiting = 0;
+	UINT32 bytes_waiting = 0;
 	
 	return_val_if_untrue(port, 0);
 
@@ -1085,8 +1073,7 @@ VOID FsccEvtIoWrite(IN WDFQUEUE Queue, IN WDFREQUEST Request, IN size_t Length)
 	NTSTATUS status;
 	char *data_buffer = NULL;
 	struct fscc_port *port = 0;
-	size_t write_count = 0;
-	int uses_dma;
+	UINT32 write_count = 0;
 
 	port = WdfObjectGet_FSCC_PORT(WdfIoQueueGetDevice(Queue));
 	
@@ -1133,7 +1120,7 @@ VOID FsccEvtIoWrite(IN WDFQUEUE Queue, IN WDFREQUEST Request, IN size_t Length)
 		return;
 	}
 	
-	status = fscc_user_write_frame(port, data_buffer, Length, &write_count);
+	status = fscc_user_write_frame(port, data_buffer, (UINT32)Length, &write_count);
 	
 	if (port->wait_on_write) {
 		status = WdfRequestForwardToIoQueue(Request, port->write_queue2);

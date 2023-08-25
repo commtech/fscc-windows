@@ -31,6 +31,7 @@ THE SOFTWARE.
 
 #include <ntddser.h>
 #include <ntstrsafe.h>
+#include <devpkey.h>
 
 #if defined(EVENT_TRACING)
 #include "port.tmh"
@@ -49,6 +50,7 @@ NTSTATUS fscc_port_get_port_num(struct fscc_port *port, unsigned *port_num);
 NTSTATUS fscc_port_set_port_num(struct fscc_port *port, unsigned value);
 NTSTATUS fscc_port_get_default_memory(struct fscc_port *port, struct fscc_memory *memory);
 NTSTATUS fscc_port_get_default_registers(struct fscc_port *port, struct fscc_registers *regs);
+NTSTATUS fscc_port_set_friendly_name(_In_ WDFDEVICE Device, unsigned portnum);
 
 #pragma warning( disable: 4267 )
 
@@ -130,7 +132,7 @@ IN PWDFDEVICE_INIT DeviceInit)
 		"WdfDeviceInitAssignName failed %!STATUS!", status);
 		return 0;
 	}
-
+	
 	status = WdfDeviceInitAssignSDDLString(DeviceInit,
 	&SDDL_DEVOBJ_SYS_ALL_ADM_RWX_WORLD_RWX_RES_RWX);
 	if (!NT_SUCCESS(status)) {
@@ -139,7 +141,7 @@ IN PWDFDEVICE_INIT DeviceInit)
 		"WdfDeviceInitAssignSDDLString failed %!STATUS!", status);
 		return 0;
 	}
-
+	
 	WdfDeviceInitSetDeviceType(DeviceInit, FILE_DEVICE_SERIAL_PORT);
 	WdfDeviceInitSetDeviceClass(DeviceInit, (LPGUID)&GUID_DEVCLASS_FSCC);
 
@@ -311,6 +313,14 @@ IN PWDFDEVICE_INIT DeviceInit)
 		WdfObjectDelete(port->device);
 		TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE,
 		"fscc_port_get_port_num failed %!STATUS!", status);
+		return 0;
+	}
+
+	status = fscc_port_set_friendly_name(port->device, port_num);
+	if (!NT_SUCCESS(status)) {
+		WdfObjectDelete(port->device);
+		TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE,
+			"fscc_port_set_friendly_name failed %!STATUS!", status);
 		return 0;
 	}
 
@@ -1447,7 +1457,7 @@ void fscc_port_set_clock_bits(struct fscc_port *port, unsigned char *clock_data)
 #endif
 
 
-	data = (UINT32 *)ExAllocatePoolWithTag(NonPagedPool, sizeof(UINT32) * 323, 'stiB');
+	data = (UINT32 *)ExAllocatePool2(POOL_FLAG_NON_PAGED, sizeof(UINT32) * 323, 'stiB');
 
 	if (data == NULL) {
 		TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE,
@@ -1800,4 +1810,32 @@ NTSTATUS fscc_port_get_default_registers(struct fscc_port *port, struct fscc_reg
 	WdfRegistryClose(devkey);
 
 	return STATUS_SUCCESS;
+}
+
+#define FRIENDLYNAME_SIZE 40
+NTSTATUS fscc_port_set_friendly_name(_In_ WDFDEVICE Device, unsigned portnum)
+{
+	NTSTATUS status;
+	WDF_DEVICE_PROPERTY_DATA dpd;
+	WCHAR friendlyName[FRIENDLYNAME_SIZE] = { 0 };
+	int characters_written = 0;
+
+	WDF_DEVICE_PROPERTY_DATA_INIT(&dpd, &DEVPKEY_Device_FriendlyName);
+
+	dpd.Lcid = LOCALE_NEUTRAL;
+	dpd.Flags = PLUGPLAY_PROPERTY_PERSISTENT;
+	characters_written = swprintf_s(friendlyName, FRIENDLYNAME_SIZE, L"FSCC Port (FSCC%i)", portnum);
+	if(characters_written < 0) {
+		TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE, "swprintf_s failed with %d", characters_written);
+		return STATUS_INVALID_PARAMETER;
+	}
+
+	status = WdfDeviceAssignProperty(Device, &dpd, DEVPROP_TYPE_STRING, sizeof(friendlyName) / sizeof(WCHAR), (PVOID)&friendlyName);
+	if (!NT_SUCCESS(status)) {
+		TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE, "WdfDeviceAssignProperty failed %!STATUS!", status);
+
+		DbgPrint("WdfDeviceAssignProperty failed with 0x%X\n", status);
+		return status;
+	}
+	return status;
 }

@@ -48,8 +48,9 @@ THE SOFTWARE.
 #define TRACE_DRIVER                0x00000001
 #define TRACE_DEBUG                 0x00000002
 #define TRACE_QUEUE                    0x00000004
+#define TRACE_DEVICE				0x00000008
 
-
+/*
 VOID
 TraceEvents(
 _In_ ULONG   DebugPrintLevel,
@@ -58,7 +59,7 @@ _Printf_format_string_
 _In_ PCSTR   DebugMessage,
 ...
 );
-
+*/
 #define WPP_INIT_TRACING(DriverObject, RegistryPath)
 #define WPP_CLEANUP(DriverObject)
 

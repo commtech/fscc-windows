@@ -21,6 +21,7 @@ THE SOFTWARE.
 */
 
 
+#include "defines.h"
 #include "driver.h"
 #include "port.h"
 #include "utils.h"

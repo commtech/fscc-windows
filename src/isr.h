@@ -27,6 +27,7 @@ THE SOFTWARE.
 #include <ntddk.h>
 #include <wdf.h>
 
+#include "defines.h"
 #include "Trace.h"
 
 EVT_WDF_INTERRUPT_ISR fscc_isr;

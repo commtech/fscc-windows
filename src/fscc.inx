@@ -22,28 +22,14 @@
 
 [Version]
 Signature="$WINDOWS NT$"
-Class = FSCC
-ClassGuid = {4d36e878-e325-11ce-bfc1-08002be11319}
+Class =MultiportSerial
+ClassGuid ={50906cb8-ba12-11d1-bf5d-0000f805f530}
 Provider=%ManufacturerName%
 CatalogFile=fastcom.cat
 DriverVer=
 
-[ClassInstall32]
-Addreg=FsccClass_AddReg
-CopyFiles=FsccClassInstallerCopyFiles
- 
-[FsccClass_AddReg]
-HKR,,,0,%DeviceClassName%
-HKR,,Icon,,-10
-HKR,,Installer32,,"fscc.dll,FsccClassInstaller"
-
-[FsccClassInstallerCopyFiles]
-fscc.dll
-
 [DestinationDirs]
 DefaultDestDir = 12
-FSCC_Device_CoInstaller_CopyFiles = 11
-FsccClassInstallerCopyFiles = 11
 
 ; ================= Class section =====================
 
@@ -51,9 +37,7 @@ FsccClassInstallerCopyFiles = 11
 1 = %DiskName%,,,""
 
 [SourceDisksFiles]
-fscc.sys  = 1,,
-fscc.dll = 1,,
-WdfCoInstaller$KMDFCOINSTALLERVERSION$.dll = 1 ; make sure the number matches with SourceDisksNames
+fscc-windows.sys  = 1
 
 ;*****************************************
 ; Install Section
@@ -65,12 +49,11 @@ WdfCoInstaller$KMDFCOINSTALLERVERSION$.dll = 1 ; make sure the number matches wi
 [Standard.NT$ARCH$]
 %SyncPort.DeviceDesc%=FSCC_Device, Fscc\Port1, Fscc\Port2
 
-
 [FSCC_Device.NT]
 CopyFiles=Drivers_Dir
 
 [Drivers_Dir]
-fscc.sys
+fscc-windows.sys
 
 ;-------------- Service installation
 [FSCC_Device.NT.Services]
@@ -82,39 +65,12 @@ DisplayName    = %FSCC.SVCDESC%
 ServiceType    = 1               ; SERVICE_KERNEL_DRIVER
 StarTtype      = 3               ; SERVICE_DEMAND_START
 ErrorControl   = 1               ; SERVICE_ERROR_NORMAL
-ServiceBinary  = %12%\fscc.sys
+ServiceBinary  = %12%\fscc-windows.sys
 LoadOrderGroup = Multiple Port
 
-;
-;--- FSCC_Device Coinstaller installation ------
-;
-
-
-[FSCC_Device.NT.CoInstallers]
-AddReg=FSCC_Device_CoInstaller_AddReg
-CopyFiles=FSCC_Device_CoInstaller_CopyFiles
-
-[FSCC_Device_CoInstaller_AddReg]
-HKR,,CoInstallers32,0x00010000, "WdfCoInstaller$KMDFCOINSTALLERVERSION$.dll,WdfCoInstaller"
-;HKLM,System\CurrentControlSet\Control\CoDeviceInstallers, {4d36e878-e325-11ce-bfc1-08002be11318},0x00010008, ;"fscc.dll,FsccClassInstaller"
-
-[FSCC_Device_CoInstaller_CopyFiles]
-WdfCoInstaller$KMDFCOINSTALLERVERSION$.dll
-;fscc.dll
-
-;[SourceDisksFiles]
-;WdfCoInstaller$KMDFCOINSTALLERVERSION$.dll=1 ; make sure the number matches with SourceDisksNames
-;fscc.dll=1
-
-[FSCC_Device.NT.Wdf]
-KmdfService =  FSCC, FSCC_wdfsect
-[FSCC_wdfsect]
-KmdfLibraryVersion = $KMDFVERSION$
 
 [Strings]
 ManufacturerName = "Commtech, Inc."
 DiskName = "FSCC Installation Disk"
 FSCC.SVCDESC = "Commtech FSCC driver"
-DeviceClassName = "Ports (FSCC)"
-
 SyncPort.DeviceDesc = "FSCC Port"

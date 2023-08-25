@@ -268,7 +268,7 @@ unsigned byte_count)
 	{
 		unsigned i = 0;
 
-		reversed_data = (char *)ExAllocatePoolWithTag(NonPagedPool, byte_count,
+		reversed_data = (char *)ExAllocatePoolWithTag(POOL_FLAG_NON_PAGED, byte_count,
 		'ataD');
 
 		for (i = 0; i < byte_count; i++)
