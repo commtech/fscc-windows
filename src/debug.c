@@ -158,6 +158,8 @@ void print_interrupts(unsigned isr_value)
 	}
 }
 
+
+
 #if !defined(EVENT_TRACING)
 
 VOID
@@ -167,30 +169,16 @@ IN ULONG   TraceEventsFlag,
 IN PCCHAR  DebugMessage,
 ...
 )
-
-/*++
-
-Routine Description:
-
-	Debug print for the sample driver.
-
-Arguments:
-
-	TraceEventsLevel - print level between 0 and 3, with 3 the most verbose
-
-Return Value:
-
-	None.
-
---*/
 {
-#if DEBUG
+#if DBG
 
 #define     TEMP_BUFFER_SIZE        1024
 
 	va_list    list;
 	CHAR      debugMessageBuffer [TEMP_BUFFER_SIZE];
 	NTSTATUS   status;
+
+	UNREFERENCED_PARAMETER(TraceEventsFlag);
 
 	va_start(list, DebugMessage);
 
@@ -207,12 +195,10 @@ Return Value:
 		list );
 		if(!NT_SUCCESS(status)) {
 
-			KdPrint((_DRIVER_NAME_": RtlStringCbVPrintfA failed %x\n", status));
+			KdPrint(("fscc-windows.sys: RtlStringCbVPrintfA failed %x\n", status));
 			return;
 		}
-		if (TraceEventsLevel < TRACE_LEVEL_INFORMATION ||
-				(TraceEventsLevel <= DebugLevel &&
-					((TraceEventsFlag & DebugFlag) == TraceEventsFlag))) {
+		if (TraceEventsLevel < TRACE_LEVEL_INFORMATION) {
 
 			KdPrint((debugMessageBuffer));
 		}
