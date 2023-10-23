@@ -1812,7 +1812,7 @@ NTSTATUS fscc_port_get_default_registers(struct fscc_port *port, struct fscc_reg
 	return STATUS_SUCCESS;
 }
 
-#define FRIENDLYNAME_SIZE 40
+#define FRIENDLYNAME_SIZE 256
 NTSTATUS fscc_port_set_friendly_name(_In_ WDFDEVICE Device, unsigned portnum)
 {
 	NTSTATUS status;
@@ -1821,7 +1821,6 @@ NTSTATUS fscc_port_set_friendly_name(_In_ WDFDEVICE Device, unsigned portnum)
 	int characters_written = 0;
 
 	WDF_DEVICE_PROPERTY_DATA_INIT(&dpd, &DEVPKEY_Device_FriendlyName);
-
 	dpd.Lcid = LOCALE_NEUTRAL;
 	dpd.Flags = PLUGPLAY_PROPERTY_PERSISTENT;
 	characters_written = swprintf_s(friendlyName, FRIENDLYNAME_SIZE, L"FSCC Port (FSCC%i)", portnum);
@@ -1830,12 +1829,13 @@ NTSTATUS fscc_port_set_friendly_name(_In_ WDFDEVICE Device, unsigned portnum)
 		return STATUS_INVALID_PARAMETER;
 	}
 
-	status = WdfDeviceAssignProperty(Device, &dpd, DEVPROP_TYPE_STRING, sizeof(friendlyName) / sizeof(WCHAR), (PVOID)&friendlyName);
+	status = WdfDeviceAssignProperty(Device, &dpd, DEVPROP_TYPE_STRING, (characters_written + 1)*sizeof(WCHAR), (PVOID)&friendlyName);
 	if (!NT_SUCCESS(status)) {
 		TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE, "WdfDeviceAssignProperty failed %!STATUS!", status);
 
 		DbgPrint("WdfDeviceAssignProperty failed with 0x%X\n", status);
 		return status;
 	}
+	
 	return status;
 }
