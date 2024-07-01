@@ -1,5 +1,5 @@
 /*
-Copyright 2019 Commtech, Inc.
+Copyright 2023 Commtech, Inc.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy 
 of this software and associated documentation files (the "Software"), to deal 
@@ -23,7 +23,28 @@ THE SOFTWARE.
 #ifndef CALCULATE_CLOCK_BITS_H
 #define CALCULATE_CLOCK_BITS_H
 
-int calculate_clock_bits(unsigned long freq, unsigned long ppm, 
-                         unsigned char *clock_bits);
+#include <stdint.h>
+
+struct clock_data_fscc {
+	unsigned long frequency;
+	unsigned char clock_bits[20];
+};
+
+struct clock_data_335 {
+	unsigned long frequency;
+	unsigned int clock_bits;
+};
+
+// The FSCC, Sync Com, and Async Com all use the same clock currently.
+// Other -335 serial cards use a different clock.
+typedef struct clock_data_fscc clock_data_fscc;
+typedef struct clock_data_fscc clock_data_synccom;
+typedef struct clock_data_fscc clock_data_asynccom;
+typedef struct clock_data_335 clock_data_335;
+
+int calculate_clock_bits_fscc(clock_data_fscc *clock_data, unsigned long ppm);
+int calculate_clock_bits_asynccom(clock_data_asynccom *clock_data, unsigned long ppm);
+int calculate_clock_bits_synccom(clock_data_synccom *clock_data, unsigned long ppm);
+int calculate_clock_bits_335(clock_data_335 *clock_data);
 
 #endif
