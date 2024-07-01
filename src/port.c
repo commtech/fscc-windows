@@ -1180,7 +1180,7 @@ NTSTATUS fscc_port_set_registers(struct fscc_port *port, const struct fscc_regis
 	if(regs->DMACCR & 0x10000)
 		fscc_card_set_register(&port->card, 2, DMACCR_OFFSET, 0x10000);
 	if(regs->DMACCR > 0)
-		fscc_port_set_register(port, 2, DMACCR_OFFSET, (UINT32)regs->DMACCR);
+		fscc_port_set_register(port, 2, DMACCR_OFFSET, (UINT32)regs->DMACCR & 0xfffeffff);
 	
 	return (stalled) ? STATUS_IO_TIMEOUT : STATUS_SUCCESS;
 }
