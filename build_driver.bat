@@ -51,9 +51,13 @@ Inf2cat.exe /driver:%TOP%\ /os:%5 > nul
 if %errorlevel% neq 0 exit /b %errorlevel%
 
 :sign_files
-echo Signing Files...
+:echo Signing Files...
 :signtool sign /ac "DigiCert High Assurance EV Root CA.crt" /n "Commtech, Inc." /t http://timestamp.digicert.com/ /sha1 A3B9E0686AAD8D1E42216AC6C701766E9D1AA712 %TOP%\fastcom.cat
-signtool sign /ac "DigiCert High Assurance EV Root CA.crt" /n "Commtech, Inc." /t http://timestamp.digicert.com/ /sha1 A55F5C61CE305CD8F45E6C46AD704C452FBF630E %TOP%\fastcom.cat
+:signtool sign /ac "DigiCert High Assurance EV Root CA.crt" /n "Commtech, Inc." /t http://timestamp.digicert.com/ /sha1 A55F5C61CE305CD8F45E6C46AD704C452FBF630E %TOP%\fastcom.cat
+:if %errorlevel% neq 0 exit /b %errorlevel%
+
+: As of 08/04/22
+signtool sign /fd SHA512 /t http://timestamp.digicert.com/ /sha1 b757f8701a8ce35e8a243a12207ce8a697756df0 %TOP%\fastcom.cat
 if %errorlevel% neq 0 exit /b %errorlevel%
 
 exit

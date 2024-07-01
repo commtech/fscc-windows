@@ -1,12 +1,6 @@
 # fscc-windows
 This README file is best viewed [online](http://github.com/commtech/fscc-windows/).
 
-## Installing Driver
-
-##### Downloading Driver Package
-You can download a pre-built driver package directly from our [website](http://www.commtech-fastcom.com/CommtechSoftware.html).
-
-
 ## Quick Start Guide
 There is documentation for each specific function listed below, but lets get started with a quick programming example for fun.
 
@@ -73,7 +67,9 @@ There are likely other configuration options you will need to set up for your  o
 - [Connect](docs/connect.md)
 - [Append Status](docs/append-status.md)
 - [Append Timestamp](docs/append-timestamp.md)
+- [Blocking Write](docs/blocking-write.md)
 - [Clock Frequency](docs/clock-frequency.md)
+- [Force FIFO](docs/force-fifo.md)
 - [Ignore Timeout](docs/ignore-timeout.md)
 - [Memory](docs/memory.md)
 - [Purge](docs/purge.md)
@@ -131,6 +127,12 @@ This is the key for setting automatically generated port numbering. If you want 
 `HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\services\FSCC\Parameters\LastPortNumber`
 
 This is the key for setting the port's specific number after it has already been assigned. `HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Enum\MF\PCI#VEN_18F7&DEV_00XXXXXXXXXXXXXXXXXXXX#Child0X\Device Parameters\PortNumber`
+
+##### How do I change the default registers or the default memory?
+The default registers and memory values are stored in:
+`HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Enum\MF\PCI#VEN_18F7&DEV_00XXXXXXXXXXXXXXXXXXXX#Child0X\Device Parameters\`
+
+These registers and memory values will only take effect as default values, and only after a reboot.
 
 
 ##### Which resitors are for termination?
@@ -237,7 +239,7 @@ And once you determine how many bits you need to shift to get valid data, everyt
 This can be avoided by utilizing a receive data strobe in an appropriate clock mode.  If the transmitting device can supply a strobe signal that activates at the beginning of the of the data and deactivates at the end, the receiver will only be activated during the active phase of this signal, and hopefully the data will have the correct alignment.
 
 
-##### What was changed in 2.X?
+##### What was changed in 3.X?
 You can view an up-to-date list of driver changes in our [ChangeLog](ChangeLog.md).
 
 
@@ -273,10 +275,10 @@ BLD
 ```
 
 
-##### Should I migrate from 1.x to 2.x?
-There are multiple benefits of using the 2.x driver: amd64 support, intuitive [`DeviceIoControl`](http://msdn.microsoft.com/en-us/library/windows/desktop/aa363216.aspx) calls, backend support for multiple languages (C, C++, Python, .NET), and dynamic memory management, to name a few.
+##### Should I migrate from 1.x to 3.x?
+There are multiple benefits of using the 3.x driver: amd64 support, intuitive [`DeviceIoControl`](http://msdn.microsoft.com/en-us/library/windows/desktop/aa363216.aspx) calls, backend support for multiple languages (C, C++, Python, .NET), and dynamic memory management, to name a few.
 
-The 1.x driver and the 2.x driver are very similar, so porting from one to the other should be rather painless.
+The 1.x driver and the 3.x driver are very similar, so porting from one to the other should be rather painless.
 
 All `DeviceIoControl` values have changed even if their new names match their old names. This means even if you use a `DeviceIoControl` with an identical name, it will not work correctly.
 
@@ -311,7 +313,7 @@ All `DeviceIoControl` values have changed even if their new names match their ol
 | `IOCTL_FSCCDRV_ALLOW_READ_CUTOFF` | | No longer required (handled automatically) |
 | `IOCTL_FSCCDRV_SET_RX_IRQ_RATE` | | No longer available |
 | `IOCTL_FSCCDRV_SET_TX_IRQ_RATE` | | No longer available |
-| `IOCTL_FSCCDRV_SET_DMA` | | No longer available |
+| `IOCTL_FSCCDRV_SET_DMA` | | `FSCC_FORCE_FIFO` | |
 | `IOCTL_FSCCDRV_SET_RECEIVE_MULTIPLE` | `FSCC_SET_RX_MULTIPLE` | No longer available |
 | `IOCTL_FSCCDRV_GET_RECEIVE_MULTIPLE` | `FSCC_GET_RX_MULTIPLE` | No longer available |
 | `IOCTL_FSCCDRV_SET_CHARACTER_MAP_ENABLE` | | No longer available |
@@ -331,11 +333,7 @@ All `DeviceIoControl` values have changed even if their new names match their ol
 | | `FSCC_GET_APPEND_STATUS`     | |
 
 ##### Status Bytes
-Getting the frame status has now been designed to be configurable. When using the 1.x driver, you will always have the frame status appended to your data on a read. When using the 2.x driver, this can be toggled and defaults to not appending the status to the data.
-
-All of the 2.2.X releases will not break API compatability. If a function in the 2.2.X series returns an incorrect value, it can be fixed to return the correct value in a later release.
-
-When and if we switch to a 2.3 release there will only be minor API changes.
+Getting the frame status has now been designed to be configurable. When using the 1.x driver, you will always have the frame status appended to your data on a read. When using the 3.x driver, this can be toggled and defaults to not appending the status to the data.
 
 ##### I need to run software using the older API. How do I revert back to the 1.X driver?
 Start by uninstalling all of the entries in the 'Device Manager'.
@@ -370,6 +368,7 @@ It is advisable to purge after switching between DMA and FIFO mode.
 ## Run-time Dependencies
 - OS: Windows XP+ (driver versions 2.7.8 or lower)
 - OS: Windows 7+ (driver versions 2.0.0 or higher)
+- OS: Windows 10+ (driver versions 3.0.0 or higher)
 
 
 ## API Compatibility
@@ -378,6 +377,6 @@ We follow [Semantic Versioning](http://semver.org/) when creating releases.
 
 ## License
 
-Copyright (C) 2022 [Commtech, Inc.](https://fastcomproducts.com/)
+Copyright (C) 2023 [Commtech, Inc.](https://fastcomproducts.com/)
 
 Licensed under the [MIT license](https://opensource.org/licenses/MIT).

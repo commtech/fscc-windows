@@ -1,14 +1,24 @@
 # ChangeLog
 
 ## [3.0.2](https://github.com/commtech/fscc-windows/releases/tag/v3.0.2) (03/06/2023)
-- Fixed an issue with purging that turned off the receiver.
+- Updated files for Windows 10 Universal driver compatibility, including but not limited to:
+	* Changing from ExAllocPoolWithTag to ExAllocPool2
+	* Changing several size_t to UINT32 when dealing with registers or DMA.
+	* Removed the coinstallers and class installers
+	* Added FriendlyName renaming to the driver core instead of relying on class installers
+	* Changing the FSCC Port class from a custom class to a member of the Multiport Serial Devices
+	* Changing the release script to remove references to build scripts
+	* Updating project files for VS2022 compatibility
+- Removed support for Windows 7, Windows 8, Windows 8.1, and anything else before Windows 10. This should have been noted and done on the 3.0.0 release, but those releases were pushed forward to resolve some customer issues. We will be deprecating 3.0.0 and 3.0.1 as a result.
+	
 
-## [3.0.1](https://github.com/commtech/fscc-windows/releases/tag/v3.0.1) (01/09/2023)
+## [3.0.1](DEPRECATED)(https://github.com/commtech/fscc-windows/releases/tag/v3.0.1) (01/09/2023)
 - Removed the ability to adjust the memory buffers while in the driver is in operation.
 - Added the ability to adjust the default memory buffer sizes and numbers to the registry.
 - Added default register settings to the registry.
+- Registry values take effect on reboot or reinstall.
 
-## [3.0.0](UNRELEASED)
+## [3.0.0](DEPRECATED)(UNRELEASED)
 - Further DMA work.
 - Added DSTAR and DMACCR to the register structure.
 - As much as I'd like to claim this is perfectly backwards compatible, the change to the register structure breaks backwards compatibility. Older software can be 'fixed' by using the new fscc.h header (with the updated register structure) and recompiling your software. Otherwise, the changes should be invisible.
