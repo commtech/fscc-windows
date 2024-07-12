@@ -5,18 +5,18 @@ int main(void)
 {
     HANDLE h = 0;
     DWORD tmp;
-    unsigned char clock_bits[20];
+	clock_data_fscc clock_data;
 
     h = CreateFile("\\\\.\\FSCC0", GENERIC_READ | GENERIC_WRITE, 0, NULL,
                    OPEN_EXISTING, 0, NULL);
 
-    /* 18.432 MHz */
-    calculate_clock_bits(18432000, 10, clock_bits);
+	clock_data.frequency = 18432000;
+	calculate_clock_bits_fscc(&clock_data, 10);
+	DeviceIoControl(h, FSCC_SET_CLOCK_BITS,
+			&clock_data, sizeof(clock_data),
+			NULL, 0,
+			&tmp, (LPOVERLAPPED)NULL);
 
-    DeviceIoControl(h, FSCC_SET_CLOCK_BITS,
-                    &clock_bits, sizeof(clock_bits),
-                    NULL, 0,
-                    &tmp, (LPOVERLAPPED)NULL);
 
     CloseHandle(h);
 

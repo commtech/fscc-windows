@@ -136,7 +136,7 @@ BOOLEAN fscc_port_get_blocking_write(struct fscc_port *port);
 NTSTATUS fscc_port_set_tx_modifiers(struct fscc_port *port, int value);
 unsigned fscc_port_get_tx_modifiers(struct fscc_port *port);
 
-void fscc_port_set_clock_bits(struct fscc_port *port, unsigned char *clock_data);
+void fscc_port_set_clock_bits(struct fscc_port *port, struct clock_data_fscc *clock_data);
 
 unsigned fscc_port_using_async(struct fscc_port *port);
 unsigned fscc_port_timed_out(struct fscc_port *port);

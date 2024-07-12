@@ -491,14 +491,14 @@ NTSTATUS FsccEvtDevicePrepareHardware(WDFDEVICE Device,
 WDFCMRESLIST ResourcesRaw, WDFCMRESLIST ResourcesTranslated)
 {
 	unsigned char clock_bits[20] = DEFAULT_CLOCK_BITS;
-
 	WDF_TIMER_CONFIG  timerConfig;
 	WDF_OBJECT_ATTRIBUTES  timerAttributes;
 	NTSTATUS  status;
 	UINT32 vstr;
 	struct fscc_memory memory;
-
 	struct fscc_port *port = 0;
+	struct clock_data_fscc default_fscc_clock;
+	int i;
 
 	UNREFERENCED_PARAMETER(ResourcesRaw);
 
@@ -596,7 +596,9 @@ WDFCMRESLIST ResourcesRaw, WDFCMRESLIST ResourcesTranslated)
 	port->rx_frame_size = 0;
 	port->last_isr_value = 0;
 
-	fscc_port_set_clock_bits(port, clock_bits);
+	default_fscc_clock.frequency = 18432000;
+	for (i = 0; i < 20; i++) default_fscc_clock.clock_bits[i] = clock_bits[i];
+	fscc_port_set_clock_bits(port, &default_fscc_clock);
 	
 	if(fscc_port_uses_dma(port)) 
 		fscc_dma_port_enable(port);
@@ -873,17 +875,16 @@ IN ULONG IoControlCode)
 		break;
 
 	case FSCC_SET_CLOCK_BITS: {
-			unsigned char *clock_bits = 0;
+			PVOID clock_bits;
 
-			status = WdfRequestRetrieveInputBuffer(Request, NUM_CLOCK_BYTES,
-			(PVOID *)&clock_bits, NULL);
+			status = WdfRequestRetrieveInputBuffer(Request, sizeof(struct clock_data_fscc), &clock_bits, NULL);
 			if (!NT_SUCCESS(status)) {
 				TraceEvents(TRACE_LEVEL_WARNING, TRACE_DEVICE,
 				"WdfRequestRetrieveInputBuffer failed %!STATUS!", status);
 				break;
 			}
 
-			fscc_port_set_clock_bits(port, clock_bits);
+			fscc_port_set_clock_bits(port, (struct clock_data_fscc*)clock_bits);
 		}
 
 		break;
@@ -1425,7 +1426,7 @@ unsigned fscc_port_get_tx_modifiers(struct fscc_port *port)
 #define STRB_BASE 0x00000008
 #define DTA_BASE 0x00000001
 #define CLK_BASE 0x00000002
-void fscc_port_set_clock_bits(struct fscc_port *port, unsigned char *clock_data)
+void fscc_port_set_clock_bits(struct fscc_port *port, struct clock_data_fscc *clock_data)
 {
 	UINT32 orig_fcr_value = 0;
 	UINT32 new_fcr_value = 0;
@@ -1441,7 +1442,7 @@ void fscc_port_set_clock_bits(struct fscc_port *port, unsigned char *clock_data)
 
 
 #ifdef DISABLE_XTAL
-	clock_data[15] &= 0xfb;
+	clock_data->clock_bits[15] &= 0xfb;
 #else
 	/* This enables XTAL on all cards except green FSCC cards with a revision
 	greater than 6 and 232 cards. Some old protoype SuperFSCC cards will 
@@ -1449,10 +1450,10 @@ void fscc_port_set_clock_bits(struct fscc_port *port, unsigned char *clock_data)
 	by default. */
 	if ((fscc_port_get_PDEV(port) == 0x0f && fscc_port_get_PREV(port) <= 6) ||
 			fscc_port_get_PDEV(port) == 0x16) {
-		clock_data[15] &= 0xfb;
+		clock_data->clock_bits[15] &= 0xfb;
 	}
 	else {
-		clock_data[15] |= 0x04;
+		clock_data->clock_bits[15] |= 0x04;
 	}
 #endif
 
@@ -1479,7 +1480,7 @@ void fscc_port_set_clock_bits(struct fscc_port *port, unsigned char *clock_data)
 
 	for (i = 19; i >= 0; i--) {
 		for (j = 7; j >= 0; j--) {
-			int bit = ((clock_data[i] >> j) & 1);
+			int bit = ((clock_data->clock_bits[i] >> j) & 1);
 
 			if (bit)
 			new_fcr_value |= dta_value; /* Set data bit */
@@ -1502,7 +1503,7 @@ void fscc_port_set_clock_bits(struct fscc_port *port, unsigned char *clock_data)
 	fscc_port_set_register_rep(port, 2, FCR_OFFSET, (char *)data, data_index * 4);
 
 	WdfSpinLockRelease(port->board_settings_spinlock);
-
+	// save clock rate here.
 	ExFreePoolWithTag(data, 'stiB');
 }
 

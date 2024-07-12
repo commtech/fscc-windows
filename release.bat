@@ -13,16 +13,7 @@ echo off
 echo Removing Old Drivers...
 rmdir /S /Q release\ 2> nul
 mkdir %TOP%\ > nul
-mkdir release\10 > nul
-mkdir release\10\64 > nul
-
-:generate_cab
-echo Generating .cab files for Windows 10..
-makecab /f fscc_64.ddf
-
-:sign_cab
-signtool sign /fd SHA512 /t http://timestamp.digicert.com/ /sha1 b757f8701a8ce35e8a243a12207ce8a697756df0 release\10\64\fscc.cab
-if %errorlevel% neq 0 exit /b %errorlevel%
+mkdir release\64 > nul
 
 :create_directories
 echo Creating Directories...
@@ -55,6 +46,14 @@ copy README.md %TOP% > nul
 :copy_knownissues
 echo Copying KnownIssues
 copy KnownIssues.md %TOP% > nul
+
+:generate_cab
+echo Generating .cab files for Windows 10..
+makecab /f fscc_64.ddf >NUL
+
+:sign_cab
+signtool sign /fd SHA512 /n "Commtech, Inc." /t http://timestamp.digicert.com/ /sha1 B757F8701A8CE35E8A243A12207CE8A697756DF0 %TOP%\64\fscc.cab
+if %errorlevel% neq 0 exit /b %errorlevel%
 
 :zip_packages
 REM echo Zipping Drivers...

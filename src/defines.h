@@ -24,6 +24,11 @@ THE SOFTWARE.
 #include <ntddk.h>
 #include <wdf.h>
 
+struct clock_data_fscc {
+	unsigned long frequency;
+	unsigned char clock_bits[20];
+};
+
 struct BAR {
 	void* address;
 	BOOLEAN memory_mapped;
